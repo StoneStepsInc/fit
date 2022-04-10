@@ -1,0 +1,12 @@
+
+# Visual Studio files
+/.vs/
+
+# Visual Studio build directory
+/x64/
+
+# Nuget packages
+/packages/
+
+# SHA256 source (see get-sha256.bat)
+/sha256/

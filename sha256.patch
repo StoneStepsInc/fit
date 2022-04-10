@@ -1,0 +1,15 @@
+diff -u SHA256-28c561fa25b62dc9fce075c1af21ee2579cf1d59/sha256.c sha256/sha256.c
+--- SHA256-28c561fa25b62dc9fce075c1af21ee2579cf1d59/sha256.c	2022-03-07 02:52:12.000000000 -0500
++++ sha256/sha256.c	2022-03-27 20:05:05.415163700 -0400
+@@ -28,7 +28,11 @@
+ extern "C" {
+ #endif
+ 
++#ifdef _MSC_VER
++#define FN_
++#else
+ #define FN_ static inline __attribute__((const))
++#endif
+ 
+ static const uint32_t K[64] = {
+     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,

@@ -1,0 +1,59 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="sha256\sha256.c">
+      <Filter>sha256</Filter>
+    </ClCompile>
+    <ClCompile Include="file_hasher.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="file_tree_walker.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="fit.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="sqlite.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="sha256\sha256.h">
+      <Filter>sha256</Filter>
+    </ClInclude>
+    <ClInclude Include="file_hasher.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="file_tree_walker.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="fit.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="sqlite.h">
+      <Filter>src</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+    <None Include="README.md" />
+    <None Include=".gitignore" />
+    <None Include="LICENSE" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="sha256">
+      <UniqueIdentifier>{f0cfd38e-9ea3-4e67-8ff1-9054758aa532}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="lib">
+      <UniqueIdentifier>{c7770fb5-fa31-48f7-9aea-190976cb1f8f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{8e7febfd-c757-43f3-a731-284da0b7f470}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="$(SQLiteDir)lib\$(Platform)\$(Configuration)\$(SQLiteLibName).lib">
+      <Filter>lib</Filter>
+    </Library>
+  </ItemGroup>
+</Project>
