@@ -255,7 +255,7 @@ void file_hasher_t::run(void)
                if(!mod_time)
                   print(stdout,    "New file : %s\n", filepath.c_str());
                else {
-                  if(mod_time != dir_entry.last_write_time().time_since_epoch().count())
+                  if(mod_time != std::chrono::duration_cast<std::chrono::seconds>(dir_entry.last_write_time().time_since_epoch()).count())
                      print(stdout, "Modified : %s\n", filepath.c_str());
                   else
                      print(stdout, "Changed  : %s\n", filepath.c_str());
@@ -288,7 +288,7 @@ void file_hasher_t::run(void)
                // same or not, so there is no need for a platform-specific way
                // to interpret it as time.
                //
-               insert_file_stmt.bind_param(static_cast<int64_t>(std::chrono::system_clock::to_time_t(std::chrono::system_clock::time_point() + std::chrono::duration_cast<std::chrono::milliseconds>(dir_entry.last_write_time() - std::filesystem::file_time_type::clock::time_point()))));
+               insert_file_stmt.bind_param(static_cast<int64_t>(std::chrono::duration_cast<std::chrono::seconds>(dir_entry.last_write_time().time_since_epoch()).count()));
 
                insert_file_stmt.bind_param(static_cast<int64_t>(dir_entry.file_size()));
                insert_file_stmt.bind_param(static_cast<int64_t>(filesize));
