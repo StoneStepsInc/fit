@@ -69,7 +69,7 @@ void print_usage(void)
    fputs("    -r           - recursive scan\n", stdout);
    fputs("    -v           - verify scanned files against database entries\n", stdout);
    fputs("    -t           - file hasher thread count (default: 4, min: 1, max: 64)\n", stdout);
-   fputs("    -s           - file buffer size (default: 65536, min: 512, max: 1048576)\n", stdout);
+   fputs("    -s size      - file buffer size (default: 65536, min: 512, max: 1048576)\n", stdout);
    fputs("    -i seconds   - progress reporting interval (default: 10, min: 1)\n", stdout);
    fputs("    -w           - skip hashing for files with same last-modified time\n", stdout);
    fputs("    -?           - this help\n", stdout);
