@@ -107,7 +107,7 @@ void file_tree_walker_t::walk_tree(void)
    }
 
    // wait for all file hasher threads to process all queued files
-   while((progress_info.processed_files + progress_info.failed_files != queued_files)) {
+   while(!abort_scan && (progress_info.processed_files + progress_info.failed_files) != queued_files) {
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
       if(std::chrono::steady_clock::now() > report_time) {
