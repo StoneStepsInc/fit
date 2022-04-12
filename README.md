@@ -44,7 +44,15 @@ modes and are as follows:
 
     When specified, tells `fit` to scan the directory named via
     `-d` and all of its sub-directories.
-    
+
+  * `-w`
+
+    This option instructs `fit` to use the file modification time
+    as an indicator that the file was not changed, rather than to
+    compute its checksum. This option is intended to recover from
+    an interrupted scan, without having to compute checksums
+    for all files that have been processed when Ctrl-C was pressed.
+
 ## Scanning a File Tree
 
 Scanning a file tree without the `-v` option will record computed

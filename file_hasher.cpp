@@ -137,7 +137,6 @@ void file_hasher_t::hash_file(const std::filesystem::path& filepath, uint64_t& f
       sha256_hash(&ctx, file_buffer.get(), lastread);
 
       filesize += lastread;
-      progress_info.processed_size += lastread;
    }
 
    if(std::ferror(file.get()))
@@ -164,7 +163,7 @@ void file_hasher_t::run(void)
 
    filepath.reserve(1024);
                
-   uint8_t hexhash[SHA256_HEX_SIZE + 1];
+   uint8_t hexhash_file[SHA256_HEX_SIZE + 1] = {}, hexhash_field[SHA256_HEX_SIZE + 1] = {};
 
    std::unique_lock<std::mutex> lock(files_mtx);
 
@@ -193,8 +192,17 @@ void file_hasher_t::run(void)
       try {
          uint64_t filesize = 0;
 
-         // only files intended for hashing are queued - no need to check entry flags
-         hash_file(dir_entry.path(), filesize, hexhash);
+         //
+         // Check if we were asked to skip hashing based on the file
+         // modification time being unchanged from what was recorded
+         // in the database, in which case we need to query the
+         // database first.
+         // 
+         // Note that only files intended for hashing are queued, so
+         // there is no need to check directory entry flags.
+         //
+         if(options.verify_files || !options.skip_hash_mod_time)
+            hash_file(dir_entry.path(), filesize, hexhash_file);
 
          //
          // If we have a base path, remove it from the full path, so files
@@ -240,7 +248,11 @@ void file_hasher_t::run(void)
                if(sqlite3_column_bytes(stmt_find_file, 3) != SHA256_HEX_SIZE)
                   throw std::runtime_error("Bad hash size for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
 
-               hash_match = memcmp(hexhash, reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 3)), SHA256_HEX_SIZE) == 0;
+               // compare in-place, unless delayed hashing was requested
+               if(!options.skip_hash_mod_time)
+                  hash_match = memcmp(hexhash_file, reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 3)), SHA256_HEX_SIZE) == 0;
+               else
+                  memcpy(hexhash_field, reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 3)), SHA256_HEX_SIZE);
             }
             else
                throw std::runtime_error("Unknown hash type: "s + reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 2)));
@@ -248,6 +260,18 @@ void file_hasher_t::run(void)
 
          // reset early to release read locks the select acquired
          find_file_stmt.reset();
+
+         // check if we still need to hash the file
+         if(!options.verify_files && options.skip_hash_mod_time) {
+            // if the file modification time didn't change, assume it has the same hash, as requested
+            if(mod_time && mod_time == std::chrono::duration_cast<std::chrono::seconds>(dir_entry.last_write_time().time_since_epoch()).count())
+               hash_match = true;
+            else {
+               // hash the file if we didn't find its record or the last-modified time changed
+               hash_file(dir_entry.path(), filesize, hexhash_file);
+               hash_match = memcmp(hexhash_file, hexhash_field, SHA256_HEX_SIZE) == 0;
+            }
+         }
 
          if(!hash_match) {
             // differentiate between new, modified and files with a mismatching hash
@@ -296,7 +320,7 @@ void file_hasher_t::run(void)
                // hash_type
                insert_file_stmt.skip_param();
 
-               insert_file_stmt.bind_param(std::string_view(reinterpret_cast<const char*>(hexhash), SHA256_HEX_SIZE));
+               insert_file_stmt.bind_param(std::string_view(reinterpret_cast<const char*>(hexhash_file), SHA256_HEX_SIZE));
 
                //
                // If we get SQLITE_BUSY after the busy handler runs for allowed
@@ -312,10 +336,11 @@ void file_hasher_t::run(void)
 
             // reuse for updated files during scans and for mismatched files during verification
             progress_info.updated_files++;
-            progress_info.updated_size += filesize;
+            progress_info.updated_size += options.skip_hash_mod_time ? dir_entry.file_size() : filesize;
          }
 
          progress_info.processed_files++;
+         progress_info.processed_size += options.skip_hash_mod_time ? dir_entry.file_size() : filesize;
       }
       catch (const std::exception& error) {
          progress_info.failed_files++;

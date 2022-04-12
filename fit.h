@@ -22,6 +22,7 @@ struct options_t {
    bool recursive_scan = false;
    bool verify_files = false;
    bool print_usage = false;
+   bool skip_hash_mod_time = false;
 
    std::string scan_message;
 
