@@ -2,6 +2,9 @@
 # Visual Studio files
 /.vs/
 
+# user-specific project settings
+/fit.vcxprok.user
+
 # Visual Studio build directory
 /x64/
 
