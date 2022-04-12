@@ -142,6 +142,21 @@ uint64_t file_tree_walker_t::get_processed_size(void) const
    return progress_info.processed_size.load();
 }
 
+uint64_t file_tree_walker_t::get_modified_files(void) const
+{
+   return progress_info.modified_files.load();
+}
+
+uint64_t file_tree_walker_t::get_new_files(void) const
+{
+   return progress_info.new_files.load();
+}
+
+uint64_t file_tree_walker_t::get_changed_files(void) const
+{
+   return progress_info.changed_files.load();
+}
+
 }
 
 template void fit::file_tree_walker_t::walk_tree<std::filesystem::directory_iterator>(void);

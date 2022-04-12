@@ -273,16 +273,23 @@ void file_hasher_t::run(void)
             }
          }
 
+         // handle the mismatched hash based on whether we are verifying files or not
          if(!hash_match) {
-            // differentiate between new, modified and files with a mismatching hash
             if(options.verify_files) {
-               if(!mod_time)
+               // differentiate between new, modified and changed files
+               if(!mod_time) {
+                  progress_info.new_files++;
                   print(stdout,    "New file : %s\n", filepath.c_str());
+               }
                else {
-                  if(mod_time != std::chrono::duration_cast<std::chrono::seconds>(dir_entry.last_write_time().time_since_epoch()).count())
+                  if(mod_time != std::chrono::duration_cast<std::chrono::seconds>(dir_entry.last_write_time().time_since_epoch()).count()) {
+                     progress_info.modified_files++;
                      print(stdout, "Modified : %s\n", filepath.c_str());
-                  else
+                  }
+                  else {
+                     progress_info.changed_files++;
                      print(stdout, "Changed  : %s\n", filepath.c_str());
+                  }
                }
             }
             else {

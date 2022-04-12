@@ -34,6 +34,10 @@ struct progress_info_t {
    std::atomic<uint64_t> updated_files = 0;
 
    std::atomic<uint64_t> updated_size = 0;
+
+   std::atomic<uint64_t> modified_files = 0;
+   std::atomic<uint64_t> changed_files = 0;
+   std::atomic<uint64_t> new_files = 0;
 };
 
 //

@@ -365,6 +365,11 @@ int main(int argc, char *argv[])
                            file_tree_walker.get_processed_size()/1'000'000./(std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/1000.));
       }
 
+      if(options.verify_files) {
+         printf("\Found %" PRIu64 " modified, %" PRIu64 " new and %" PRIu64 " changed files\n",
+                           file_tree_walker.get_modified_files(), file_tree_walker.get_new_files(), file_tree_walker.get_changed_files());
+      }
+
       fit::close_sqlite_database(file_scan_db);
 
       return EXIT_SUCCESS;
