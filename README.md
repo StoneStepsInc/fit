@@ -2,7 +2,7 @@
 
 `fit` is a command line application that computes file checksums
 for a file tree and can verify file integrity against the same
-tree at the same or a different base directory path.
+tree at the original base directory or a new base directory.
 
 `fit` can run in two modes - to scan a file tree and record file
 checksums in a SQLite database and to scan the same file tree,
@@ -284,26 +284,27 @@ SHA-256 hash may be computed on Windows using `certutil` as follows:
         version,
         path,
         datetime(mod_time-11644473600, 'unixepoch') as mod_time,
-        entry_size
+        entry_size,
+        hash
     from files
     where hash in (
         select hash
         from files
         group by hash
         having count(hash) > 1
-        order by path, version desc
     )
     order by path, version desc;
 
 ## Source
 
-Current source requires Visual Studio 2019 and requires SQLite in
-a Nuget package, as well as a library to compute SHA-256 hashes.
+Current source requires Visual Studio 2019 to build. It uses a
+SQLite Nuget package for database access and a 3rd-party library
+to compute SHA-256 hashes.
 
 The latter does not have a package and may be obtained via a batch
 file included in the project (`get-sha256.bat`). After running
 this batch file, a directory `sha256` will contain the source for
-the SHA-256 library and this Visual Studio project will build.
+the SHA-256 library.
 
 ## License
 
