@@ -3,7 +3,7 @@
 /.vs/
 
 # user-specific project settings
-/fit.vcxprok.user
+/fit.vcxproj.user
 
 # Visual Studio build directory
 /x64/
