@@ -16,13 +16,13 @@ modes and are as follows:
 
   * `-d c:\path\to\target`
 
-    Points to the directory to scan. If omitted, current directory
+    Points to a directory to scan. If omitted, current directory
     is scanned.
 
   * `-p c:\path\to`
 
     Specifies the base path that will be removed from file paths
-    under the the scanned directory when stored in the database.
+    under the the scanned directory, when stored in the database.
 
     If omitted, full source path will be recorded in the database
     and only the original file tree can be verified.
@@ -30,10 +30,9 @@ modes and are as follows:
     For example, if a user stores their pictures and videos under
     `C:\Users\Alice\Pictures` and `C:\Users\Alice\Videos`, and
     these directories are copied to an external drive, under
-    `X:\Alice\`, then a base path `C:\Users\Alice` will be used
-    to record checksums for pictures and videos and a base path
-    `X:\Alice` will be used to verify file copies on the external
-    drive.
+    `X:\Alice\`, then a base path `C:\Users` may be used to record
+    checksums for pictures and videos and a base path `X:\` may be
+    used to verify file copies on the external drive.
 
   * `-b c:\path\to\database\file`
 
@@ -47,22 +46,25 @@ modes and are as follows:
 
   * `-w`
 
-    This option instructs `fit` to use the file modification time
-    as an indicator that the file was not changed, rather than to
-    compute its checksum. This option is intended to recover from
-    an interrupted scan, without having to compute checksums
-    for all files that have been processed when Ctrl-C was pressed.
+    This option instructs `fit` to compare the file modification
+    time against the time stored in the SQLite database for each
+    file as an indicator whether the file was changed or not,
+    rather than to compute checksums. This option is intended to
+    recover from an interrupted scan, without having to compute
+    checksums for all files that have been processed when Ctrl-C
+    was pressed.
 
 ## Scanning a File Tree
 
 Scanning a file tree without the `-v` option will record computed
 checksums in the specified SQLite database.
 
-Multiple directories may be recorded in the same SQLite database.
-For example, for a drive that stores pictures and videos in separate
-root folders, `X:\Pictures` and `X:\Videos`, scanning those folders
-individually avoids scanning system folders `System Volume Information`
-and `$RECICLE.BIN`.
+Multiple directories may be recorded in the same SQLite database
+via multiple scans. For example, for a drive that stores pictures
+and videos in separate root folders, such as `X:\Pictures` and
+`X:\Videos`, scanning those folders individually avoids scanning
+system folders `System Volume Information` and `$RECICLE.BIN`,
+if `-d X:\` was used.
 
 Each file tree scan is recorded separately in the SQLite database
 and may be accompanied by a text message using the `-m` option,
@@ -71,15 +73,16 @@ which may be useful when reviewing scan records later.
 ## Verifying a File Tree
 
 Scanning a file tree with the `-v` option will compare computed
-checksums against those stored during the scan phase.
+checksums against those stored in the SQLite database during the
+scan phase.
 
 Files with mismatching or missing checksums will be reported with
 three labels:
 
   * `New file`
 
-    This file was included in a verification file tree scan, but
-    is not found in the database.
+    This file was picked up by a file tree scan, but was not found
+    in the database.
 
   * `Modified`
 
@@ -94,10 +97,9 @@ three labels:
 
   * `Changed`
 
-    This file was found in the database and its new checksum does
-    not match that of the database record, the current file
-    modification time is the same as the one in the database
-    record.
+    This file was found in the database and its new checksum did
+    not match that of the database record, but the file modification
+    time is the same as the one in the database record.
 
     This means that the file changed outside of the usual file
     editing applications, which typically update file modification
@@ -108,13 +110,13 @@ three labels:
 
 `fit` scans file trees using multiple threads, but actual scan
 speed will depend much on the type of disks being scanned and
-may controlled to some degree with the `-t` option, which
+may be controlled to some degree with the `-t` option, which
 specifies how many threads should be used for scanning.
 
-For disks that allow fast random access, such as SSD drives, more
-threads will result in better performance. For example, scanning
-an internal SSD drive yields these scan times, depending on the
-number of threads used.
+For disks that allow fast random access, such as SSD drives,
+more threads, to a limit, will result in better performance.
+For example, scanning an internal SSD drive yields these scan
+times, depending on the number of threads used.
 
   * `-t 2` scans at `200.7` MB/sec
   * `-t 16` scans at `246.9` MB/sec
@@ -144,7 +146,7 @@ will not apply across all Unicode characters.
 
 ### Scan Table
 
-The `scan` table contains a record for each successful run of `fit`
+The `scans` table contains a record for each successful run of `fit`
 without the `-v` option and has the following fields:
 
   * `rowid` `INTEGER NOT NULL`
@@ -152,20 +154,22 @@ without the `-v` option and has the following fields:
     SQLite maintains this column automatically and it is not
     explicitly included in the schema. It has to be included
     explicitly in the `select` statement to be visibe in
-    results (e.g. `select rowid, * from scans;`).
+    results. For example:
+
+        select rowid, * from scans;
 
   * `app_version` `TEXT NOT NULL`
 
     Application version that generated this scan record.
 
-  * `timestamp` `INTEGER NOT NULL`
+  * `scan_time` `INTEGER NOT NULL`
     
     Number of seconds since 1970-01-01, UTC. Use `datetime(timestamp,
-    'unixepoch')` to output as a calendar time in the SQLite shell.
+    'unixepoch')` to output as a calendar time in SQLite shell.
 
   * `scan_path` `TEXT NOT NULL`
 
-    The scan path, derived from the `-d` option.
+    The scan directory path, derived from the `-d` option.
 
   * `base_path` `TEXT NOT NULL`
 
@@ -190,9 +194,9 @@ fields:
 
   * `version` `INTEGER NOT NULL`
 
-    File record version. Starts with `1` and incremented every time a
-    new hash value is computed for a file path. Previous file version
-    are kept intact.
+    File record version. Starts with `1` and is incremented every
+    time a new hash value is computed for this file path. Previous
+    file version records are kept intact.
 
     The last version is always used when comparing file checksums
     during scans.
@@ -221,10 +225,12 @@ fields:
 
     File modification time in platform-specific units. It should not
     be assumed to be a Unix epoch time stamp. For example, on Windows
-    this value represents 100 nanosecond units since 1601-01-01, UTC
+    this value contains the number of seconds since 1601-01-01, UTC
     and may be converted to Unix epoch by subtracting the value for
     1970-01-01, UTC from the file time, which translates into this
-    SQLite clause - `datetime(mod_time-11644473600, 'unixepoch')`.
+    SQLite clause:
+
+        datetime(mod_time-11644473600, 'unixepoch'
 
   * `entry_size` `INTEGER NOT NULL`
 
@@ -233,22 +239,22 @@ fields:
 
   * `read_size` `INTEGER NOT NULL`
 
-    A file size, in bytes, as computed by reading the file until
-    there is no more data. In most cases this value will be
-    exactly as stored in `entry_size`, unless either the file or
-    the directory entry was updated after it was read by the file
-    scanner.
+    A file size, in bytes, as computed while reading the file
+    until there is no more data. In most cases this value will
+    be exactly as stored in `entry_size`, unless either the
+    file or the directory entry was updated after it was read
+    by the file scanner.
 
   * `hash_type` `VARCHAR(32) NOT NULL`
 
     File checksums are computed as a SHA-256 hash in the current
-    application, so this column will always be set to `SHA256`.
+    version of the application, so this column will always be set
+    to `SHA256`.
 
   * `hash` `TEXT NOT NULL`
 
     A file checksum value in hex format using lowercase characters
-    for letters `abcdef`, which is computed as a SHA-256 hash in
-    the current application.
+    for letters `abcdef`.
 
 ### Useful SQL
 

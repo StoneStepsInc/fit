@@ -260,10 +260,10 @@ sqlite3 *open_sqlite_database(const options_t& options)
          throw std::runtime_error("Cannot create a hash index for 'files' ("s + std::unique_ptr<char, sqlite_malloc_deleter<char>>(errmsg).get() + ")");
 
       // scans table
-      if(sqlite3_exec(file_scan_db, "create table scans (app_version TEXT NOT NULL, timestamp INTEGER NOT NULL, scan_path TEXT NOT NULL, base_path TEXT NOT NULL, current_path TEXT NOT NULL, message TEXT);", nullptr, nullptr, &errmsg) != SQLITE_OK)
+      if(sqlite3_exec(file_scan_db, "create table scans (app_version TEXT NOT NULL, scan_time INTEGER NOT NULL, scan_path TEXT NOT NULL, base_path TEXT NOT NULL, current_path TEXT NOT NULL, message TEXT);", nullptr, nullptr, &errmsg) != SQLITE_OK)
          throw std::runtime_error("Cannot create table 'scans' ("s + std::unique_ptr<char, sqlite_malloc_deleter<char>>(errmsg).get() + ")");
 
-      if(sqlite3_exec(file_scan_db, "create index ix_scans_timestamp on scans (timestamp);", nullptr, nullptr, &errmsg) != SQLITE_OK)
+      if(sqlite3_exec(file_scan_db, "create index ix_scans_timestamp on scans (scan_time);", nullptr, nullptr, &errmsg) != SQLITE_OK)
          throw std::runtime_error("Cannot create time stamp index for 'scans' ("s + std::unique_ptr<char, sqlite_malloc_deleter<char>>(errmsg).get() + ")");
    }
    
@@ -285,7 +285,7 @@ int64_t insert_scan_record(const options_t& options, sqlite3 *file_scan_db)
 
    sqlite3_stmt *stmt_insert_scan = nullptr;
 
-   std::string_view sql_insert_scan = "insert into scans (app_version, timestamp, scan_path, base_path, current_path, message) values (?, ?, ?, ?, ?, ?)"sv;
+   std::string_view sql_insert_scan = "insert into scans (app_version, scan_time, scan_path, base_path, current_path, message) values (?, ?, ?, ?, ?, ?)"sv;
 
    if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_scan.data(), (int) sql_insert_scan.length()+1, &stmt_insert_scan, nullptr)) != SQLITE_OK)
       throw std::runtime_error("Cannot prepare a SQLite statement to insert a scan ("s + sqlite3_errstr(errcode) + ")");
