@@ -48,6 +48,7 @@ void file_tree_walker_t::report_progress(void)
 template <typename dir_iter_t>
 void file_tree_walker_t::walk_tree(void)
 {
+   static const char *abort_message = "Aborting... Ctrl-C to kill (may render database unusable)\n";
 
    // start hasher threads
    for(size_t i = 0; i < file_hashers.size(); i++)
@@ -97,7 +98,7 @@ void file_tree_walker_t::walk_tree(void)
          }
 
          if(abort_scan) {
-            print(stdout, "Aborting... Ctrl-C to kill (may render database unusable)\n");
+            print_stream.info(abort_message);
             break;
          }
       }
@@ -113,7 +114,7 @@ void file_tree_walker_t::walk_tree(void)
       }
 
       if(abort_scan) {
-         print(stdout, "Aborting... Ctrl-C to kill (may render database unusable)\n");
+         print_stream.info(abort_message);
          break;
       }
    }
