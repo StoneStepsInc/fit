@@ -59,7 +59,7 @@ void print_usage(void)
    fputs("    -s size      - file buffer size (default: 65536, min: 512, max: 1048576)\n", stdout);
    fputs("    -i seconds   - progress reporting interval (default: 10, min: 1)\n", stdout);
    fputs("    -w           - skip hashing for files with same last-modified time\n", stdout);
-   fputs("    -l log file  - log file path\n", stdout);
+   fputs("    -l path      - log file path\n", stdout);
    fputs("    -?           - this help\n", stdout);
 }
 

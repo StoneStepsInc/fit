@@ -54,6 +54,12 @@ modes and are as follows:
     checksums for all files that have been processed when Ctrl-C
     was pressed.
 
+  * `l path\to\log_file.log`
+
+    An optional path to a log file that captures console messages.
+    Console messages written to standard output and standard error
+    will be prefixed with `inf` and `err`, respectively.
+
 ## Scanning a File Tree
 
 Scanning a file tree without the `-v` option will record computed
