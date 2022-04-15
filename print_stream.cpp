@@ -29,6 +29,8 @@ void print_stream_t::print(FILE *stream, const char *prefix, const char *fmt, va
    vfprintf(stream, fmt, valist);
    va_end(ap);
 
+   fputc('\n', stream);
+
    if(print_stream) {
       char tstamp[] = "2022-04-15 00:00:00";
       time_t now = time(nullptr);
@@ -42,6 +44,8 @@ void print_stream_t::print(FILE *stream, const char *prefix, const char *fmt, va
       va_copy(ap, valist);
       vfprintf(print_stream, fmt, valist);
       va_end(ap);
+
+      fputc('\n', print_stream);
    }
 }
 

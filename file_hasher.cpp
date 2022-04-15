@@ -96,17 +96,17 @@ file_hasher_t::~file_hasher_t(void)
 
    if(stmt_find_file) {
       if((errcode = sqlite3_finalize(stmt_find_file)) != SQLITE_OK)
-         print_stream.error("Cannot finalize SQLite statment to find a file (%s)\n", sqlite3_errstr(errcode));
+         print_stream.error("Cannot finalize SQLite statment to find a file (%s)", sqlite3_errstr(errcode));
    }
 
    if(stmt_insert_file) {
       if((errcode = sqlite3_finalize(stmt_insert_file)) != SQLITE_OK)
-         print_stream.error("Cannot finalize SQLite statment to insert a file (%s)\n", sqlite3_errstr(errcode));
+         print_stream.error("Cannot finalize SQLite statment to insert a file (%s)", sqlite3_errstr(errcode));
    }
 
    if(file_scan_db) {
       if((errcode = sqlite3_close(file_scan_db)) != SQLITE_OK)
-         print_stream.error("Failed to close the SQLite database (%s)\n", sqlite3_errstr(errcode));
+         print_stream.error("Failed to close the SQLite database (%s)", sqlite3_errstr(errcode));
    }
 }
 
@@ -280,16 +280,16 @@ void file_hasher_t::run(void)
                // differentiate between new, modified and changed files
                if(!mod_time) {
                   progress_info.new_files++;
-                  print_stream.info(   "new file: %s\n", filepath.c_str());
+                  print_stream.info(   "new file: %s", filepath.c_str());
                }
                else {
                   if(mod_time != std::chrono::duration_cast<std::chrono::seconds>(dir_entry.last_write_time().time_since_epoch()).count()) {
                      progress_info.modified_files++;
-                     print_stream.info("modified: %s\n", filepath.c_str());
+                     print_stream.info("modified: %s", filepath.c_str());
                   }
                   else {
                      progress_info.changed_files++;
-                     print_stream.info("changed : %s\n", filepath.c_str());
+                     print_stream.info("changed : %s", filepath.c_str());
                   }
                }
             }
@@ -353,7 +353,7 @@ void file_hasher_t::run(void)
       catch (const std::exception& error) {
          progress_info.failed_files++;
 
-         print_stream.error("%s\n", error.what());
+         print_stream.error("%s", error.what());
       }
 
       // need to lock to access the queue

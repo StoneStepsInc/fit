@@ -239,7 +239,7 @@ sqlite3 *open_sqlite_database(const options_t& options, print_stream_t& print_st
       if((errcode = sqlite3_open_v2(options.db_path.u8string().c_str(), &file_scan_db, sqlite_flags | SQLITE_OPEN_CREATE, nullptr)) != SQLITE_OK)
          throw std::runtime_error(sqlite3_errstr(errcode));
 
-      print_stream.info("Creating a new SQLite database %s\n", options.db_path.generic_u8string().c_str());
+      print_stream.info("Creating a new SQLite database %s", options.db_path.generic_u8string().c_str());
 
       // files table
       if(sqlite3_exec(file_scan_db, "create table files (scan_id INTEGER NOT NULL, version INTEGER NOT NULL, name TEXT NOT NULL, path TEXT NOT NULL, mod_time INTEGER NOT NULL, entry_size INTEGER NOT NULL, read_size INTEGER NOT NULL, hash_type VARCHAR(32) NOT NULL, hash TEXT NOT NULL);", nullptr, nullptr, &errmsg) != SQLITE_OK)
@@ -373,12 +373,12 @@ int main(int argc, char *argv[])
 
       // for quick scans, just report processed files and elapsed time
       if(std::chrono::duration_cast<std::chrono::seconds>(end_time-start_time).count() == 0) {
-         print_stream.info("Processed %.1f GB in %" PRIu64 " files in %.1f min\n",
+         print_stream.info("Processed %.1f GB in %" PRIu64 " files in %.1f min",
                            file_tree_walker.get_processed_size()/1'000'000'000., file_tree_walker.get_processed_files(),
                            std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/60000.);
       }
       else {
-         print_stream.info("Processed %.1f GB in %" PRIu64 " files in %.1f min (%.1f files/sec, %.1f MB/sec)\n",
+         print_stream.info("Processed %.1f GB in %" PRIu64 " files in %.1f min (%.1f files/sec, %.1f MB/sec)",
                            file_tree_walker.get_processed_size()/1'000'000'000., file_tree_walker.get_processed_files(),
                            std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/60000.,
                            file_tree_walker.get_processed_files()/(std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/1000.),
@@ -386,7 +386,7 @@ int main(int argc, char *argv[])
       }
 
       if(options.verify_files) {
-         print_stream.info("Found %" PRIu64 " modified, %" PRIu64 " new and %" PRIu64 " changed files\n",
+         print_stream.info("Found %" PRIu64 " modified, %" PRIu64 " new and %" PRIu64 " changed files",
                            file_tree_walker.get_modified_files(), file_tree_walker.get_new_files(), file_tree_walker.get_changed_files());
       }
 

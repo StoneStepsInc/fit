@@ -31,24 +31,24 @@ file_tree_walker_t::file_tree_walker_t(const options_t& options, int64_t scan_id
 void file_tree_walker_t::report_progress(void)
 {
    if(!progress_info.updated_files) {
-      print_stream.info("Processed %.1f GB in %" PRIu64 " files\n",
+      print_stream.info("Processed %.1f GB in %" PRIu64 " files",
                         progress_info.processed_size.load()/1'000'000'000., progress_info.processed_files.load());
    }
    else {
-      print_stream.info("Processed %.1f GB in %" PRIu64 " files (%" PRIu64 "/%.1f GB %s)\n",
+      print_stream.info("Processed %.1f GB in %" PRIu64 " files (%" PRIu64 "/%.1f GB %s)",
                         progress_info.processed_size.load()/1'000'000'000., progress_info.processed_files.load(),
                         progress_info.updated_files.load(), progress_info.updated_size.load()/1'000'000'000.,
                         options.verify_files ? "changed" : "updated");
    }
 
    if(progress_info.failed_files)
-      print_stream.info("Failed to process %" PRIu64 " files\n", progress_info.failed_files.load());
+      print_stream.info("Failed to process %" PRIu64 " files", progress_info.failed_files.load());
 }
 
 template <typename dir_iter_t>
 void file_tree_walker_t::walk_tree(void)
 {
-   static const char *abort_message = "Aborting... Ctrl-C to kill (may render database unusable)\n";
+   static const char *abort_message = "Aborting... Ctrl-C to kill (may render database unusable)";
 
    // start hasher threads
    for(size_t i = 0; i < file_hashers.size(); i++)
