@@ -79,12 +79,12 @@ scan phase.
 Files with mismatching or missing checksums will be reported with
 three labels:
 
-  * `New file`
+  * `new file`
 
     This file was picked up by a file tree scan, but was not found
     in the database.
 
-  * `Modified`
+  * `modified`
 
     This file was found in the database and its new checksum does
     not match that of the database record and the current file
@@ -95,7 +95,7 @@ three labels:
     database time if a file was modified or restored from a backup.
     No distinction is made between these two cases.
 
-  * `Changed`
+  * `changed`
 
     This file was found in the database and its new checksum did
     not match that of the database record, but the file modification
@@ -230,7 +230,7 @@ fields:
     1970-01-01, UTC from the file time, which translates into this
     SQLite clause:
 
-        datetime(mod_time-11644473600, 'unixepoch'
+        datetime(mod_time-11644473600, 'unixepoch')
 
   * `entry_size` `INTEGER NOT NULL`
 

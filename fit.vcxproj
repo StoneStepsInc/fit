@@ -84,6 +84,7 @@
     <ClCompile Include="file_hasher.cpp" />
     <ClCompile Include="file_tree_walker.cpp" />
     <ClCompile Include="fit.cpp" />
+    <ClCompile Include="print_stream.cpp" />
     <ClCompile Include="sha256\sha256.c" />
     <ClCompile Include="sqlite.cpp" />
   </ItemGroup>
@@ -91,6 +92,7 @@
     <ClInclude Include="file_hasher.h" />
     <ClInclude Include="file_tree_walker.h" />
     <ClInclude Include="fit.h" />
+    <ClInclude Include="print_stream.h" />
     <ClInclude Include="sha256\sha256.h" />
     <ClInclude Include="sqlite.h" />
   </ItemGroup>

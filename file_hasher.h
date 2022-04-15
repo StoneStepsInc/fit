@@ -1,6 +1,8 @@
 #ifndef FIT_FILE_HASHER_H
 #define FIT_FILE_HASHER_H
 
+#include "print_stream.h"
+
 #include "fit.h"
 
 #include "sqlite.h"
@@ -50,6 +52,8 @@ class file_hasher_t {
    private:
       const options_t& options;
 
+      print_stream_t& print_stream;
+
       int64_t scan_id;
 
       const std::string_view hash_type;
@@ -78,7 +82,7 @@ class file_hasher_t {
       static int sqlite_busy_handler_cb(void*, int count);
 
    public:
-      file_hasher_t(const options_t& options, int64_t scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info);
+      file_hasher_t(const options_t& options, int64_t scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info, print_stream_t& print_stream);
 
       file_hasher_t(file_hasher_t&& other);
 

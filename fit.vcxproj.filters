@@ -16,6 +16,7 @@
     <ClCompile Include="sqlite.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="print_stream.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sha256\sha256.h">
@@ -33,6 +34,7 @@
     <ClInclude Include="sqlite.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="print_stream.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

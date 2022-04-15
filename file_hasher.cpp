@@ -25,15 +25,9 @@ namespace fit {
 
 static constexpr const size_t SHA256_HEX_SIZE = SHA256_SIZE_BYTES * 2;
 
-struct file_handle_deleter_t {
-   void operator () (FILE *file)
-   {
-      std::fclose(file);
-   }
-};
-
-file_hasher_t::file_hasher_t(const options_t& options, int64_t scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info) :
+file_hasher_t::file_hasher_t(const options_t& options, int64_t scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info, print_stream_t& print_stream) :
       options(options),
+      print_stream(print_stream),
       scan_id(scan_id),
       hash_type("SHA256"sv),
       file_buffer(new unsigned char[options.buffer_size]),
@@ -61,23 +55,24 @@ file_hasher_t::file_hasher_t(const options_t& options, int64_t scan_id, std::que
    std::string_view sql_insert_file = "insert into files (scan_id, name, path, version, mod_time, entry_size, read_size, hash_type, hash) values (?, ?, ?, ?, ?, ?, ?, ?, ?)"sv;
 
    if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_file.data(), (int) sql_insert_file.length()+1, &stmt_insert_file, nullptr)) != SQLITE_OK)
-      print(stderr, "Cannot prepare a SQLite statement to insert a file (%s)", sqlite3_errstr(errcode));
+      print_stream.error("Cannot prepare a SQLite statement to insert a file (%s)", sqlite3_errstr(errcode));
 
    if((errcode = sqlite3_bind_int64(stmt_insert_file, 1, scan_id)) != SQLITE_OK)
-      print(stderr, "Cannot bind a scan ID for a SQLite statement to insert a file (%s)", sqlite3_errstr(errcode));
+      print_stream.error("Cannot bind a scan ID for a SQLite statement to insert a file (%s)", sqlite3_errstr(errcode));
 
    // select statement to look-up files by their path
    if((errcode = sqlite3_bind_text(stmt_insert_file, 8, hash_type.data(), static_cast<int>(hash_type.size()), SQLITE_TRANSIENT)) != SQLITE_OK)
-      print(stderr, "Cannot bind a scan ID for a SQLite statement to insert a file (%s)", sqlite3_errstr(errcode));
+      print_stream.error("Cannot bind a scan ID for a SQLite statement to insert a file (%s)", sqlite3_errstr(errcode));
 
    std::string_view sql_find_file = "select version, mod_time, hash_type, hash from files where path = ? order by version desc limit 1"sv;
 
    if((errcode = sqlite3_prepare_v2(file_scan_db, sql_find_file.data(), (int) sql_find_file.length()+1, &stmt_find_file, nullptr)) != SQLITE_OK)
-      print(stderr, "Cannot prepare a SQLite statement to find a file (%s)", sqlite3_errstr(errcode));
+      print_stream.error("Cannot prepare a SQLite statement to find a file (%s)", sqlite3_errstr(errcode));
 }
 
 file_hasher_t::file_hasher_t(file_hasher_t&& other) :
       options(other.options),
+      print_stream(other.print_stream),
       scan_id(other.scan_id),
       hash_type(other.hash_type),
       file_buffer(std::move(other.file_buffer)),
@@ -101,17 +96,17 @@ file_hasher_t::~file_hasher_t(void)
 
    if(stmt_find_file) {
       if((errcode = sqlite3_finalize(stmt_find_file)) != SQLITE_OK)
-         print(stderr, "Cannot finalize SQLite statment to find a file (%s)\n", sqlite3_errstr(errcode));
+         print_stream.error("Cannot finalize SQLite statment to find a file (%s)\n", sqlite3_errstr(errcode));
    }
 
    if(stmt_insert_file) {
       if((errcode = sqlite3_finalize(stmt_insert_file)) != SQLITE_OK)
-         print(stderr, "Cannot finalize SQLite statment to insert a file (%s)\n", sqlite3_errstr(errcode));
+         print_stream.error("Cannot finalize SQLite statment to insert a file (%s)\n", sqlite3_errstr(errcode));
    }
 
    if(file_scan_db) {
       if((errcode = sqlite3_close(file_scan_db)) != SQLITE_OK)
-         print(stderr, "Failed to close the SQLite database (%s)\n", sqlite3_errstr(errcode));
+         print_stream.error("Failed to close the SQLite database (%s)\n", sqlite3_errstr(errcode));
    }
 }
 
@@ -285,16 +280,16 @@ void file_hasher_t::run(void)
                // differentiate between new, modified and changed files
                if(!mod_time) {
                   progress_info.new_files++;
-                  print(stdout,    "New file : %s\n", filepath.c_str());
+                  print_stream.info(   "new file: %s\n", filepath.c_str());
                }
                else {
                   if(mod_time != std::chrono::duration_cast<std::chrono::seconds>(dir_entry.last_write_time().time_since_epoch()).count()) {
                      progress_info.modified_files++;
-                     print(stdout, "Modified : %s\n", filepath.c_str());
+                     print_stream.info("modified: %s\n", filepath.c_str());
                   }
                   else {
                      progress_info.changed_files++;
-                     print(stdout, "Changed  : %s\n", filepath.c_str());
+                     print_stream.info("changed : %s\n", filepath.c_str());
                   }
                }
             }
@@ -358,7 +353,7 @@ void file_hasher_t::run(void)
       catch (const std::exception& error) {
          progress_info.failed_files++;
 
-         print(stderr, "ERROR: %s\n", error.what());
+         print_stream.error("%s\n", error.what());
       }
 
       // need to lock to access the queue

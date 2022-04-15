@@ -4,6 +4,7 @@
 // Copyright (c) 2022, Stone Steps Inc.
 //
 #include "file_tree_walker.h"
+#include "print_stream.h"
 
 #include "fit.h"
 
@@ -42,20 +43,6 @@ extern "C" static void console_ctrl_c_handler(int sig)
       abort_scan = true;
 }
 
-void print(FILE *strm, const char *fmt, ...)
-{
-   static std::mutex stdout_mtx;
-
-   va_list valist;
-   va_start(valist, fmt);
-
-   std::lock_guard<std::mutex> lock(stdout_mtx);
-
-   vfprintf(strm, fmt, valist);
-
-   va_end(valist);
-}
-
 void print_usage(void)
 {
    printf("%s (%s) -- %s\n", title, version, copyright);
@@ -72,6 +59,7 @@ void print_usage(void)
    fputs("    -s size      - file buffer size (default: 65536, min: 512, max: 1048576)\n", stdout);
    fputs("    -i seconds   - progress reporting interval (default: 10, min: 1)\n", stdout);
    fputs("    -w           - skip hashing for files with same last-modified time\n", stdout);
+   fputs("    -l log file  - log file path\n", stdout);
    fputs("    -?           - this help\n", stdout);
 }
 
@@ -138,6 +126,12 @@ options_t parse_options(int argc, char *argv[])
          case 'w':
             options.skip_hash_mod_time = true;
             break;
+         case 'l':
+            if(i+1 == argc || *(argv[i+1]) == '-')
+               throw std::runtime_error("Missing log file path value");
+
+            options.log_file = argv[++i];
+            break;
          case 'h':
          case '?':
             options.print_usage = true;
@@ -175,10 +169,8 @@ void verify_options(options_t& options)
       throw std::runtime_error(std::filesystem::absolute(options.db_path).remove_filename().u8string() + " must be an existing directory");
 
    // scan_path
-   if(options.scan_path.empty()) {
+   if(options.scan_path.empty())
       options.scan_path = std::filesystem::current_path();
-      printf("Scanning %s directory\n", options.scan_path.u8string().c_str());
-   }
 
    if(!std::filesystem::exists(options.scan_path))
       throw std::runtime_error(options.scan_path.u8string() + " does not exist");
@@ -218,7 +210,7 @@ void verify_options(options_t& options)
    }
 }
 
-sqlite3 *open_sqlite_database(const options_t& options)
+sqlite3 *open_sqlite_database(const options_t& options, print_stream_t& print_stream)
 {
    sqlite3 *file_scan_db = nullptr;
 
@@ -247,7 +239,7 @@ sqlite3 *open_sqlite_database(const options_t& options)
       if((errcode = sqlite3_open_v2(options.db_path.u8string().c_str(), &file_scan_db, sqlite_flags | SQLITE_OPEN_CREATE, nullptr)) != SQLITE_OK)
          throw std::runtime_error(sqlite3_errstr(errcode));
 
-      printf("Creating a new SQLite database %s\n", options.db_path.generic_u8string().c_str());
+      print_stream.info("Creating a new SQLite database %s\n", options.db_path.generic_u8string().c_str());
 
       // files table
       if(sqlite3_exec(file_scan_db, "create table files (scan_id INTEGER NOT NULL, version INTEGER NOT NULL, name TEXT NOT NULL, path TEXT NOT NULL, mod_time INTEGER NOT NULL, entry_size INTEGER NOT NULL, read_size INTEGER NOT NULL, hash_type VARCHAR(32) NOT NULL, hash TEXT NOT NULL);", nullptr, nullptr, &errmsg) != SQLITE_OK)
@@ -328,12 +320,29 @@ int main(int argc, char *argv[])
 
       fit::verify_options(options);
 
+      printf("%s (%s) -- %s\n\n", fit::title, fit::version, fit::copyright);
+
       signal(SIGINT, fit::console_ctrl_c_handler);
       signal(SIGTERM, fit::console_ctrl_c_handler);
 
-      printf("%s (%s) -- %s\n\n", fit::title, fit::version, fit::copyright);
+      //
+      // Open a print stream
+      //
+      std::unique_ptr<FILE, fit::file_handle_deleter_t> log_file;
 
-      sqlite3 *file_scan_db = fit::open_sqlite_database(options);
+      if(!options.log_file.empty()) {
+         log_file.reset(fopen(options.log_file.c_str(), "ab"));
+
+         if(!log_file)
+            throw std::runtime_error("Cannot open log file "s + options.log_file);
+      }
+
+      fit::print_stream_t print_stream(log_file.get());
+
+      //
+      // Open a SQLite database
+      //
+      sqlite3 *file_scan_db = fit::open_sqlite_database(options, print_stream);
 
       int64_t scan_id = 0;
       
@@ -342,7 +351,12 @@ int main(int argc, char *argv[])
 
       std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
 
-      fit::file_tree_walker_t file_tree_walker(options, scan_id);
+      //
+      // Walk the file tree
+      //
+      print_stream.info("%s %s\n", options.verify_files ? "Verifying" : "Scanning", options.scan_path.u8string().c_str());
+
+      fit::file_tree_walker_t file_tree_walker(options, scan_id, print_stream);
 
       if(options.recursive_scan)
          file_tree_walker.walk_tree<std::filesystem::recursive_directory_iterator>();
@@ -351,14 +365,20 @@ int main(int argc, char *argv[])
 
       std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
 
+      fit::close_sqlite_database(file_scan_db);
+
+      //
+      // Print scan results and timing
+      //
+
       // for quick scans, just report processed files and elapsed time
       if(std::chrono::duration_cast<std::chrono::seconds>(end_time-start_time).count() == 0) {
-         printf("\nProcessed %.1f GB in %" PRIu64 " files in %.1f min\n",
+         print_stream.info("Processed %.1f GB in %" PRIu64 " files in %.1f min\n",
                            file_tree_walker.get_processed_size()/1'000'000'000., file_tree_walker.get_processed_files(),
                            std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/60000.);
       }
       else {
-         printf("\nProcessed %.1f GB in %" PRIu64 " files in %.1f min (%.1f files/sec, %.1f MB/sec)\n",
+         print_stream.info("Processed %.1f GB in %" PRIu64 " files in %.1f min (%.1f files/sec, %.1f MB/sec)\n",
                            file_tree_walker.get_processed_size()/1'000'000'000., file_tree_walker.get_processed_files(),
                            std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/60000.,
                            file_tree_walker.get_processed_files()/(std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/1000.),
@@ -366,16 +386,14 @@ int main(int argc, char *argv[])
       }
 
       if(options.verify_files) {
-         printf("\Found %" PRIu64 " modified, %" PRIu64 " new and %" PRIu64 " changed files\n",
+         print_stream.info("Found %" PRIu64 " modified, %" PRIu64 " new and %" PRIu64 " changed files\n",
                            file_tree_walker.get_modified_files(), file_tree_walker.get_new_files(), file_tree_walker.get_changed_files());
       }
-
-      fit::close_sqlite_database(file_scan_db);
 
       return EXIT_SUCCESS;
    }
    catch(const std::exception& error) {
-      fprintf(stderr, "ERROR: %s\n", error.what());
+      fprintf(stderr, "%s\n", error.what());
    }
 
    return EXIT_FAILURE;

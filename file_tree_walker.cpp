@@ -19,40 +19,37 @@
 
 namespace fit {
 
-file_tree_walker_t::file_tree_walker_t(const options_t& options, int64_t scan_id) :
-      scan_id(scan_id),
-      options(options)
+file_tree_walker_t::file_tree_walker_t(const options_t& options, int64_t scan_id, print_stream_t& print_stream) :
+      options(options),
+      print_stream(print_stream),
+      scan_id(scan_id)
 {
    for(size_t i = 0; i < options.thread_count; i++)
-      file_hashers.emplace_back(options, scan_id, files, files_mtx, progress_info);
+      file_hashers.emplace_back(options, scan_id, files, files_mtx, progress_info, print_stream);
 }
 
 void file_tree_walker_t::report_progress(void)
 {
    if(!progress_info.updated_files) {
-      print(stdout, "Processed %.1f GB in %" PRIu64 " files\n",
+      print_stream.info("Processed %.1f GB in %" PRIu64 " files\n",
                         progress_info.processed_size.load()/1'000'000'000., progress_info.processed_files.load());
    }
    else {
-      print(stdout, "Processed %.1f GB in %" PRIu64 " files (%" PRIu64 "/%.1f GB %s)\n",
+      print_stream.info("Processed %.1f GB in %" PRIu64 " files (%" PRIu64 "/%.1f GB %s)\n",
                         progress_info.processed_size.load()/1'000'000'000., progress_info.processed_files.load(),
                         progress_info.updated_files.load(), progress_info.updated_size.load()/1'000'000'000.,
                         options.verify_files ? "changed" : "updated");
    }
 
    if(progress_info.failed_files)
-      print(stdout, "Failed to process %" PRIu64 " files\n", progress_info.failed_files.load());
+      print_stream.info("Failed to process %" PRIu64 " files\n", progress_info.failed_files.load());
 }
 
 template <typename dir_iter_t>
 void file_tree_walker_t::walk_tree(void)
 {
-   // single thread running at this point - can use printf
-   if(options.verify_files)
-      printf("Verifying %s (will list changed files)\n", options.scan_path.u8string().c_str());
-   else
-      printf("Scanning %s\n", options.scan_path.u8string().c_str());
 
+   // start hasher threads
    for(size_t i = 0; i < file_hashers.size(); i++)
       file_hashers[i].start();
 
@@ -128,8 +125,6 @@ void file_tree_walker_t::walk_tree(void)
    // and wait until they actually stop
    for(size_t i = 0; i < file_hashers.size(); i++)
       file_hashers[i].join();
-
-   report_progress();
 }
 
 uint64_t file_tree_walker_t::get_processed_files(void) const

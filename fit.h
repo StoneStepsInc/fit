@@ -12,7 +12,12 @@ namespace fit {
 
 extern std::atomic<bool> abort_scan;
 
-void print(FILE *strm, const char *fmt, ...);
+struct file_handle_deleter_t {
+   void operator () (FILE *file)
+   {
+      std::fclose(file);
+   }
+};
 
 struct options_t {
    std::filesystem::path base_path;
@@ -25,6 +30,7 @@ struct options_t {
    bool skip_hash_mod_time = false;
 
    std::string scan_message;
+   std::string log_file;
 
    size_t thread_count = 4;
    size_t buffer_size = 65536;
