@@ -12,4 +12,4 @@
 /packages/
 
 # SHA256 source (see get-sha256.bat)
-/sha256/
+/src/sha256/

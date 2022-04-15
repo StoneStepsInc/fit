@@ -1,40 +1,44 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="sha256\sha256.c">
+    <ClCompile Include="src\file_hasher.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\file_tree_walker.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\fit.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\print_stream.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\sqlite.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\sha256\sha256.c">
       <Filter>sha256</Filter>
     </ClCompile>
-    <ClCompile Include="file_hasher.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="file_tree_walker.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="fit.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="sqlite.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="print_stream.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="sha256\sha256.h">
+    <ClInclude Include="src\file_hasher.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\file_tree_walker.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\fit.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\print_stream.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sqlite.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sha256\sha256.h">
       <Filter>sha256</Filter>
     </ClInclude>
-    <ClInclude Include="file_hasher.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="file_tree_walker.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="fit.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="sqlite.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="print_stream.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
