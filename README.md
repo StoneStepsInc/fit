@@ -135,7 +135,7 @@ times, depending on the number of threads used.
   * `-t 32` scans at `240.4` MB/sec
 
 For magnetic disks, more threads reading the disk results in
-more contension and using fewer threads results in better scan
+more contention and using fewer threads results in better scan
 speed. The numbers below are captured against a dual-drive
 Storage Space attached via USB 3.0 connected to a Thunderbolt
 port.
@@ -165,7 +165,7 @@ without the `-v` option and has the following fields:
 
     SQLite maintains this column automatically and it is not
     explicitly included in the schema. It has to be included
-    explicitly in the `select` statement to be visibe in
+    explicitly in the `select` statement to be visible in
     results. For example:
 
         select rowid, * from scans;
@@ -193,7 +193,7 @@ without the `-v` option and has the following fields:
 
   * `message` `TEXT`
 
-    A text message to decribe this scan. If omitted, `NULL` is stored.
+    A text message to describe this scan. If omitted, `NULL` is stored.
 
 ### Files Table
 
@@ -323,6 +323,31 @@ The latter does not have a package and may be obtained via a batch
 file included in the project (`get-sha256.bat`). After running
 this batch file, a directory `sha256` will contain the source for
 the SHA-256 library.
+
+### Linux
+
+Current source will compile on Linux, but very little testing was
+done to verify the results.
+
+SQLite development package needs to be installed (e.g. `sqlite-devel`
+on Fedora) and SHA256 source needs to be patched with `sha256.patch`.
+
+GCC can build with a single command shown below.
+
+    g++ -std=c++17 \
+        fit.cpp file_tree_walker.cpp file_hasher.cpp \
+        print_stream.cpp sqlite.cpp sha256/sha256.c \
+        -lsqlite3 -lpthread -lstdc++fs
+        -o fit
+
+CLang needs to compile `sha256.c` separately from the C++ source
+and also needs `-lstdc++` specified explicitly in order to link.
+
+Linux time stamps will appear as negative values in the SQLite
+database and it is not clear at this point how it they are
+computed. Their values can be shown around the actual file
+modification time by adding `6437646000`, but it appears that
+this does not include some of time zone adjustments.
 
 ## License
 
