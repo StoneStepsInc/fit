@@ -54,6 +54,12 @@ modes and are as follows:
     checksums for all files that have been processed when Ctrl-C
     was pressed.
 
+  * `-i 10`
+
+    Sets the time interval in seconds to report scanning progress.
+    If zero is specified, number of processed files is not reported
+    during a scan.
+
   * `l path\to\log_file.log`
 
     An optional path to a log file that captures console messages.

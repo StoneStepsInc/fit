@@ -87,7 +87,7 @@ void file_tree_walker_t::walk_tree(void)
                std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
                // if we are past the report time, print current stats and compute the next report time
-               if(std::chrono::steady_clock::now() > report_time) {
+               if(options.progress_interval && std::chrono::steady_clock::now() > report_time) {
                   report_progress();
                   report_time = std::chrono::steady_clock::now() + std::chrono::seconds(options.progress_interval);
                }
@@ -107,7 +107,7 @@ void file_tree_walker_t::walk_tree(void)
    while(!abort_scan && (progress_info.processed_files + progress_info.failed_files) != queued_files) {
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-      if(std::chrono::steady_clock::now() > report_time) {
+      if(options.progress_interval && std::chrono::steady_clock::now() > report_time) {
          report_progress();
          report_time = std::chrono::steady_clock::now() + std::chrono::seconds(options.progress_interval);
       }

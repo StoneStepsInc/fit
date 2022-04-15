@@ -152,7 +152,7 @@ void verify_options(options_t& options)
    if(options.buffer_size < 512 || options.buffer_size > 1048576)
       throw std::runtime_error("Invalid file buffer size");
 
-   if(options.progress_interval < 1)
+   if(options.progress_interval < 0)
       throw std::runtime_error("Invalid progress reporting interval");
 
    // db_path
