@@ -113,10 +113,10 @@ file_hasher_t::~file_hasher_t(void)
 void file_hasher_t::hash_file(const std::filesystem::path& filepath, uint64_t& filesize, uint8_t hexhash[])
 {
    //
-   // The non-Unicode version of fopen will fail to open files with
-   // names containing characters that cannot be converted to the
-   // current WIndows character page. Use the non-standard _wfopen
-   // to work around this problem.
+   // The narrow character version of fopen will fail to open files
+   // with names containing characters that cannot be converted to
+   // the current Windows character set. Use the non-standard
+   // _wfopen to work around this problem.
    //
    #ifdef _WIN32
    std::unique_ptr<FILE, file_handle_deleter_t> file(_wfopen(filepath.wstring().c_str(), L"rb"));
