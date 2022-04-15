@@ -332,7 +332,7 @@ done to verify the results.
 SQLite development package needs to be installed (e.g. `sqlite-devel`
 on Fedora) and SHA256 source needs to be patched with `sha256.patch`.
 
-GCC can build with a single command shown below.
+GCC can build `fit` with a single command shown below.
 
     g++ -std=c++17 \
         fit.cpp file_tree_walker.cpp file_hasher.cpp \
@@ -344,10 +344,10 @@ CLang needs to compile `sha256.c` separately from the C++ source
 and also needs `-lstdc++` specified explicitly in order to link.
 
 Linux time stamps will appear as negative values in the SQLite
-database and it is not clear at this point how it they are
-computed. Their values can be shown around the actual file
-modification time by adding `6437646000`, but it appears that
-this does not include some of time zone adjustments.
+database and it is not clear at this point how they are computed.
+Time stamps can be shown around the actual file modification
+time by adding `6437646000`, but it appears that this does not
+include some of time zone adjustments.
 
 ## License
 
