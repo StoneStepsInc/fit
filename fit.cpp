@@ -37,7 +37,7 @@ static const char *copyright = "Copyright (c) 2022 Stone Steps Inc.";
 
 std::atomic<bool> abort_scan = false;
 
-extern "C" static void console_ctrl_c_handler(int sig)
+extern "C" void console_ctrl_c_handler(int sig)
 {
    if(sig == SIGINT || sig == SIGTERM)
       abort_scan = true;
@@ -61,6 +61,8 @@ void print_usage(void)
    fputs("    -w           - skip hashing for files with same last-modified time\n", stdout);
    fputs("    -l path      - log file path\n", stdout);
    fputs("    -?           - this help\n", stdout);
+
+   fputc('\n', stdout);
 }
 
 options_t parse_options(int argc, char *argv[])

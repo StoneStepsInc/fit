@@ -40,4 +40,5 @@ struct options_t {
 
 }
 
-#endif FIT_H
+#endif // FIT_H
+

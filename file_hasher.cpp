@@ -18,6 +18,8 @@
 #include <queue>
 #include <chrono>
 
+#include <cstring>
+
 using namespace std::literals::string_view_literals;
 using namespace std::literals::string_literals;
 
@@ -121,7 +123,7 @@ void file_hasher_t::hash_file(const std::filesystem::path& filepath, uint64_t& f
    #ifdef _WIN32
    std::unique_ptr<FILE, file_handle_deleter_t> file(_wfopen(filepath.wstring().c_str(), L"rb"));
    #else
-   std::unique_ptr<FILE, file_handle_deleter_t> file(fopen(filepath.wstring().c_str(), "rb"));
+   std::unique_ptr<FILE, file_handle_deleter_t> file(fopen(filepath.u8string().c_str(), "rb"));
    #endif
 
    if(!file)

@@ -39,7 +39,6 @@ class file_tree_walker_t {
 
       std::queue<std::filesystem::directory_entry> files;
       std::mutex files_mtx;
-      std::condition_variable queue_ready;
 
       progress_info_t progress_info;
 
