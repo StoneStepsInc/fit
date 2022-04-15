@@ -354,7 +354,10 @@ int main(int argc, char *argv[])
       //
       // Walk the file tree
       //
-      print_stream.info("%s %s\n", options.verify_files ? "Verifying" : "Scanning", options.scan_path.u8string().c_str());
+      if(!options.scan_message.empty())
+         print_stream.info("%s %s (%s)", options.verify_files ? "Verifying" : "Scanning", options.scan_path.u8string().c_str(), options.scan_message.c_str());
+      else
+         print_stream.info("%s %s", options.verify_files ? "Verifying" : "Scanning", options.scan_path.u8string().c_str());
 
       fit::file_tree_walker_t file_tree_walker(options, scan_id, print_stream);
 
