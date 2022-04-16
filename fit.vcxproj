@@ -97,6 +97,7 @@
     <ClInclude Include="src\sqlite.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include=".github\workflows\fit-0.1.0.yml" />
     <None Include=".gitignore" />
     <None Include="LICENSE" />
     <None Include="packages.config" />
