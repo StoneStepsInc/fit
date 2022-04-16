@@ -32,5 +32,16 @@ jobs:
     - name: Build fit x64
       run: |
         call "${{ env.VCVARSALL }}" x64
-
         msbuild /nologo /target:Rebuild /property:Configuration=Release;Platform=x64 /nr:false fit.vcxproj
+
+    - name: Create fit package
+      run: |
+        mkdir fit-win64-${{ env.VERSION }}
+        copy /y x64\Release\fit.exe fit-win64-${{ env.VERSION }}
+        copy /y packages\StoneSteps.SQLite.Static.3.38.2.2\build\native\bin\sqlite3.exe fit-win64-${{ env.VERSION }}
+
+    - name: Upload fit package
+      uses: actions/upload-artifact@v2.2.1
+      with:
+        name: fit-win64-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}
+        path: fit-win64-${{ env.VERSION }}
