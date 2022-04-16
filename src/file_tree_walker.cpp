@@ -49,6 +49,7 @@ template <typename dir_iter_t>
 void file_tree_walker_t::walk_tree(void)
 {
    static const char *abort_message = "Aborting... Ctrl-C to kill (may render database unusable)";
+   static const char *enum_files_error_msg = "Cannot enumerate files";
 
    // start hasher threads
    for(size_t i = 0; i < file_hashers.size(); i++)
@@ -59,49 +60,77 @@ void file_tree_walker_t::walk_tree(void)
    // set the report time a few seconds into the fiture
    std::chrono::steady_clock::time_point report_time = std::chrono::steady_clock::now() + std::chrono::seconds(options.progress_interval);
 
-   for(const std::filesystem::directory_entry& dir_entry : dir_iter_t(options.scan_path)) {
-
-      //
-      // A symlink is also presented as a regular file and we want to
-      // skip symbolic links because if their targets are under the
-      // same base path, we will pick them up in the appropriate
-      // file type and if they are outside of the base path, then
-      // they should not be included at all (e.g. if a target is
-      // on a different volume in a recursive scan or in a different
-      // directory in a non-recursive scan).
-      //
-      if(!dir_entry.is_symlink() && dir_entry.is_regular_file()) {
-         std::unique_lock<std::mutex> lock(files_mtx);
-
-         files.push(dir_entry);
-
-         queued_files++;
-
+   try {
+     for(const std::filesystem::directory_entry& dir_entry : dir_iter_t(options.scan_path)) {
          //
-         // If we reached the maximum queue size, let it process some of
-         // the queue before piling up more files.
+         // A symlink is also presented as a regular file and we want to
+         // skip symbolic links because if their targets are under the
+         // same base path, we will pick them up in the appropriate
+         // file type and if they are outside of the base path, then
+         // they should not be included at all (e.g. if a target is
+         // on a different volume in a recursive scan or in a different
+         // directory in a non-recursive scan).
          //
-         if(files.size() > MAX_FILE_QUEUE_SIZE) {
-            while(!abort_scan && files.size() > (MAX_FILE_QUEUE_SIZE*3)/4) {
-               lock.unlock();
+         if(!dir_entry.is_symlink() && dir_entry.is_regular_file()) {
+            std::unique_lock<std::mutex> lock(files_mtx);
 
-               std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            files.push(dir_entry);
 
-               // if we are past the report time, print current stats and compute the next report time
-               if(options.progress_interval && std::chrono::steady_clock::now() > report_time) {
-                  report_progress();
-                  report_time = std::chrono::steady_clock::now() + std::chrono::seconds(options.progress_interval);
+            queued_files++;
+
+            //
+            // If we reached the maximum queue size, let it process some of
+            // the queue before piling up more files.
+            //
+            if(files.size() > MAX_FILE_QUEUE_SIZE) {
+               while(!abort_scan && files.size() > (MAX_FILE_QUEUE_SIZE*3)/4) {
+                  lock.unlock();
+
+                  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+                  // if we are past the report time, print current stats and compute the next report time
+                  if(options.progress_interval && std::chrono::steady_clock::now() > report_time) {
+                     report_progress();
+                     report_time = std::chrono::steady_clock::now() + std::chrono::seconds(options.progress_interval);
+                  }
+
+                  lock.lock();
                }
+            }
 
-               lock.lock();
+            if(abort_scan) {
+               print_stream.info(abort_message);
+               break;
             }
          }
-
-         if(abort_scan) {
-            print_stream.info(abort_message);
-            break;
-         }
       }
+   }
+   catch (const std::filesystem::filesystem_error& error) {
+      //
+      // The message returned from what() is not very informative
+      // on Windows and currently looks like this:
+      // 
+      //    recursive_directory_iterator::operator++: Access is denied.
+      // 
+      // Both error paths are populated for two-argument commands,
+      // such as `rename`, and for iterating directories none of them
+      // is populated currently, but in case if it changes, print the
+      // first one that is not empty.
+      // 
+      // For access-denied errors, there may be nothing helpful we can
+      // report because the iterator contains no value after a failed
+      // increment call (even if the overload that takes error_code is
+      // called - all we get back is the end iterator).
+      //
+      if(error.path1().empty() && error.path2().empty())
+         print_stream.error("%s (%s)", enum_files_error_msg, error.code().message().c_str());
+      else if(!error.path1().empty())
+         print_stream.error("%s (%s) for %s", enum_files_error_msg, error.code().message().c_str(), error.path1().u8string().c_str());
+      else
+         print_stream.error("%s (%s) for %s", enum_files_error_msg, error.code().message().c_str(), error.path2().u8string().c_str());
+   }
+   catch (const std::exception& error) {
+      print_stream.error("%s (%s)\n", enum_files_error_msg, error.what());
    }
 
    // wait for all file hasher threads to process all queued files
