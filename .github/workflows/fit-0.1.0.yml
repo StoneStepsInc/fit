@@ -1,4 +1,8 @@
-
+#
+# GitHub maintains the run number sequence per workflow file name,
+# which means that this file needs to be renamed when the version
+# is changed, so the run number starts a new sequence.
+#
 name: fit 0.1.0
 
 on: workflow_dispatch
@@ -20,13 +24,13 @@ jobs:
         shell: cmd
     
     steps:
-    - name: Checkout
+    - name: Checkout source
       uses: actions/checkout@v2
 
     - name: Restore Nuget packages
       run: nuget restore
 
-    - name: Set up SHA256
+    - name: Set up SHA256 source
       run: get-sha256.bat
 
     - name: Build fit x64
@@ -34,6 +38,12 @@ jobs:
         call "${{ env.VCVARSALL }}" x64
         msbuild /nologo /target:Rebuild /property:Configuration=Release;Platform=x64;GH_BUILD_NUMBER=$(BUILD_NUMBER) /nr:false fit.vcxproj
 
+      #
+      # The only way to avoid hard-coded references to Nuget packages
+      # is to build it as a VS project. Use the hard-coded version for
+      # now and if SQLite gets updated more than expected, a dedicated
+      # packaging VS project may be introduced into this solution.
+      #
     - name: Create fit package
       run: |
         mkdir fit-win64-${{ env.VERSION }}
@@ -41,6 +51,14 @@ jobs:
         copy /y packages\StoneSteps.SQLite.Static.3.38.2.2\build\native\bin\sqlite3.exe fit-win64-${{ env.VERSION }}
         7z a fit-win64-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.zip fit-win64-${{ env.VERSION }}
 
+      #
+      # For this simplified build pipeline, we don't upload the build
+      # package as a workflow artifact because no one is expected to
+      # download it for testing and it will only make this source more
+      # convoluted than it needs to be. The package will be available
+      # for testing in this draft release, which can be discarded or
+      # published, as needed.
+      #
     - name: Create a draft release
       id: create_release
       uses: actions/create-release@v1.1.4
@@ -51,7 +69,7 @@ jobs:
         release_name: fit-${{ env.VERSION }}
         draft: true
 
-    - name: Upload fit-win64 package
+    - name: Add fit package to release
       uses: actions/upload-release-asset@v1.0.2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
