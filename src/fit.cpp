@@ -29,10 +29,17 @@
 using namespace std::literals::string_view_literals;
 using namespace std::literals::string_literals;
 
+#ifndef BUILD_NUMBER
+#define BUILD_NUMBER 0
+#endif
+
+#define STR_BUILD_NUMBER2(v) #v
+#define STR_BUILD_NUMBER(v) STR_BUILD_NUMBER2(v)
+
 namespace fit {
 
 static const char *title = "File Integrity Tracker";
-static const char *version = "0.1.0";
+static const char *version = "0.1.0+" STR_BUILD_NUMBER(BUILD_NUMBER);
 static const char *copyright = "Copyright (c) 2022 Stone Steps Inc.";
 
 std::atomic<bool> abort_scan = false;

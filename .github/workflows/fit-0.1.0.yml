@@ -32,7 +32,7 @@ jobs:
     - name: Build fit x64
       run: |
         call "${{ env.VCVARSALL }}" x64
-        msbuild /nologo /target:Rebuild /property:Configuration=Release;Platform=x64 /nr:false fit.vcxproj
+        msbuild /nologo /target:Rebuild /property:Configuration=Release;Platform=x64;GH_BUILD_NUMBER=$(BUILD_NUMBER) /nr:false fit.vcxproj
 
     - name: Create fit package
       run: |
