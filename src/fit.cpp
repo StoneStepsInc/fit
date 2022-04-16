@@ -161,6 +161,10 @@ void verify_options(options_t& options)
    if(options.buffer_size < 512 || options.buffer_size > 1048576)
       throw std::runtime_error("Invalid file buffer size");
 
+   // round buffer size up to the nearest 512 or 4096 boundary, if it's not already there
+   size_t block_size = options.buffer_size < 4096 ? 512 : 4096;
+   options.buffer_size += (block_size - options.buffer_size % block_size) % block_size;
+
    if(options.progress_interval < 0)
       throw std::runtime_error("Invalid progress reporting interval");
 
