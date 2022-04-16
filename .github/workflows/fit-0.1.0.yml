@@ -1,0 +1,31 @@
+
+name: fit 0.1.0
+
+on: workflow_dispatch
+
+env:
+  VERSION: 0.1.0
+  BUILD_NUMBER: ${{ github.run_number }}
+
+jobs:
+  build-fit:
+    name: Build fit
+    runs-on: windows-2019
+
+    defaults:
+      run:
+        shell: cmd
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Restore Nuget packages
+      run: nuget restore
+
+    - name: Set up SHA256
+      run: get-sha256.bat
+
+    - name: Build fit x64
+      run: |
+        msbuild /nologo /target:Rebuild /property:Configuration=Release;Platform=x64 /nr:false src\fit.vcxproj
