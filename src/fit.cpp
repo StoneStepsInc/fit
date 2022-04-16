@@ -29,6 +29,10 @@
 using namespace std::literals::string_view_literals;
 using namespace std::literals::string_literals;
 
+//
+// Build number is used only when the project is being built in a
+// CI pipeline, where build numbers are maintained.
+// 
 #ifndef BUILD_NUMBER
 #define BUILD_NUMBER 0
 #endif

@@ -60,11 +60,16 @@ modes and are as follows:
     If zero is specified, number of processed files is not reported
     during a scan.
 
-  * `l path\to\log_file.log`
+  * `-l path\to\log_file.log`
 
     An optional path to a log file that captures console messages.
     Console messages written to standard output and standard error
     will be prefixed with `inf` and `err`, respectively.
+
+  * `-s file-buffer-size`
+
+    Defines the size of the file read buffer, rounded up to either
+    `512` or `4096` bytes. The default buffer size is `65536` bytes.
 
 ## Scanning a File Tree
 
@@ -144,6 +149,9 @@ port.
   * `-t 2` scans at `95.2` MB/sec
   * `-t 16` scans at `58.7` MB/sec
   * `-t 32` scans at `51.8` MB/sec
+
+When scanning large files on magnetic drives, larger buffer
+sizes, specified via `-s`, may improve scanning speed.
 
 ## SQLite Database
 
