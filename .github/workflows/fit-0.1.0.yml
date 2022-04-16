@@ -39,12 +39,13 @@ jobs:
         mkdir fit-win64-${{ env.VERSION }}
         copy /y x64\Release\fit.exe fit-win64-${{ env.VERSION }}
         copy /y packages\StoneSteps.SQLite.Static.3.38.2.2\build\native\bin\sqlite3.exe fit-win64-${{ env.VERSION }}
+        7z a fit-win64-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.zip
 
     - name: Upload fit package
       uses: actions/upload-artifact@v2.2.1
       with:
         name: fit-win64-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}
-        path: fit-win64-${{ env.VERSION }}
+        path: fit-win64-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.zip
 
     - name: Create a draft release
       id: create_release
@@ -62,6 +63,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }} 
-        asset_path: fit-win64-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}
+        asset_path: fit-win64-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.zip
         asset_name: fit-win64-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.zip
         asset_content_type: application/zip
