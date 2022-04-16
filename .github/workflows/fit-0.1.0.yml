@@ -12,6 +12,9 @@ jobs:
     name: Build fit
     runs-on: windows-2019
 
+    env:
+      VCVARSALL: 'C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall'
+
     defaults:
       run:
         shell: cmd
@@ -28,4 +31,6 @@ jobs:
 
     - name: Build fit x64
       run: |
+        call "${{ env.VCVARSALL }}" x64
+
         msbuild /nologo /target:Rebuild /property:Configuration=Release;Platform=x64 /nr:false src\fit.vcxproj
