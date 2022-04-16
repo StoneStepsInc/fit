@@ -41,12 +41,6 @@ jobs:
         copy /y packages\StoneSteps.SQLite.Static.3.38.2.2\build\native\bin\sqlite3.exe fit-win64-${{ env.VERSION }}
         7z a fit-win64-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.zip fit-win64-${{ env.VERSION }}
 
-    - name: Upload fit package
-      uses: actions/upload-artifact@v2.2.1
-      with:
-        name: fit-win64-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}
-        path: fit-win64-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.zip
-
     - name: Create a draft release
       id: create_release
       uses: actions/create-release@v1.1.4
