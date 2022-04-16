@@ -251,8 +251,8 @@ void file_hasher_t::run(void)
                if(sqlite3_column_bytes(stmt_find_file, 3) != SHA256_HEX_SIZE)
                   throw std::runtime_error("Bad hash size for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
 
-               // compare in-place, unless delayed hashing was requested
-               if(!options.skip_hash_mod_time)
+               // compare in-place, unless scanning with delayed hashing was requested
+               if(options.verify_files || !options.skip_hash_mod_time)
                   hash_match = memcmp(hexhash_file, reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 3)), SHA256_HEX_SIZE) == 0;
                else
                   memcpy(hexhash_field, reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 3)), SHA256_HEX_SIZE);
