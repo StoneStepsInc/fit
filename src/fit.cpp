@@ -71,6 +71,7 @@ void print_usage(void)
    fputs("    -i seconds   - progress reporting interval (default: 10, min: 1)\n", stdout);
    fputs("    -w           - skip hashing for files with same last-modified time\n", stdout);
    fputs("    -l path      - log file path\n", stdout);
+   fputs("    -a           - skip restricted access directories\n", stdout);
    fputs("    -?           - this help\n", stdout);
 
    fputc('\n', stdout);
@@ -144,6 +145,9 @@ options_t parse_options(int argc, char *argv[])
                throw std::runtime_error("Missing log file path value");
 
             options.log_file = argv[++i];
+            break;
+         case 'a':
+            options.skip_no_access_paths = true;
             break;
          case 'h':
          case '?':

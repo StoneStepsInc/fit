@@ -61,7 +61,9 @@ void file_tree_walker_t::walk_tree(void)
    std::chrono::steady_clock::time_point report_time = std::chrono::steady_clock::now() + std::chrono::seconds(options.progress_interval);
 
    try {
-     for(const std::filesystem::directory_entry& dir_entry : dir_iter_t(options.scan_path)) {
+      std::filesystem::directory_options dir_it_opts = options.skip_no_access_paths ? std::filesystem::directory_options::skip_permission_denied : std::filesystem::directory_options::none;
+
+      for(const std::filesystem::directory_entry& dir_entry : dir_iter_t(options.scan_path, dir_it_opts)) {
          //
          // A symlink is also presented as a regular file and we want to
          // skip symbolic links because if their targets are under the
