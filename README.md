@@ -179,7 +179,7 @@ will not apply across all Unicode characters.
 
 ### Scan Table
 
-The `scans` table contains a record for each successful run of `fit`
+The `scans` table contains a record for each run of `fit`
 without the `-v` option and has the following fields:
 
   * `rowid` `INTEGER NOT NULL`
@@ -193,12 +193,14 @@ without the `-v` option and has the following fields:
 
   * `app_version` `TEXT NOT NULL`
 
-    Application version that generated this scan record.
+    Version of the application that generated this scan record.
 
   * `scan_time` `INTEGER NOT NULL`
     
-    Number of seconds since 1970-01-01, UTC. Use `datetime(timestamp,
-    'unixepoch')` to output as a calendar time in SQLite shell.
+    Number of seconds since 1970-01-01, UTC. Use this expression
+    to output it as a calendar time in SQLite shell.
+
+        datetime(scan_time, 'unixepoch')
 
   * `scan_path` `TEXT NOT NULL`
 
@@ -218,12 +220,12 @@ without the `-v` option and has the following fields:
 
 ### Files Table
 
-The files table contains a record per scanned file and has following
-fields:
+The files table contains a record per scanned file and has the
+following fields:
 
   * `scan_id` `INTEGER NOT NULL`
 
-    Scan record identifier (`scan.rowid`).
+    Scan record identifier from `scan.rowid`.
 
   * `version` `INTEGER NOT NULL`
 
@@ -313,7 +315,8 @@ shell included in the application package.
     where hash = 'hash-value' COLLATE NOCASE
     order by path, version desc;
 
-SHA-256 hash may be computed on Windows using `certutil` as follows:
+A SHA-256 hash may be computed on Windows using `certutil` as
+follows:
 
     certutil -hashfile path\to\file SHA256
 
@@ -342,8 +345,8 @@ to compute SHA-256 hashes.
 
 The latter does not have a package and may be obtained via a batch
 file included in the project (`get-sha256.bat`). After running
-this batch file, a directory `sha256` will contain the source for
-the SHA-256 library.
+this batch file, a directory `src/sha256` will contain the source
+for the SHA-256 library.
 
 ### Linux
 
@@ -362,10 +365,11 @@ GCC can build `fit` with a single command shown below.
         -o fit
 
 CLang needs to compile `sha256.c` separately from the C++ source
-and also needs `-lstdc++` specified explicitly in order to link.
+and needs `-lstdc++` specified explicitly in order to link.
 
 Linux time stamps will appear as negative values in the SQLite
 database and it is not clear at this point how they are computed.
+
 Time stamps can be shown around the actual file modification
 time by adding `6437646000`, but it appears that this does not
 include some of time zone adjustments.
