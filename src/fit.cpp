@@ -300,6 +300,7 @@ int64_t insert_scan_record(const options_t& options, sqlite3 *file_scan_db)
 
    std::string_view sql_insert_scan = "insert into scans (app_version, scan_time, scan_path, base_path, current_path, message) values (?, ?, ?, ?, ?, ?)"sv;
 
+   // SQLite docs say there's a small performance gain if the null terminator is included in length
    if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_scan.data(), (int) sql_insert_scan.length()+1, &stmt_insert_scan, nullptr)) != SQLITE_OK)
       throw std::runtime_error("Cannot prepare a SQLite statement to insert a scan ("s + sqlite3_errstr(errcode) + ")");
 
