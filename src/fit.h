@@ -10,8 +10,6 @@
 
 namespace fit {
 
-extern std::atomic<bool> abort_scan;
-
 struct file_handle_deleter_t {
    void operator () (FILE *file)
    {
@@ -19,6 +17,9 @@ struct file_handle_deleter_t {
    }
 };
 
+//
+// Command line options and their values.
+//
 struct options_t {
    std::filesystem::path base_path;
    std::filesystem::path db_path;

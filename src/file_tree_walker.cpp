@@ -19,6 +19,9 @@
 
 namespace fit {
 
+// defined in fit.cpp
+extern std::atomic<bool> abort_scan;
+
 file_tree_walker_t::file_tree_walker_t(const options_t& options, int64_t scan_id, print_stream_t& print_stream) :
       options(options),
       print_stream(print_stream),
