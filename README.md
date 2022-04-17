@@ -71,6 +71,19 @@ modes and are as follows:
     Defines the size of the file read buffer, rounded up to either
     `512` or `4096` bytes. The default buffer size is `65536` bytes.
 
+  * `-a`
+
+    This option instructs `fit` to skip directories with restricted
+    access, which by default would interrupt a scan. The default
+    behavior makes presence of such directories visible, so it can
+    be decided whether to skip them using this option or examine
+    reasons why there are such directories in the file tree being
+    scanned.
+
+    Note, however, that it may not be possible to report restricted
+    directory names, so some other means need to be used to figure
+    which specific directories cannot be accessed.
+
 ## Scanning a File Tree
 
 Scanning a file tree without the `-v` option will record computed
