@@ -8,6 +8,9 @@
 # Visual Studio build directory
 /x64/
 
+# default Makefile build directory
+/build/
+
 # Nuget packages
 /packages/
 
