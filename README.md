@@ -225,7 +225,7 @@ following fields:
 
   * `scan_id` `INTEGER NOT NULL`
 
-    Scan record identifier from `scan.rowid`.
+    Scan record identifier from `scans.rowid`.
 
   * `version` `INTEGER NOT NULL`
 
