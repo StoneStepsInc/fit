@@ -101,6 +101,7 @@
     <None Include=".github\workflows\fit-1.0.2.yml" />
     <None Include=".gitignore" />
     <None Include="LICENSE" />
+    <None Include="Makefile" />
     <None Include="packages.config" />
     <None Include="README.md" />
   </ItemGroup>

@@ -46,6 +46,7 @@
     <None Include=".gitignore" />
     <None Include="LICENSE" />
     <None Include=".github\workflows\fit-1.0.2.yml" />
+    <None Include="Makefile" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="sha256">
