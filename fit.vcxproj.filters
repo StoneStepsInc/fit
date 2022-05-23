@@ -45,7 +45,7 @@
     <None Include="README.md" />
     <None Include=".gitignore" />
     <None Include="LICENSE" />
-    <None Include=".github\workflows\fit-1.0.1.yml" />
+    <None Include=".github\workflows\fit-1.0.2.yml" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="sha256">

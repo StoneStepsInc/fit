@@ -43,7 +43,7 @@ using namespace std::literals::string_literals;
 namespace fit {
 
 static const char *title = "File Integrity Tracker";
-static const char *version = "1.0.1+" STR_BUILD_NUMBER(BUILD_NUMBER);
+static const char *version = "1.0.2+" STR_BUILD_NUMBER(BUILD_NUMBER);
 static const char *copyright = "Copyright (c) 2022 Stone Steps Inc.";
 
 std::atomic<bool> abort_scan = false;
