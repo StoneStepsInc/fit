@@ -339,33 +339,29 @@ follows:
 
 ## Source
 
+### Windows
+
 Current source requires Visual Studio 2019 to build. It uses a
 SQLite Nuget package for database access and a 3rd-party library
 to compute SHA-256 hashes.
 
-The latter does not have a package and may be obtained via a batch
+SHA-256 does not have a package and may be obtained via a batch
 file included in the project (`get-sha256.bat`). After running
 this batch file, a directory `src/sha256` will contain the source
 for the SHA-256 library.
 
 ### Linux
 
-Current source will compile on Linux, but very little testing was
+Current source compiles on Linux, but very little testing was
 done to verify the results.
 
 SQLite development package needs to be installed (e.g. `sqlite-devel`
-on Fedora) and SHA256 source needs to be patched with `sha256.patch`.
+on Fedora).
 
-GCC can build `fit` with a single command shown below.
-
-    g++ -std=c++17 \
-        fit.cpp file_tree_walker.cpp file_hasher.cpp \
-        print_stream.cpp sqlite.cpp sha256/sha256.c \
-        -lsqlite3 -lpthread -lstdc++fs
-        -o fit
-
-CLang needs to compile `sha256.c` separately from the C++ source
-and needs `-lstdc++` specified explicitly in order to link.
+SHA-256 does not have a package and may be obtained via a script
+included in the project (`get-sha256`). After running the script,
+a directory `src/sha256` will contain the source for the SHA-256
+library.
 
 Linux time stamps will appear as negative values in the SQLite
 database and it is not clear at this point how they are computed.
