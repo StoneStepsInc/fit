@@ -1,0 +1,27 @@
+#!/bin/bash
+
+GIT_COMMIT=28c561fa25b62dc9fce075c1af21ee2579cf1d59
+
+if [ -d src/sha256 ]
+then
+  echo Directory sha256 already exists
+  exit
+else 
+  # 
+  #  This library is not versioned, so get the source at
+  #  the commit where it was tested with this project.
+  # 
+  curl -L -o sha256.zip https://github.com/ilvn/SHA256/archive/$GIT_COMMIT.zip
+
+  unzip sha256.zip
+  rm -f sha256.zip
+
+  mv SHA256-$GIT_COMMIT src/sha256
+  cd src/sha256
+
+  # patch the SHA256 source to compile in a C++ project
+  patch -i ../../sha256.patch
+
+  cd ../..
+fi
+
