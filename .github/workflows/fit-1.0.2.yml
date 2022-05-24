@@ -12,8 +12,8 @@ env:
   BUILD_NUMBER: ${{ github.run_number }}
 
 jobs:
-  build-fit:
-    name: Build fit
+  build-fit-windows:
+    name: Build Windows fit
     runs-on: windows-2019
 
     env:
@@ -80,3 +80,27 @@ jobs:
         asset_path: fit-win64-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.zip
         asset_name: fit-win64-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.zip
         asset_content_type: application/zip
+
+  build-fit-linux:
+    name: Build Linux fit
+
+    strategy:
+      matrix:
+       linux-flavor:
+       - fedora
+
+    runs-on: ubuntu-20.04
+    container:
+      image: ghcr.io/stonestepsinc/fit-${{ matrix.linux-flavor }}:7
+
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v2
+
+    - name: Set up SHA-256
+      run: |
+        ./get-sha256
+
+    - name: Build binaries
+      run: |
+        make
