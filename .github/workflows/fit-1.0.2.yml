@@ -13,7 +13,7 @@ env:
 
 jobs:
   build-windows:
-    name: Build Windows
+    name: Windows build
     runs-on: windows-2019
 
     env:
@@ -60,7 +60,7 @@ jobs:
         path: fit-win64-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.zip
 
   build-linux:
-    name: Build Linux
+    name: Linux build
 
     strategy:
       matrix:
@@ -97,12 +97,33 @@ jobs:
         name: fit-${{ matrix.linux-flavor }}-${{ env.VERSION }}
         path: fit-${{ matrix.linux-flavor }}-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.tar.gz
 
-  draft-release:
+  create-draft-release:
     name: Create draft release
     runs-on: ubuntu-20.04
     needs: 
     - build-windows
     - build-linux
+
+    outputs:
+      draft-release-upload-url: ${{ steps.draft-release.outputs.upload_url }}
+
+    steps:
+    - name: Create a draft release
+      id: draft-release
+      uses: actions/create-release@v1.1.4
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ env.VERSION }}
+        release_name: fit-${{ env.VERSION }}
+        draft: true
+
+  upload-release-assets:
+    name: Upload release assets
+    runs-on: ubuntu-20.04
+
+    needs:
+    - create-draft-release
 
     strategy:
       matrix:
@@ -118,29 +139,18 @@ jobs:
          asset-ext: zip
 
     steps:
-    - name: Create a draft release
-      id: draft-release
-      uses: actions/create-release@v1.1.4
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ env.VERSION }}
-        release_name: fit-${{ env.VERSION }}
-        draft: true
-
-    - name: Download ${{ matrix.linux-flavor }} package
+    - name: Download ${{ matrix.build-flavor }} package
       uses: actions/download-artifact@v2.0.7
       with:
         name: fit-${{ matrix.build-flavor }}-${{ env.VERSION }}
         path: .
 
-    - name: Add ${{ matrix.linux-flavor }} fit package
+    - name: Add ${{ matrix.build-flavor }} package
       uses: actions/upload-release-asset@v1.0.2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.draft-release.outputs.upload_url }} 
+        upload_url: ${{ needs.create-draft-release.outputs.draft-release-upload-url }} 
         asset_path: fit-${{ matrix.build-flavor }}-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.${{ matrix.asset-ext }}
         asset_name: fit-${{ matrix.build-flavor }}-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.${{ matrix.asset-ext }}
         asset_content_type: ${{ matrix.asset-content-type }}
-
