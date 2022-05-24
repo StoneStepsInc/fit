@@ -81,7 +81,7 @@ jobs:
 
     - name: Build binaries
       run: |
-        make
+        make GH_BUILD_NUMBER=${{ env.BUILD_NUMBER }}
 
     - name: Create ${{ matrix.linux-flavor }} package
       run: |
