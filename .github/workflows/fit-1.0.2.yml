@@ -70,7 +70,7 @@ jobs:
 
     runs-on: ubuntu-20.04
     container:
-      image: ghcr.io/stonestepsinc/fit-${{ matrix.linux-flavor }}:7
+      image: ghcr.io/stonestepsinc/fit/${{ matrix.linux-flavor }}:4
 
     steps:
     - name: Checkout source
