@@ -66,10 +66,11 @@ jobs:
       matrix:
        linux-flavor:
        - fedora
+       - ubuntu
 
     runs-on: ubuntu-20.04
     container:
-      image: ghcr.io/stonestepsinc/fit-${{ matrix.linux-flavor }}:7
+      image: ghcr.io/stonestepsinc/fit-${{ matrix.linux-flavor }}:5
 
     steps:
     - name: Checkout source
@@ -129,10 +130,10 @@ jobs:
       matrix:
        build-flavor:
        - fedora
+       - ubuntu
        - win64
        include:
-       - build-flavor: fedora
-         asset-content-type: application/gzip
+       - asset-content-type: application/gzip
          asset-ext: tar.gz
        - build-flavor: win64
          asset-content-type: application/zip
