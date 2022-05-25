@@ -4,23 +4,25 @@ on: workflow_dispatch
 
 env:
   IMAGE_REG: ghcr.io
+  # ghcr.io fails if owner is not lowercase - can't use `${{ github.actor }}`
   IMAGE_OWNER: stonestepsinc
   IMAGE_TAG: ${{ github.run_number }}
 
 jobs:
-  build-ci-image:
-    name: Build CI image
+  build-ci-images:
+    name: Build CI images
     runs-on: ubuntu-20.04
     strategy:
       matrix:
        linux-flavor:
        - fedora
+       - ubuntu
 
     steps:
     - name: Checkout source
       uses: actions/checkout@v3
 
-    - name: Build CI image
+    - name: Build ${{ matrix.linux-flavor }} image
       run: |
         docker build --file devops/Dockerfile.${{ matrix.linux-flavor }} --tag ${{ env.IMAGE_REG }}/${{ env.IMAGE_OWNER }}/fit-${{ matrix.linux-flavor }}:${{ env.IMAGE_TAG }} devops
 
@@ -31,6 +33,6 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Push CI image
+    - name: Push ${{ matrix.linux-flavor }} image
       run: |
         docker push ${{ env.IMAGE_REG }}/${{ env.IMAGE_OWNER }}/fit-${{ matrix.linux-flavor }}:${{ env.IMAGE_TAG }}
