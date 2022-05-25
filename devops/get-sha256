@@ -20,7 +20,7 @@ else
   cd src/sha256
 
   # patch the SHA256 source to compile in a C++ project
-  patch -i ../../sha256.patch
+  patch -i ../../devops/sha256.patch
 
   cd ../..
 fi

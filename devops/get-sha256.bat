@@ -22,7 +22,7 @@ rem
 rem Patch the SHA256 source to compile in VC++
 rem
 echo.
-"%ProgramFiles%\Git\usr\bin\patch" -i ..\..\sha256.patch
+"%ProgramFiles%\Git\usr\bin\patch" -i ..\..\devops\sha256.patch
 
 cd ..\..
 

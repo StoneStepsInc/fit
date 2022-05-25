@@ -31,7 +31,7 @@ jobs:
       run: nuget restore
 
     - name: Set up SHA256 source
-      run: get-sha256.bat
+      run: devops\get-sha256.bat
 
     - name: Build fit x64
       run: |
@@ -78,7 +78,7 @@ jobs:
 
     - name: Set up SHA-256
       run: |
-        ./get-sha256
+        devops/get-sha256
 
     - name: Build binaries
       run: |
