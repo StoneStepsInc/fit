@@ -1,38 +1,63 @@
 name: Build CI images
 
-on: workflow_dispatch
-
+on:
+  workflow_dispatch:
+    inputs:
+      #
+      # Any unique sequence of characters would work as a CI image tag,
+      # but an ISO-8601 date without separators would be the easiest
+      # to maintain. In a rare case when more than one image needs to
+      # be built in one day, a sequence suffix can be added: 20220526.1
+      #
+      ci-build-image-tag:
+        description: CI build image tag (e.g. 20220526)
+        required: true
 env:
-  IMAGE_REG: ghcr.io
-  # ghcr.io fails if owner is not lowercase - can't use `${{ github.actor }}`
-  IMAGE_OWNER: stonestepsinc
-  IMAGE_TAG: ${{ github.run_number }}
+  #
+  # ghcr.io requires owner to be in lowercase, so we can't use
+  # ${{ github.actor }}, which may have mixed case characters.
+  #
+  CI_BLD_IMG_REG: ghcr.io
+  CI_BLD_IMG_OWNER: stonestepsinc
+  CI_BLD_IMG_TAG: ${{ github.event.inputs.ci-build-image-tag }}
 
 jobs:
   build-ci-images:
     name: Build CI images
     runs-on: ubuntu-20.04
+
     strategy:
       matrix:
        linux-flavor:
        - fedora
        - ubuntu
 
+    env:
+      #
+      # Use slashes to separate Linux flavor from the image name,
+      # which is allowed in many private registries, including
+      # GitHub and Azure, but not in Docker Hub.
+      #
+      #   ghcr.io/stonestepsinc/fit/ubuntu:20220526
+      #
+      CI_BLD_IMG_NAME: ${{ env.CI_BLD_IMG_REG }}/${{ env.CI_BLD_IMG_OWNER }}/fit/${{ matrix.linux-flavor }}:${{ env.CI_BLD_IMG_TAG }}
+
     steps:
     - name: Checkout source
       uses: actions/checkout@v3
 
+      # use the command line to build an image, which is more descriptive than the action
     - name: Build ${{ matrix.linux-flavor }} image
       run: |
-        docker build --file devops/Dockerfile.${{ matrix.linux-flavor }} --tag ${{ env.IMAGE_REG }}/${{ env.IMAGE_OWNER }}/fit/${{ matrix.linux-flavor }}:${{ env.IMAGE_TAG }} devops
+        docker build --file devops/Dockerfile.${{ matrix.linux-flavor }} --tag ${{ env.CI_BLD_IMG_NAME }} devops
 
-    - name: Docker Login
+    - name: Docker login
       uses: docker/login-action@v2.0.0
       with:
-        registry: ${{ env.IMAGE_REG }}
+        registry: ${{ env.CI_BLD_IMG_REG }}
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Push ${{ matrix.linux-flavor }} image
       run: |
-        docker push ${{ env.IMAGE_REG }}/${{ env.IMAGE_OWNER }}/fit/${{ matrix.linux-flavor }}:${{ env.IMAGE_TAG }}
+        docker push ${{ env.CI_BLD_IMG_NAME }}
