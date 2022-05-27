@@ -9,7 +9,7 @@ on:
       # to maintain. In a rare case when more than one image needs to
       # be built in one day, a sequence suffix can be added: 20220526.1
       #
-      ci-build-image-tag:
+      CI_BLD_IMG_TAG:
         description: CI build image tag (e.g. 20220526)
         required: true
 env:
@@ -19,7 +19,6 @@ env:
   #
   CI_BLD_IMG_REG: ghcr.io
   CI_BLD_IMG_OWNER: stonestepsinc
-  CI_BLD_IMG_TAG: ${{ github.event.inputs.ci-build-image-tag }}
 
 jobs:
   build-ci-images:
@@ -38,9 +37,10 @@ jobs:
       # which is allowed in many private registries, including
       # GitHub and Azure, but not in Docker Hub.
       #
+      #   {0}     {1}
       #   ghcr.io/stonestepsinc/fit/ubuntu:20220526
       #
-      CI_BLD_IMG_NAME: ${{ env.CI_BLD_IMG_REG }}/${{ env.CI_BLD_IMG_OWNER }}/fit/${{ matrix.linux-flavor }}:${{ env.CI_BLD_IMG_TAG }}
+      CI_BLD_IMG_NAME_FMT: '{0}/{1}/fit/${{ matrix.linux-flavor }}:${{ github.event.inputs.CI_BLD_IMG_TAG }}'
 
     steps:
     - name: Checkout source
@@ -49,7 +49,7 @@ jobs:
       # use the command line to build an image, which is more descriptive than the action
     - name: Build ${{ matrix.linux-flavor }} image
       run: |
-        docker build --file devops/Dockerfile.${{ matrix.linux-flavor }} --tag ${{ env.CI_BLD_IMG_NAME }} devops
+        docker build --file devops/Dockerfile.${{ matrix.linux-flavor }} --tag ${{ format(env.CI_BLD_IMG_NAME_FMT, env.CI_BLD_IMG_REG, env.CI_BLD_IMG_OWNER) }} devops
 
     - name: Docker login
       uses: docker/login-action@v2.0.0
@@ -60,4 +60,4 @@ jobs:
 
     - name: Push ${{ matrix.linux-flavor }} image
       run: |
-        docker push ${{ env.CI_BLD_IMG_NAME }}
+        docker push ${{ format(env.CI_BLD_IMG_NAME_FMT, env.CI_BLD_IMG_REG, env.CI_BLD_IMG_OWNER) }}
