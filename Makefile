@@ -52,8 +52,8 @@ CFLAGS += -O3
 endif
 
 # if CI pipeline build number is provided, add it to the build
-ifdef GITHUB_BUILD_NUMBER
-CXXFLAGS += -DBUILD_NUMBER=$(GITHUB_BUILD_NUMBER)
+ifdef GH_BUILD_NUMBER
+CXXFLAGS += -DBUILD_NUMBER=$(GH_BUILD_NUMBER)
 endif
 
 $(BLDDIR)/fit: $(addprefix $(BLDDIR)/,$(OBJS)) | $(BLDDIR) 
