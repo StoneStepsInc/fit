@@ -98,7 +98,7 @@ jobs:
         cp build/fit fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}
         cp README.md fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}
         cp LICENSE fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}
-        tar czf fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}+${{ env.BUILD_NUMBER }}.${{ matrix.linux-flavor }}.x64.tar.gz fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}
+        tar czf fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.${{ matrix.linux-flavor }}.x64.tar.gz fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}
 
     - name: Upload ${{ matrix.linux-flavor }} package
       uses: actions/upload-artifact@v2.2.1
