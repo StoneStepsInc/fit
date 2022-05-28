@@ -333,6 +333,13 @@ int64_t insert_scan_record(const options_t& options, sqlite3 *file_scan_db)
 int main(int argc, char *argv[])
 {
    try {
+      struct sqlite3_deleter_t {
+         void operator () (sqlite3 *sqlite_handle)
+         {
+            fit::close_sqlite_database(sqlite_handle);
+         }
+      };
+
       fit::options_t options = fit::parse_options(argc, argv);
 
       if(options.print_usage) {
@@ -364,12 +371,12 @@ int main(int argc, char *argv[])
       //
       // Open a SQLite database
       //
-      sqlite3 *file_scan_db = fit::open_sqlite_database(options, print_stream);
+      std::unique_ptr<sqlite3, sqlite3_deleter_t> file_scan_db(fit::open_sqlite_database(options, print_stream));
 
       int64_t scan_id = 0;
       
       if(!options.verify_files)
-         scan_id = fit::insert_scan_record(options, file_scan_db);
+         scan_id = fit::insert_scan_record(options, file_scan_db.get());
 
       std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
 
@@ -390,7 +397,7 @@ int main(int argc, char *argv[])
 
       std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
 
-      fit::close_sqlite_database(file_scan_db);
+      fit::close_sqlite_database(file_scan_db.release());
 
       //
       // Print scan results and timing
