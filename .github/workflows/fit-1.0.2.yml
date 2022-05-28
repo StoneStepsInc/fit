@@ -36,6 +36,7 @@ jobs:
     - name: Set up SHA256 source
       run: devops\get-sha256.bat
 
+      # only x64 binaries are built on all platforms
     - name: Build fit x64
       run: |
         call "${{ env.VCVARSALL }}" x64
@@ -49,18 +50,18 @@ jobs:
       #
     - name: Create Windows package
       run: |
-        mkdir fit-win64-${{ env.VERSION }}
-        copy /y x64\Release\fit.exe fit-win64-${{ env.VERSION }}
-        copy /y packages\StoneSteps.SQLite.Static.3.38.2.2\build\native\bin\sqlite3.exe fit-win64-${{ env.VERSION }}
-        copy /y README.md fit-win64-${{ env.VERSION }}
-        copy /y LICENSE. fit-win64-${{ env.VERSION }}
-        7z a fit-win64-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.zip fit-win64-${{ env.VERSION }}
+        mkdir fit-${{ env.VERSION }}-windows
+        copy /y x64\Release\fit.exe fit-${{ env.VERSION }}-windows
+        copy /y packages\StoneSteps.SQLite.Static.3.38.2.2\build\native\bin\sqlite3.exe fit-${{ env.VERSION }}-windows
+        copy /y README.md fit-${{ env.VERSION }}-windows
+        copy /y LICENSE. fit-${{ env.VERSION }}-windows
+        7z a fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.windows.x64.zip fit-${{ env.VERSION }}-windows
 
     - name: Upload Windows package
       uses: actions/upload-artifact@v2.2.1
       with:
-        name: fit-win64-${{ env.VERSION }}
-        path: fit-win64-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.zip
+        name: fit-${{ env.VERSION }}-windows
+        path: fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.windows.x64.zip
 
   #
   # Linux build (all flavors)
@@ -69,6 +70,7 @@ jobs:
     name: Linux build
 
     strategy:
+      # no need for x86/x64 in the matrix, as there's no plan to build x86 for this project
       matrix:
        linux-flavor:
        - fedora
@@ -92,17 +94,17 @@ jobs:
 
     - name: Create ${{ matrix.linux-flavor }} package
       run: |
-        mkdir fit-${{ matrix.linux-flavor }}-${{ env.VERSION }}
-        cp build/fit fit-${{ matrix.linux-flavor }}-${{ env.VERSION }}
-        cp README.md fit-${{ matrix.linux-flavor }}-${{ env.VERSION }}
-        cp LICENSE fit-${{ matrix.linux-flavor }}-${{ env.VERSION }}
-        tar czf fit-${{ matrix.linux-flavor }}-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.tar.gz fit-${{ matrix.linux-flavor }}-${{ env.VERSION }}
+        mkdir fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}
+        cp build/fit fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}
+        cp README.md fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}
+        cp LICENSE fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}
+        tar czf fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}+${{ env.BUILD_NUMBER }}.${{ matrix.linux-flavor }}.x64.tar.gz fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}
 
     - name: Upload ${{ matrix.linux-flavor }} package
       uses: actions/upload-artifact@v2.2.1
       with:
-        name: fit-${{ matrix.linux-flavor }}-${{ env.VERSION }}
-        path: fit-${{ matrix.linux-flavor }}-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.tar.gz
+        name: fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}
+        path: fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.${{ matrix.linux-flavor }}.x64.tar.gz
 
   #
   # Create a draft release
@@ -143,11 +145,11 @@ jobs:
        build-flavor:
        - fedora
        - ubuntu
-       - win64
+       - windows
        include:
        - asset-content-type: application/gzip
          asset-ext: tar.gz
-       - build-flavor: win64
+       - build-flavor: windows
          asset-content-type: application/zip
          asset-ext: zip
 
@@ -155,7 +157,7 @@ jobs:
     - name: Download ${{ matrix.build-flavor }} package
       uses: actions/download-artifact@v2.0.7
       with:
-        name: fit-${{ matrix.build-flavor }}-${{ env.VERSION }}
+        name: fit-${{ env.VERSION }}-${{ matrix.build-flavor }}
         path: .
 
     - name: Add ${{ matrix.build-flavor }} package
@@ -164,6 +166,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ needs.create-draft-release.outputs.draft-release-upload-url }} 
-        asset_path: fit-${{ matrix.build-flavor }}-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.${{ matrix.asset-ext }}
-        asset_name: fit-${{ matrix.build-flavor }}-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.${{ matrix.asset-ext }}
+        asset_path: fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.${{ matrix.build-flavor }}.x64.${{ matrix.asset-ext }}
+        asset_name: fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.${{ matrix.build-flavor }}.x64.${{ matrix.asset-ext }}
         asset_content_type: ${{ matrix.asset-content-type }}
