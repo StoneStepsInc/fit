@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       #
-      # Any unique sequence of characters would work as a CI image tag,
-      # but an ISO-8601 date without separators would be the easiest
+      # Any unique sequence of characters would work as a CI build image
+      # tag, but an ISO-8601 date without separators would be the easiest
       # to maintain. In a rare case when more than one image needs to
-      # be built in one day, a sequence suffix can be added: 20220526.1
+      # be built in one day, a sequence suffix may be added: 20220526.1
       #
       CI_BLD_IMG_TAG:
         description: CI build image tag (e.g. 20220526)
@@ -33,12 +33,17 @@ jobs:
 
     env:
       #
-      # Use slashes to separate Linux flavor from the image name,
-      # which is allowed in many private registries, including
-      # GitHub and Azure, but not in Docker Hub.
+      # Use slashes to separate Linux flavor from the image name, which
+      # is allowed in many private registries, including GitHub and Azure,
+      # but not in Docker Hub.
       #
       #   {0}     {1}
       #   ghcr.io/stonestepsinc/fit/ubuntu:20220526
+      #
+      # In Azure DevOps, this would just be the variable CI_BLD_IMG_NAME
+      # defined, but `env` mappings cannot be used in this context, so
+      # we can either create prefix/suffix strings to combine all bits
+      # later or use a format, so at least it is clear where goes what.
       #
       CI_BLD_IMG_NAME_FMT: '{0}/{1}/fit/${{ matrix.linux-flavor }}:${{ github.event.inputs.CI_BLD_IMG_TAG }}'
 

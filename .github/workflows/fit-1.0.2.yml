@@ -12,6 +12,9 @@ env:
   BUILD_NUMBER: ${{ github.run_number }}
 
 jobs:
+  #
+  # Windows build
+  #
   build-windows:
     name: Windows build
     runs-on: windows-2019
@@ -59,6 +62,9 @@ jobs:
         name: fit-win64-${{ env.VERSION }}
         path: fit-win64-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.zip
 
+  #
+  # Linux build (all flavors)
+  #
   build-linux:
     name: Linux build
 
@@ -70,7 +76,7 @@ jobs:
 
     runs-on: ubuntu-20.04
     container:
-      image: ghcr.io/stonestepsinc/fit/${{ matrix.linux-flavor }}:4
+      image: ghcr.io/stonestepsinc/fit/${{ matrix.linux-flavor }}:20220527
 
     steps:
     - name: Checkout source
@@ -98,8 +104,11 @@ jobs:
         name: fit-${{ matrix.linux-flavor }}-${{ env.VERSION }}
         path: fit-${{ matrix.linux-flavor }}-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.tar.gz
 
+  #
+  # Create a draft release
+  #
   create-draft-release:
-    name: Create draft release
+    name: Create a draft release
     runs-on: ubuntu-20.04
     needs: 
     - build-windows
@@ -119,6 +128,9 @@ jobs:
         release_name: fit-${{ env.VERSION }}
         draft: true
 
+  #
+  # Upload all artifacts as draft release assets
+  #
   upload-release-assets:
     name: Upload release assets
     runs-on: ubuntu-20.04
