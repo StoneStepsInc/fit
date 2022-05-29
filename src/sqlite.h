@@ -9,7 +9,7 @@
 namespace fit {
 
 template <typename T>
-struct sqlite_malloc_deleter {
+struct sqlite_malloc_deleter_t {
    void operator ()(T *ptr)
    {
       sqlite3_free(ptr);

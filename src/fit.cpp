@@ -48,6 +48,8 @@ static const char *copyright = "Copyright (c) 2022 Stone Steps Inc.";
 
 std::atomic<bool> abort_scan = false;
 
+void close_sqlite_database(sqlite3 *file_scan_db);
+
 extern "C" void console_ctrl_c_handler(int sig)
 {
    if(sig == SIGINT || sig == SIGTERM)
@@ -262,22 +264,28 @@ sqlite3 *open_sqlite_database(const options_t& options, print_stream_t& print_st
 
       print_stream.info("Creating a new SQLite database %s", options.db_path.generic_u8string().c_str());
 
-      // files table
-      if(sqlite3_exec(file_scan_db, "create table files (scan_id INTEGER NOT NULL, version INTEGER NOT NULL, name TEXT NOT NULL, path TEXT NOT NULL, mod_time INTEGER NOT NULL, entry_size INTEGER NOT NULL, read_size INTEGER NOT NULL, hash_type VARCHAR(32) NOT NULL, hash TEXT NOT NULL);", nullptr, nullptr, &errmsg) != SQLITE_OK)
-         throw std::runtime_error("Cannot create table 'files' ("s + std::unique_ptr<char, sqlite_malloc_deleter<char>>(errmsg).get() + ")");
+      try {
+         // files table
+         if(sqlite3_exec(file_scan_db, "create table files (scan_id INTEGER NOT NULL, version INTEGER NOT NULL, name TEXT NOT NULL, path TEXT NOT NULL, mod_time INTEGER NOT NULL, entry_size INTEGER NOT NULL, read_size INTEGER NOT NULL, hash_type VARCHAR(32) NOT NULL, hash TEXT NOT NULL);", nullptr, nullptr, &errmsg) != SQLITE_OK)
+            throw std::runtime_error("Cannot create table 'files' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
-      if(sqlite3_exec(file_scan_db, "create unique index ix_files_path on files (path, version);", nullptr, nullptr, &errmsg) != SQLITE_OK)
-         throw std::runtime_error("Cannot create path index for 'files' ("s + std::unique_ptr<char, sqlite_malloc_deleter<char>>(errmsg).get());
+         if(sqlite3_exec(file_scan_db, "create unique index ix_files_path on files (path, version);", nullptr, nullptr, &errmsg) != SQLITE_OK)
+            throw std::runtime_error("Cannot create path index for 'files' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get());
 
-      if(sqlite3_exec(file_scan_db, "create index ix_files_hash on files (hash, hash_type);", nullptr, nullptr, &errmsg) != SQLITE_OK)
-         throw std::runtime_error("Cannot create a hash index for 'files' ("s + std::unique_ptr<char, sqlite_malloc_deleter<char>>(errmsg).get() + ")");
+         if(sqlite3_exec(file_scan_db, "create index ix_files_hash on files (hash, hash_type);", nullptr, nullptr, &errmsg) != SQLITE_OK)
+            throw std::runtime_error("Cannot create a hash index for 'files' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
-      // scans table
-      if(sqlite3_exec(file_scan_db, "create table scans (app_version TEXT NOT NULL, scan_time INTEGER NOT NULL, scan_path TEXT NOT NULL, base_path TEXT NOT NULL, current_path TEXT NOT NULL, message TEXT);", nullptr, nullptr, &errmsg) != SQLITE_OK)
-         throw std::runtime_error("Cannot create table 'scans' ("s + std::unique_ptr<char, sqlite_malloc_deleter<char>>(errmsg).get() + ")");
+         // scans table
+         if(sqlite3_exec(file_scan_db, "create table scans (app_version TEXT NOT NULL, scan_time INTEGER NOT NULL, scan_path TEXT NOT NULL, base_path TEXT NOT NULL, current_path TEXT NOT NULL, message TEXT);", nullptr, nullptr, &errmsg) != SQLITE_OK)
+            throw std::runtime_error("Cannot create table 'scans' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
-      if(sqlite3_exec(file_scan_db, "create index ix_scans_timestamp on scans (scan_time);", nullptr, nullptr, &errmsg) != SQLITE_OK)
-         throw std::runtime_error("Cannot create time stamp index for 'scans' ("s + std::unique_ptr<char, sqlite_malloc_deleter<char>>(errmsg).get() + ")");
+         if(sqlite3_exec(file_scan_db, "create index ix_scans_timestamp on scans (scan_time);", nullptr, nullptr, &errmsg) != SQLITE_OK)
+            throw std::runtime_error("Cannot create time stamp index for 'scans' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
+      }
+      catch (...) {
+         close_sqlite_database(file_scan_db);
+         throw;
+      }
    }
    
    return file_scan_db;
@@ -333,7 +341,7 @@ int64_t insert_scan_record(const options_t& options, sqlite3 *file_scan_db)
 int main(int argc, char *argv[])
 {
    try {
-      struct sqlite3_deleter_t {
+      struct sqlite3_database_deleter_t {
          void operator () (sqlite3 *sqlite_handle)
          {
             fit::close_sqlite_database(sqlite_handle);
@@ -371,7 +379,7 @@ int main(int argc, char *argv[])
       //
       // Open a SQLite database
       //
-      std::unique_ptr<sqlite3, sqlite3_deleter_t> file_scan_db(fit::open_sqlite_database(options, print_stream));
+      std::unique_ptr<sqlite3, sqlite3_database_deleter_t> file_scan_db(fit::open_sqlite_database(options, print_stream));
 
       int64_t scan_id = 0;
       
