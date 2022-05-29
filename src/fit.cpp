@@ -58,7 +58,7 @@ extern "C" void console_ctrl_c_handler(int sig)
 
 void print_usage(void)
 {
-   printf("%s (%s) -- %s\n", title, version, copyright);
+   printf("%s (fit) %s -- %s\n", title, version, copyright);
 
    fputs("\nUsage: fit [options]\n\n", stdout);
 
@@ -357,7 +357,7 @@ int main(int argc, char *argv[])
 
       fit::verify_options(options);
 
-      printf("%s (%s) -- %s\n\n", fit::title, fit::version, fit::copyright);
+      printf("%s (fit) %s -- %s\n\n", fit::title, fit::version, fit::copyright);
 
       signal(SIGINT, fit::console_ctrl_c_handler);
       signal(SIGTERM, fit::console_ctrl_c_handler);
