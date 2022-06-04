@@ -56,7 +56,7 @@ void sqlite_stmt_binder_t::bind_param(nullptr_t)
    int errcode;
 
    if((errcode = sqlite3_bind_null(stmt, ++index)) != SQLITE_OK)
-      throw std::runtime_error(name + ": cannot bind NULL parameter ("s + sqlite3_errstr(errcode) + ")"s);
+      throw std::runtime_error(name + ": cannot bind a NULL parameter ("s + sqlite3_errstr(errcode) + ")"s);
 }
 
 void sqlite_stmt_binder_t::bind_param(int64_t value)
@@ -67,7 +67,7 @@ void sqlite_stmt_binder_t::bind_param(int64_t value)
    int errcode;
 
    if((errcode = sqlite3_bind_int64(stmt, ++index, value)) != SQLITE_OK)
-      throw std::runtime_error(name + ": cannot bind int64 parameter ("s + sqlite3_errstr(errcode) + ")"s);
+      throw std::runtime_error(name + ": cannot bind an int64 parameter ("s + sqlite3_errstr(errcode) + ")"s);
 }
 
 void sqlite_stmt_binder_t::bind_param(const std::string& value)
@@ -78,7 +78,7 @@ void sqlite_stmt_binder_t::bind_param(const std::string& value)
    int errcode;
 
    if((errcode = sqlite3_bind_text(stmt, ++index, value.c_str(), static_cast<int>(value.size()), SQLITE_TRANSIENT)) != SQLITE_OK)
-      throw std::runtime_error(name + ": cannot bind string parameter ("s + sqlite3_errstr(errcode) + ")"s);
+      throw std::runtime_error(name + ": cannot bind a string parameter ("s + sqlite3_errstr(errcode) + ")"s);
 }
 
 void sqlite_stmt_binder_t::bind_param(const std::string_view& value)
@@ -89,7 +89,7 @@ void sqlite_stmt_binder_t::bind_param(const std::string_view& value)
    int errcode;
 
    if((errcode = sqlite3_bind_text(stmt, ++index, value.data(), static_cast<int>(value.size()), SQLITE_TRANSIENT)) != SQLITE_OK)
-      throw std::runtime_error(name + ": cannot bind string view parameter ("s + sqlite3_errstr(errcode) + ")"s);
+      throw std::runtime_error(name + ": cannot bind a string view parameter ("s + sqlite3_errstr(errcode) + ")"s);
 }
 
 void sqlite_stmt_binder_t::bind_param(const void *value, size_t size)
@@ -100,7 +100,7 @@ void sqlite_stmt_binder_t::bind_param(const void *value, size_t size)
    int errcode;
 
    if((errcode = sqlite3_bind_blob(stmt, ++index, value, static_cast<int>(size), SQLITE_TRANSIENT)) != SQLITE_OK)
-      throw std::runtime_error(name + ": cannot bind binary parameter ("s + sqlite3_errstr(errcode) + ")"s);
+      throw std::runtime_error(name + ": cannot bind a binary parameter ("s + sqlite3_errstr(errcode) + ")"s);
 }
 
 //
