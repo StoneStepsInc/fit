@@ -276,7 +276,7 @@ sqlite3 *open_sqlite_database(const options_t& options, print_stream_t& print_st
             throw std::runtime_error("Cannot create a hash index for 'files' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
          // scans table
-         if(sqlite3_exec(file_scan_db, "create table scans (app_version TEXT NOT NULL, scan_time INTEGER NOT NULL, scan_path TEXT NOT NULL, base_path TEXT NOT NULL, current_path TEXT NOT NULL, message TEXT);", nullptr, nullptr, &errmsg) != SQLITE_OK)
+         if(sqlite3_exec(file_scan_db, "create table scans (app_version TEXT NOT NULL, scan_time INTEGER NOT NULL, scan_path TEXT NOT NULL, base_path TEXT NULL, current_path TEXT NOT NULL, message TEXT);", nullptr, nullptr, &errmsg) != SQLITE_OK)
             throw std::runtime_error("Cannot create table 'scans' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
          if(sqlite3_exec(file_scan_db, "create index ix_scans_timestamp on scans (scan_time);", nullptr, nullptr, &errmsg) != SQLITE_OK)
@@ -306,6 +306,7 @@ int64_t insert_scan_record(const options_t& options, sqlite3 *file_scan_db)
 
    sqlite3_stmt *stmt_insert_scan = nullptr;
 
+   //                                                               1          2          3          4             5        6
    std::string_view sql_insert_scan = "insert into scans (app_version, scan_time, scan_path, base_path, current_path, message) values (?, ?, ?, ?, ?, ?)"sv;
 
    // SQLite docs say there's a small performance gain if the null terminator is included in length
@@ -315,7 +316,12 @@ int64_t insert_scan_record(const options_t& options, sqlite3 *file_scan_db)
    errcode = sqlite3_bind_text(stmt_insert_scan, 1, version, -1, SQLITE_STATIC);
    errcode = sqlite3_bind_int64(stmt_insert_scan, 2, std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
    errcode = sqlite3_bind_text(stmt_insert_scan, 3, options.scan_path.u8string().c_str(), static_cast<int>(options.scan_path.u8string().size()), SQLITE_TRANSIENT);
-   errcode = sqlite3_bind_text(stmt_insert_scan, 4, options.base_path.u8string().c_str(), static_cast<int>(options.base_path.u8string().size()), SQLITE_TRANSIENT);
+
+   if(options.base_path.empty())
+      errcode = sqlite3_bind_null(stmt_insert_scan, 4);
+   else
+      errcode = sqlite3_bind_text(stmt_insert_scan, 4, options.base_path.u8string().c_str(), static_cast<int>(options.base_path.u8string().size()), SQLITE_TRANSIENT);
+
    errcode = sqlite3_bind_text(stmt_insert_scan, 5, std::filesystem::current_path().u8string().c_str(), static_cast<int>(std::filesystem::current_path().u8string().size()), SQLITE_TRANSIENT);
 
    if(options.scan_message.empty())
