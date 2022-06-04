@@ -311,7 +311,7 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
                                           "entry_size INTEGER NOT NULL,"
                                           "read_size INTEGER NOT NULL, "
                                           "hash_type VARCHAR(32) NOT NULL,"
-                                          "hash TEXT NOT NULL);", nullptr, nullptr, &errmsg) != SQLITE_OK)
+                                          "hash TEXT);", nullptr, nullptr, &errmsg) != SQLITE_OK)
             throw std::runtime_error("Cannot create table 'files' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
          if(sqlite3_exec(file_scan_db, "create unique index ix_files_path on files (path, version);", nullptr, nullptr, &errmsg) != SQLITE_OK)

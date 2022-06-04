@@ -42,14 +42,28 @@ INSERT INTO upgrades (
 );
 
 --
--- Change base_path to allow NULL values
+-- Change base_path to allow NULL and update zero-length paths to NULL
 --
-ALTER TABLE scans ADD COLUMN base_path_new TEXT NULL;
+ALTER TABLE scans ADD COLUMN base_path_new TEXT;
 
 UPDATE scans SET base_path_new=(CASE length(base_path) WHEN 0 THEN NULL ELSE base_path END);
 
 ALTER TABLE scans DROP COLUMN base_path;
 ALTER TABLE scans RENAME COLUMN base_path_new TO base_path;
+
+--
+-- Change hash to allow NULL and update zero-length file hashes to NULL
+--
+ALTER TABLE files ADD COLUMN hash_new TEXT;
+
+UPDATE files SET hash_new=(CASE entry_size WHEN 0 THEN NULL ELSE hash END);
+
+DROP INDEX ix_files_hash;
+
+ALTER TABLE files DROP COLUMN hash;
+ALTER TABLE files RENAME COLUMN hash_new TO hash;
+
+CREATE INDEX ix_files_hash ON files (hash, hash_type);
 
 --
 -- Set the target database version

@@ -145,15 +145,20 @@ void file_hasher_t::hash_file(const std::filesystem::path& filepath, uint64_t& f
    if(std::ferror(file.get()))
       throw std::runtime_error("Cannot read file (" + std::string(strerror(errno)) + ") " + filepath.u8string());
 
-   uint8_t filehash[SHA256_SIZE_BYTES];
+   // hash for zero-length files should not be evaluated
+   if(!filesize)
+      memset(hexhash, 0, SHA256_SIZE_BYTES);
+   else {
+      uint8_t filehash[SHA256_SIZE_BYTES];
 
-   sha256_done(&ctx, filehash);
+      sha256_done(&ctx, filehash);
 
-   static const char hex[] = "0123456789abcdef";
+      static const char hex[] = "0123456789abcdef";
 
-   for(size_t i = 0; i < SHA256_SIZE_BYTES; i++) {
-      hexhash[i*2] = hex[(*(filehash+i) & 0xF0) >> 4];
-      hexhash[i*2+1] = hex[*(filehash+i) & 0x0F];
+      for(size_t i = 0; i < SHA256_SIZE_BYTES; i++) {
+         hexhash[i*2] = hex[(*(filehash+i) & 0xF0) >> 4];
+         hexhash[i*2+1] = hex[*(filehash+i) & 0x0F];
+      }
    }
 }
 
@@ -248,14 +253,19 @@ void file_hasher_t::run(void)
 
             // compare the stored hash against the one we just computed
             if(std::string_view(reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 2)), sqlite3_column_bytes(stmt_find_file, 2)) == "SHA256"sv) {
-               if(sqlite3_column_bytes(stmt_find_file, 3) != SHA256_HEX_SIZE)
-                  throw std::runtime_error("Bad hash size for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
+               // consider a zero-length file hash as if it's a NULL            
+               if(sqlite3_column_type(stmt_find_file, 3) == SQLITE_NULL)
+                  hash_match = filesize == 0;
+               else {
+                  if(sqlite3_column_bytes(stmt_find_file, 3) != SHA256_HEX_SIZE)
+                     throw std::runtime_error("Bad hash size for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
 
-               // compare in-place, unless scanning with delayed hashing was requested
-               if(options.verify_files || !options.skip_hash_mod_time)
-                  hash_match = memcmp(hexhash_file, reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 3)), SHA256_HEX_SIZE) == 0;
-               else
-                  memcpy(hexhash_field, reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 3)), SHA256_HEX_SIZE);
+                  // compare in-place, unless scanning with delayed hashing was requested
+                  if(options.verify_files || !options.skip_hash_mod_time)
+                     hash_match = memcmp(hexhash_file, reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 3)), SHA256_HEX_SIZE) == 0;
+                  else
+                     memcpy(hexhash_field, reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 3)), SHA256_HEX_SIZE);
+               }
             }
             else
                throw std::runtime_error("Unknown hash type: "s + reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 2)));
@@ -330,7 +340,11 @@ void file_hasher_t::run(void)
                // hash_type
                insert_file_stmt.skip_param();
 
-               insert_file_stmt.bind_param(std::string_view(reinterpret_cast<const char*>(hexhash_file), SHA256_HEX_SIZE));
+               // insert a NULL for a zero-length file
+               if(!filesize)
+                  insert_file_stmt.bind_param(nullptr);
+               else
+                  insert_file_stmt.bind_param(std::string_view(reinterpret_cast<const char*>(hexhash_file), SHA256_HEX_SIZE));
 
                //
                // If we get SQLITE_BUSY after the busy handler runs for allowed

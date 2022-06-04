@@ -48,6 +48,17 @@ void sqlite_stmt_binder_t::skip_param(void)
    ++index;
 }
 
+void sqlite_stmt_binder_t::bind_param(nullptr_t)
+{
+   if(!stmt)
+      throw std::runtime_error(err_null_stmt_msg + "(" + name + ")");
+
+   int errcode;
+
+   if((errcode = sqlite3_bind_null(stmt, ++index)) != SQLITE_OK)
+      throw std::runtime_error(name + ": cannot bind NULL parameter ("s + sqlite3_errstr(errcode) + ")"s);
+}
+
 void sqlite_stmt_binder_t::bind_param(int64_t value)
 {
    if(!stmt)

@@ -42,6 +42,8 @@ class sqlite_stmt_binder_t {
 
       void skip_param(void);
 
+      void bind_param(nullptr_t);
+
       void bind_param(int64_t value);
 
       void bind_param(const std::string& value);
