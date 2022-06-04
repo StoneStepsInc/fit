@@ -46,6 +46,20 @@ static const char *title = "File Integrity Tracker";
 static const char *version = "1.1.0+" STR_BUILD_NUMBER(BUILD_NUMBER);
 static const char *copyright = "Copyright (c) 2022 Stone Steps Inc.";
 
+//
+// A two-component database schema version is stored in the SQLite
+// database header under user_version, which is an `int` field,
+// and can be accessed via `PRAGMA user_version;`. The database
+// version is not related to the application version and is
+// incremented when the database schema is modified in any way.
+// 
+// The most significant component of the database schema version
+// is incremented when the schema is changed in the trunk (e.g.
+// 1.0, 2.0, 3.0). The least significant component is incremented
+// when database schema changes in patch-level branches.
+// 
+static const int DB_SCHEMA_VERSION = 10;
+
 std::atomic<bool> abort_scan = false;
 
 void close_sqlite_database(sqlite3 *file_scan_db);
@@ -233,7 +247,12 @@ void verify_options(options_t& options)
    }
 }
 
-sqlite3 *open_sqlite_database(const options_t& options, print_stream_t& print_stream)
+std::string schema_version_string(int schema_version)
+{
+   return std::to_string(schema_version/10) + "." + std::to_string(schema_version%10);
+}
+
+sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, print_stream_t& print_stream)
 {
    sqlite3 *file_scan_db = nullptr;
 
@@ -254,17 +273,34 @@ sqlite3 *open_sqlite_database(const options_t& options, print_stream_t& print_st
    int errcode = SQLITE_OK;
    int sqlite_flags = options.verify_files ? SQLITE_OPEN_READONLY : SQLITE_OPEN_READWRITE;
 
-   if((errcode = sqlite3_open_v2(options.db_path.u8string().c_str(), &file_scan_db, sqlite_flags, nullptr)) != SQLITE_OK) {
+   try {
+      // attempt to open an existing database first
+      if((errcode = sqlite3_open_v2(options.db_path.u8string().c_str(), &file_scan_db, sqlite_flags, nullptr)) == SQLITE_OK) {
+         sqlite3_stmt *pragma_user_ver = nullptr;
 
-      if(options.verify_files)
-         throw std::runtime_error("Cannot open a SQLite database in "s + options.db_path.generic_u8string());
+         if((errcode = sqlite3_prepare_v2(file_scan_db, "PRAGMA user_version;", -1, &pragma_user_ver, nullptr)) != SQLITE_OK)
+            throw std::runtime_error("Cannot prepare a SQLite statement for a database schema version ("s + sqlite3_errstr(errcode) + ")");
+      
+         errcode = sqlite3_step(pragma_user_ver);
 
-      if((errcode = sqlite3_open_v2(options.db_path.u8string().c_str(), &file_scan_db, sqlite_flags | SQLITE_OPEN_CREATE, nullptr)) != SQLITE_OK)
-         throw std::runtime_error(sqlite3_errstr(errcode));
+         if(errcode != SQLITE_ROW)
+            schema_version = 0;
+         else
+            schema_version = sqlite3_column_int(pragma_user_ver, 0);
 
-      print_stream.info("Creating a new SQLite database %s", options.db_path.generic_u8string().c_str());
+         if((errcode = sqlite3_finalize(pragma_user_ver)) != SQLITE_OK)
+            fprintf(stderr, "Cannot finalize SQLite statment for a database schema version (%s)", sqlite3_errstr(errcode));
+      }
+      else {
+         if(options.verify_files)
+            throw std::runtime_error("Cannot open a SQLite database in "s + options.db_path.generic_u8string());
 
-      try {
+         // attempt to create a new database
+         if((errcode = sqlite3_open_v2(options.db_path.u8string().c_str(), &file_scan_db, sqlite_flags | SQLITE_OPEN_CREATE, nullptr)) != SQLITE_OK)
+            throw std::runtime_error(sqlite3_errstr(errcode));
+
+         print_stream.info("Creating a new SQLite database %s", options.db_path.generic_u8string().c_str());
+
          // files table
          if(sqlite3_exec(file_scan_db, "create table files (scan_id INTEGER NOT NULL, version INTEGER NOT NULL, name TEXT NOT NULL, path TEXT NOT NULL, mod_time INTEGER NOT NULL, entry_size INTEGER NOT NULL, read_size INTEGER NOT NULL, hash_type VARCHAR(32) NOT NULL, hash TEXT NOT NULL);", nullptr, nullptr, &errmsg) != SQLITE_OK)
             throw std::runtime_error("Cannot create table 'files' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
@@ -281,11 +317,18 @@ sqlite3 *open_sqlite_database(const options_t& options, print_stream_t& print_st
 
          if(sqlite3_exec(file_scan_db, "create index ix_scans_timestamp on scans (scan_time);", nullptr, nullptr, &errmsg) != SQLITE_OK)
             throw std::runtime_error("Cannot create time stamp index for 'scans' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
+
+         // set the current database schema version
+         if(sqlite3_exec(file_scan_db, ("PRAGMA user_version="+std::to_string(DB_SCHEMA_VERSION)+";").c_str(), nullptr, nullptr, &errmsg) != SQLITE_OK)
+            throw std::runtime_error("Cannot set a database schema version ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
+
+         schema_version = DB_SCHEMA_VERSION;
       }
-      catch (...) {
+   }
+   catch (...) {
+      if(file_scan_db)
          close_sqlite_database(file_scan_db);
-         throw;
-      }
+      throw;
    }
    
    return file_scan_db;
@@ -385,7 +428,12 @@ int main(int argc, char *argv[])
       //
       // Open a SQLite database
       //
-      std::unique_ptr<sqlite3, sqlite3_database_deleter_t> file_scan_db(fit::open_sqlite_database(options, print_stream));
+      int schema_version = 0;
+
+      std::unique_ptr<sqlite3, sqlite3_database_deleter_t> file_scan_db(fit::open_sqlite_database(options, schema_version, print_stream));
+
+      if(schema_version != fit::DB_SCHEMA_VERSION)
+         throw std::runtime_error("Database must be upgraded from v"s + fit::schema_version_string(schema_version) + " to v"s + fit::schema_version_string(fit::DB_SCHEMA_VERSION));
 
       int64_t scan_id = 0;
       
