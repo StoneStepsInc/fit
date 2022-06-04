@@ -25,8 +25,6 @@ struct sqlite_malloc_deleter_t {
 // statement resources and locks acquired after the last execution.
 //
 class sqlite_stmt_binder_t {
-   static const std::string err_null_stmt_msg;
-
    int index = 0;                // parameter 1-based binding index
 
    std::string name;             // statement name for error reporting purposes
@@ -51,6 +49,34 @@ class sqlite_stmt_binder_t {
       void bind_param(const std::string_view& value);
 
       void bind_param(const void *value, size_t size);
+};
+
+//
+// A SQLite statement convenience wrapper class.
+//
+class sqlite_stmt_t {
+   std::string name;             // statement name for error reporting purposes
+
+   sqlite3_stmt *stmt;           // SQLite statement
+
+   public:
+      sqlite_stmt_t(const std::string_view& name);
+
+      sqlite_stmt_t(sqlite_stmt_t&& other);
+
+      ~sqlite_stmt_t(void);
+
+      operator bool (void) const;
+
+      operator sqlite3_stmt* (void);
+
+      operator const sqlite3_stmt* (void) const;
+
+      int prepare(sqlite3 *db, const std::string_view& sql);
+
+      int prepare(sqlite3 *db, std::string_view sql, std::string_view& sqltail);
+
+      int finalize(void);
 };
 
 }

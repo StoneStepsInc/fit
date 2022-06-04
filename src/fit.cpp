@@ -276,19 +276,19 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
    try {
       // attempt to open an existing database first
       if((errcode = sqlite3_open_v2(options.db_path.u8string().c_str(), &file_scan_db, sqlite_flags, nullptr)) == SQLITE_OK) {
-         sqlite3_stmt *pragma_user_ver = nullptr;
+         sqlite_stmt_t user_version_stmt("PRAGMA user_version"sv);
 
-         if((errcode = sqlite3_prepare_v2(file_scan_db, "PRAGMA user_version;", -1, &pragma_user_ver, nullptr)) != SQLITE_OK)
+         if((errcode = user_version_stmt.prepare(file_scan_db, "PRAGMA user_version;"sv)) != SQLITE_OK)
             throw std::runtime_error("Cannot prepare a SQLite statement for a database schema version ("s + sqlite3_errstr(errcode) + ")");
       
-         errcode = sqlite3_step(pragma_user_ver);
+         errcode = sqlite3_step(user_version_stmt);
 
          if(errcode != SQLITE_ROW)
             schema_version = 0;
          else
-            schema_version = sqlite3_column_int(pragma_user_ver, 0);
+            schema_version = sqlite3_column_int(user_version_stmt, 0);
 
-         if((errcode = sqlite3_finalize(pragma_user_ver)) != SQLITE_OK)
+         if((errcode = user_version_stmt.finalize()) != SQLITE_OK)
             fprintf(stderr, "Cannot finalize SQLite statment for a database schema version (%s)", sqlite3_errstr(errcode));
       }
       else {
@@ -302,7 +302,16 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
          print_stream.info("Creating a new SQLite database %s", options.db_path.generic_u8string().c_str());
 
          // files table
-         if(sqlite3_exec(file_scan_db, "create table files (scan_id INTEGER NOT NULL, version INTEGER NOT NULL, name TEXT NOT NULL, path TEXT NOT NULL, mod_time INTEGER NOT NULL, entry_size INTEGER NOT NULL, read_size INTEGER NOT NULL, hash_type VARCHAR(32) NOT NULL, hash TEXT NOT NULL);", nullptr, nullptr, &errmsg) != SQLITE_OK)
+         if(sqlite3_exec(file_scan_db, "create table files ("
+                                          "scan_id INTEGER NOT NULL,"
+                                          "version INTEGER NOT NULL,"
+                                          "name TEXT NOT NULL,"
+                                          "path TEXT NOT NULL,"
+                                          "mod_time INTEGER NOT NULL,"
+                                          "entry_size INTEGER NOT NULL,"
+                                          "read_size INTEGER NOT NULL, "
+                                          "hash_type VARCHAR(32) NOT NULL,"
+                                          "hash TEXT NOT NULL);", nullptr, nullptr, &errmsg) != SQLITE_OK)
             throw std::runtime_error("Cannot create table 'files' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
          if(sqlite3_exec(file_scan_db, "create unique index ix_files_path on files (path, version);", nullptr, nullptr, &errmsg) != SQLITE_OK)
@@ -312,7 +321,13 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
             throw std::runtime_error("Cannot create a hash index for 'files' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
          // scans table
-         if(sqlite3_exec(file_scan_db, "create table scans (app_version TEXT NOT NULL, scan_time INTEGER NOT NULL, scan_path TEXT NOT NULL, base_path TEXT NULL, current_path TEXT NOT NULL, message TEXT);", nullptr, nullptr, &errmsg) != SQLITE_OK)
+         if(sqlite3_exec(file_scan_db, "create table scans ("
+                                          "app_version TEXT NOT NULL,"
+                                          "scan_time INTEGER NOT NULL,"
+                                          "scan_path TEXT NOT NULL,"
+                                          "base_path TEXT,"
+                                          "current_path TEXT NOT NULL,"
+                                          "message TEXT);", nullptr, nullptr, &errmsg) != SQLITE_OK)
             throw std::runtime_error("Cannot create table 'scans' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
          if(sqlite3_exec(file_scan_db, "create index ix_scans_timestamp on scans (scan_time);", nullptr, nullptr, &errmsg) != SQLITE_OK)
