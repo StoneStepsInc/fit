@@ -20,10 +20,9 @@ struct sqlite_malloc_deleter_t {
 // A SQLite statement parameter binder class.
 //
 // In addition to binding parameters, this class also works as a
-// scoped SQLite statement binde/reset wrapper. Note that SQLite's
-// statement reset leaves bound parameters intact and instead
-// releases statement resources and locks acquired after the last
-// execution.
+// scoped SQLite statement bind/reset wrapper. Note that SQLite's
+// statement reset leaves bound parameters intact and just releases
+// statement resources and locks acquired after the last execution.
 //
 class sqlite_stmt_binder_t {
    static const std::string err_null_stmt_msg;
