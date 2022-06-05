@@ -345,7 +345,8 @@ Current source compiles on Linux, but very little testing was
 done to verify the results.
 
 SQLite development package needs to be installed (e.g. `sqlite-devel`
-on Fedora).
+on Fedora). See Docker files in `devops` for a list of packages
+required to build Linux flavor.
 
 SHA-256 does not have a package and may be obtained via a script
 included in the project (`get-sha256`). After running the script,
