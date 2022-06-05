@@ -31,6 +31,9 @@ CREATE TABLE IF NOT EXISTS upgrades (
   upgrade_time INTEGER NOT NULL
 );
 
+--
+-- `unixepoch()` was added in SQLite 3.38.0 - use `strftime()`.
+--
 INSERT INTO upgrades (
   upgrade_from,
   upgrade_to,
@@ -38,7 +41,7 @@ INSERT INTO upgrades (
 ) VALUES (
   (select user_version from pragma_user_version()),
   10,
-  unixepoch()
+  CAST(strftime('%s', 'now') AS INTEGER)
 );
 
 --
