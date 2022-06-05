@@ -1,3 +1,6 @@
+#
+# This workflow builds Docker images for Linux CI builds.
+#
 name: Build CI images
 
 on:

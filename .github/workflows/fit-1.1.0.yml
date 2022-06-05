@@ -1,4 +1,10 @@
 #
+# This CI workflow builds fit packages for all supported platforms
+# and creates a draft GitHub release with packages built in this
+# workflow uploaded as assets.
+#
+
+#
 # GitHub maintains the run number sequence per workflow file name,
 # which means that this file needs to be renamed when the version
 # is changed, so the run number starts a new sequence.
@@ -44,17 +50,20 @@ jobs:
 
       #
       # The only way to avoid hard-coded references to Nuget packages
-      # is to build it as a VS project. Use the hard-coded version for
-      # now and if SQLite gets updated more than expected, a dedicated
-      # packaging VS project may be introduced into this solution.
+      # is to build the application package as a VS project. Use the
+      # hard-coded Nuget version for now and if SQLite gets updated
+      # more than expected, a dedicated packaging VS project may be
+      # introduced into this solution.
       #
     - name: Create Windows package
       run: |
         mkdir fit-${{ env.VERSION }}-windows
+        mkdir fit-${{ env.VERSION }}-windows\sql
         copy /y x64\Release\fit.exe fit-${{ env.VERSION }}-windows
         copy /y packages\StoneSteps.SQLite.Static.3.38.2.2\build\native\bin\sqlite3.exe fit-${{ env.VERSION }}-windows
         copy /y README.md fit-${{ env.VERSION }}-windows
         copy /y LICENSE. fit-${{ env.VERSION }}-windows
+        copy /y sql\* fit-${{ env.VERSION }}-windows\sql\
         7z a fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.windows.x64.zip fit-${{ env.VERSION }}-windows
 
     - name: Upload Windows package
@@ -95,9 +104,11 @@ jobs:
     - name: Create ${{ matrix.linux-flavor }} package
       run: |
         mkdir fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}
+        mkdir fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}/sql
         cp build/fit fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}
         cp README.md fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}
         cp LICENSE fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}
+        cp sql/* fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}/sql
         tar czf fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.${{ matrix.linux-flavor }}.x64.tar.gz fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}
 
     - name: Upload ${{ matrix.linux-flavor }} package
