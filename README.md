@@ -206,7 +206,7 @@ without the `-v` option and has the following fields:
 
     The scan directory path, derived from the `-d` option.
 
-  * `base_path` `TEXT NOT NULL`
+  * `base_path` `TEXT`
 
     The base path, derived from the `-p` option.
 
@@ -286,56 +286,45 @@ following fields:
     version of the application, so this column will always be set
     to `SHA256`.
 
-  * `hash` `TEXT NOT NULL`
+  * `hash` `TEXT`
 
     A file checksum value in hex format using lowercase characters
-    for letters `abcdef`.
+    for letters `abcdef`. A hash will be `NULL` for zero-length
+    files.
 
 ### Useful SQL
 
-You can run SQL queries against the SQLite database using SQLite
-shell included in the application package. 
-
-#### Latest File Checksum
-
-    select path, hash
-    from files
-    where path = 'path\to\file'
-    order by version desc
-    limit 1;
-
-#### Select Files by Checksum
-
-    select 
-        version,
-        path,
-        datetime(mod_time-11644473600, 'unixepoch') as mod_time,
-        entry_size
-    from files
-    where hash = 'hash-value' COLLATE NOCASE
-    order by path, version desc;
-
-A SHA-256 hash may be computed on Windows using `certutil` as
+You can run SQL queries against the SQLite database using the
+SQLite shell. A few SQL scripts can be found in the `sql` directory.
+Those SQL scripts that do not require input can be executed as
 follows:
 
-    certutil -hashfile path\to\file SHA256
+    sqlite3 -line sqlite.db < sql/list-scans.sql
 
-#### Select Duplicate Files
+The `-line` switch lists each column on its own line. SQlite has
+a few more output options, such as `-json`.
 
-    select
-        version,
-        path,
-        datetime(mod_time-11644473600, 'unixepoch') as mod_time,
-        entry_size,
-        hash
-    from files
-    where hash in (
-        select hash
-        from files
-        group by hash
-        having count(hash) > 1
-    )
-    order by path, version desc;
+Scripts that require input may be executed as follows:
+
+    sqlite -line -cmd ".param set @FILENAME abc.txt" < sql/show-file-by-name.sql
+
+See each script for available input values.
+
+### Upgrading Database
+
+The database may occasionally be changed between application
+releases and needs to be upgraded before the new version of the
+application can work with the database file.
+
+Database upgrades are not automatic and need to be performed
+manually via SQL script with matching from/to database schema
+versions in the `sql` directory. The source and target database
+versions are reported by `fit` when the database cannot be
+opened because of a database version mismatch.
+
+Note that the database version is distinctly different from
+the application version and is changed only when the database
+schema is modified.
 
 ## Source
 
