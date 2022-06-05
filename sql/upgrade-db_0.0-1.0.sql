@@ -3,6 +3,8 @@
 --
 .bail on
 
+BEGIN TRANSACTION;
+
 .print Checking current database version
 
 --
@@ -72,3 +74,5 @@ CREATE INDEX ix_files_hash ON files (hash, hash_type);
 -- Set the target database version
 --
 PRAGMA user_version=10;
+
+COMMIT TRANSACTION;
