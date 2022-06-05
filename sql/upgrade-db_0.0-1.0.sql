@@ -1,6 +1,14 @@
 --
--- Stop and exit if any statement triggered an error.
+-- This script updates the database schema from the initial 0.0 to
+-- the current 1.0 version.
+
+-- The script uses the DROP COLUMN statement, which was introduced
+-- in 3.35.0 (March of 2021), and will fail in earlier SQLite
+-- versions. DROP COLUMN may be replaced with RENAME COLUMN for
+-- older versions of SQLite.
 --
+
+-- stop and exit if any statement triggered an error.
 .bail on
 
 BEGIN TRANSACTION;
@@ -34,7 +42,7 @@ CREATE TABLE IF NOT EXISTS upgrades (
 );
 
 --
--- `unixepoch()` was added in SQLite 3.38.0 - use `strftime()`.
+-- unixepoch() was added in SQLite 3.38.0 - use strftime().
 --
 INSERT INTO upgrades (
   upgrade_from,
