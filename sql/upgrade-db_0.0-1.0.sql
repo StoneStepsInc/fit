@@ -1,5 +1,5 @@
 --
--- This script updates the database schema from the initial 0.0 to
+-- This script upgrades the database schema from the initial 0.0 to
 -- the current 1.0 version.
 
 -- The script uses the DROP COLUMN statement, which was introduced
@@ -8,7 +8,7 @@
 -- older versions of SQLite.
 --
 
--- stop and exit if any statement triggered an error.
+-- stop and exit if any statement triggered an error
 .bail on
 
 BEGIN TRANSACTION;
@@ -26,6 +26,7 @@ CREATE TEMPORARY TABLE user_version_trap (
   never_null INTEGER NOT NULL
 );
 
+-- the value in WHEN is the expected version
 INSERT INTO user_version_trap VALUES (
   CASE (select user_version from pragma_user_version())
     WHEN 0 THEN 1
@@ -42,7 +43,7 @@ CREATE TABLE IF NOT EXISTS upgrades (
 );
 
 --
--- unixepoch() was added in SQLite 3.38.0 - use strftime().
+-- unixepoch() was added in SQLite 3.38.0 - use strftime() instead
 --
 INSERT INTO upgrades (
   upgrade_from,

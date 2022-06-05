@@ -1,10 +1,13 @@
+--
+-- sqlite3 -line sqlite.db < sql/list-scans.sql
+--
 select
   scans.rowid as scan_id,
   datetime(scan_time, 'unixepoch') as scan_time,
   app_version,
   count(files.rowid) as file_count,
-  round(sum(entry_size) / 1000., 2) as size_in_kb,
-  round(avg(entry_size) / 1000., 2) as avg_size_in_kb,
+  round(sum(entry_size) / 1000., 3) as entry_size_kb,
+  round(avg(entry_size) / 1000., 3) as avg_entry_size_kb,
   scan_path,
   base_path,
   current_path,
