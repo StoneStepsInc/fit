@@ -6,6 +6,8 @@
 #include <string>
 #include <string_view>
 
+#include <cstddef>
+
 namespace fit {
 
 template <typename T>
