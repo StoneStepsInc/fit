@@ -166,7 +166,7 @@ int sqlite_stmt_t::prepare(sqlite3 *db, std::string_view sql, std::string_view& 
    int retval = sqlite3_prepare_v2(db, sql.data(), static_cast<int>(sql.size()), &stmt, &tail);
 
    // stmt may be NULL if all we have is a non-SQL trailer
-   if(tail)
+   if(stmt)
       sqltail = std::string_view(tail, sql.size() - (tail - sql.data()));
    else
       sqltail = std::string_view();
