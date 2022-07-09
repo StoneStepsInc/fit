@@ -58,7 +58,7 @@ static const char *copyright = "Copyright (c) 2022 Stone Steps Inc.";
 // 1.0, 2.0, 3.0). The least significant component is incremented
 // when database schema changes in patch-level branches.
 // 
-static const int DB_SCHEMA_VERSION = 10;
+static const int DB_SCHEMA_VERSION = 20;
 
 std::atomic<bool> abort_scan = false;
 
@@ -306,6 +306,7 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
                                           "scan_id INTEGER NOT NULL,"
                                           "version INTEGER NOT NULL,"
                                           "name TEXT NOT NULL,"
+                                          "ext TEXT NULL,"
                                           "path TEXT NOT NULL,"
                                           "mod_time INTEGER NOT NULL,"
                                           "entry_size INTEGER NOT NULL,"

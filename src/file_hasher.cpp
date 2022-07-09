@@ -53,8 +53,8 @@ file_hasher_t::file_hasher_t(const options_t& options, int64_t scan_id, std::que
    if((errcode = sqlite3_busy_handler(file_scan_db, sqlite_busy_handler_cb, nullptr)) != SQLITE_OK)
       throw std::runtime_error(sqlite3_errstr(errcode));
    
-   // insert statement for new file records                     1     2     3        3         5           5          6          8     9
-   std::string_view sql_insert_file = "insert into files (scan_id, name, path, version, mod_time, entry_size, read_size, hash_type, hash) values (?, ?, ?, ?, ?, ?, ?, ?, ?)"sv;
+   // insert statement for new file records                     1     2    3     3        5         5           6          8          9    10
+   std::string_view sql_insert_file = "insert into files (scan_id, name, ext, path, version, mod_time, entry_size, read_size, hash_type, hash) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"sv;
 
    if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_file.data(), (int) sql_insert_file.length()+1, &stmt_insert_file, nullptr)) != SQLITE_OK)
       print_stream.error("Cannot prepare a SQLite statement to insert a file (%s)", sqlite3_errstr(errcode));
@@ -62,7 +62,7 @@ file_hasher_t::file_hasher_t(const options_t& options, int64_t scan_id, std::que
    if((errcode = sqlite3_bind_int64(stmt_insert_file, 1, scan_id)) != SQLITE_OK)
       print_stream.error("Cannot bind a scan ID for a SQLite statement to insert a file (%s)", sqlite3_errstr(errcode));
 
-   if((errcode = sqlite3_bind_text(stmt_insert_file, 8, hash_type.data(), static_cast<int>(hash_type.size()), SQLITE_TRANSIENT)) != SQLITE_OK)
+   if((errcode = sqlite3_bind_text(stmt_insert_file, 9, hash_type.data(), static_cast<int>(hash_type.size()), SQLITE_TRANSIENT)) != SQLITE_OK)
       print_stream.error("Cannot bind a scan ID for a SQLite statement to insert a file (%s)", sqlite3_errstr(errcode));
 
    // select statement to look-up files by their path
@@ -320,7 +320,14 @@ void file_hasher_t::run(void)
                insert_file_stmt.skip_param();
 
                insert_file_stmt.bind_param(dir_entry.path().filename().u8string());
+
+               if(dir_entry.path().extension().empty())
+                  insert_file_stmt.bind_param(nullptr);
+               else
+                  insert_file_stmt.bind_param(dir_entry.path().extension().u8string());
+
                insert_file_stmt.bind_param(filepath);
+
                insert_file_stmt.bind_param(version+1);
 
                //
