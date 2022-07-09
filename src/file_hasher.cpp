@@ -62,10 +62,12 @@ file_hasher_t::file_hasher_t(const options_t& options, int64_t scan_id, std::que
    if((errcode = sqlite3_bind_int64(stmt_insert_file, 1, scan_id)) != SQLITE_OK)
       print_stream.error("Cannot bind a scan ID for a SQLite statement to insert a file (%s)", sqlite3_errstr(errcode));
 
-   // select statement to look-up files by their path
    if((errcode = sqlite3_bind_text(stmt_insert_file, 8, hash_type.data(), static_cast<int>(hash_type.size()), SQLITE_TRANSIENT)) != SQLITE_OK)
       print_stream.error("Cannot bind a scan ID for a SQLite statement to insert a file (%s)", sqlite3_errstr(errcode));
 
+   // select statement to look-up files by their path
+   // parameters:                                                                                  1
+   // columns:                                    0         1          2     3
    std::string_view sql_find_file = "select version, mod_time, hash_type, hash from files where path = ? order by version desc limit 1"sv;
 
    if((errcode = sqlite3_prepare_v2(file_scan_db, sql_find_file.data(), (int) sql_find_file.length()+1, &stmt_find_file, nullptr)) != SQLITE_OK)
@@ -253,7 +255,7 @@ void file_hasher_t::run(void)
 
             // compare the stored hash against the one we just computed
             if(std::string_view(reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 2)), sqlite3_column_bytes(stmt_find_file, 2)) == "SHA256"sv) {
-               // consider a zero-length file hash as if it's a NULL            
+               // consider a NULL hash as a match for zero-length files
                if(sqlite3_column_type(stmt_find_file, 3) == SQLITE_NULL)
                   hash_match = filesize == 0;
                else {
