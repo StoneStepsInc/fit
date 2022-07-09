@@ -8,6 +8,7 @@ select
   count(files.rowid) as file_count,
   round(sum(entry_size) / 1000., 3) as entry_size_kb,
   round(avg(entry_size) / 1000., 3) as avg_entry_size_kb,
+  round(max(entry_size) / 1000., 3) as max_entry_size_kb,
   scan_path,
   base_path,
   current_path,
