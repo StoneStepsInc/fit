@@ -249,6 +249,11 @@ following fields:
     the file path that compares just the file name at the end of the
     path.
 
+  * `ext` `TEXT NULL`
+
+    File extension, including the leading dot, as reported by the
+    underlying file system layer.
+
   * `path` `TEXT NOT NULL`
 
     A file path with the base path removed, if a base path is used.
