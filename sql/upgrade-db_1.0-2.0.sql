@@ -2,7 +2,7 @@
 -- This script upgrades the database schema from version 1.0 to
 -- the current 2.0 version.
 --
--- Version literals are used because .param does not work in
+-- Version literals are not used because .param does not work in
 -- PRAGMA. Search for VER_FROM and VER_TO comments to identify
 -- where versions must be updated.
 --
