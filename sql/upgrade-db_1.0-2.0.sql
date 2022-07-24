@@ -2,6 +2,8 @@
 -- This script upgrades the database schema from version 1.0 to
 -- the current 2.0 version.
 --
+-- sqlite3 sqlite.db < upgrade-db_1.0-2.0.sql
+--
 -- Version literals are not used because .param does not work in
 -- PRAGMA. Search for VER_FROM and VER_TO comments to identify
 -- where versions must be updated.

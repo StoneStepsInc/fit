@@ -327,6 +327,12 @@ versions in the `sql` directory. The source and target database
 versions are reported by `fit` when the database cannot be
 opened because of a database version mismatch.
 
+Database versions must be updgraded sequentially, from the
+oldest version and until the desired version is reached. Use
+this command with the appropriate script to upgrade a database.
+
+    sqlite3 sqlite.db < upgrade-db_1.0-2.0.sql
+
 Note that the database version is distinctly different from
 the application version and is changed only when the database
 schema is modified.
