@@ -1,6 +1,8 @@
 --
 -- sqlite3 -line -cmd ".param set @HASH hash-value" sqlite.db < sql/show-file-by-hash.sql
 --
+-- Lists all file versions with the given hash value.
+--
 -- On Windows mod_time may be shown as a date/time value using
 -- this expression:
 --
@@ -14,9 +16,10 @@ SELECT
     version,
     path,
     mod_time,
-    round(entry_size/1000., 3) as entry_size_kb
+    round(entry_size/1000., 3) AS entry_size_kb
 FROM
-    files
+    versions
+    JOIN files ON versions.file_id = files.rowid
 WHERE
     hash = @HASH COLLATE NOCASE
 ORDER BY

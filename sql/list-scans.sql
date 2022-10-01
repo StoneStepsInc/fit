@@ -1,19 +1,24 @@
 --
 -- sqlite3 -line sqlite.db < sql/list-scans.sql
 --
-select
-  scans.rowid as scan_id,
-  datetime(scan_time, 'unixepoch') as scan_time,
-  app_version,
-  count(files.rowid) as file_count,
-  round(sum(entry_size) / 1000., 3) as entry_size_kb,
-  round(avg(entry_size) / 1000., 3) as avg_entry_size_kb,
-  round(max(entry_size) / 1000., 3) as max_entry_size_kb,
-  scan_path,
-  base_path,
-  current_path,
-  message
-from 
-  scans join files on scans.rowid = files.scan_id 
-group by files.scan_id 
-order by 1 desc;
+-- Lists all scans and computes scan aggregates.
+--
+SELECT
+  scans.rowid AS scan_id,
+  datetime(MAX(scan_time), 'unixepoch') AS scan_time,
+  MAX(app_version) AS app_version,
+  COUNT(DISTINCT scansets.file_id) AS version_count,
+  COUNT(scansets.file_id) AS file_count,
+  round(SUM(entry_size) / 1000., 3) AS entry_size_kb,
+  round(AVG(entry_size) / 1000., 3) AS avg_entry_size_kb,
+  round(MAX(entry_size) / 1000., 3) AS max_entry_size_kb,
+  MAX(scan_path) AS scan_path,
+  MAX(base_path) AS base_path,
+  MAX(current_path) AS current_path,
+  MAX(message) AS message
+FROM 
+  scans
+  JOIN scansets ON scans.rowid = scansets.scan_id
+  JOIN versions ON scansets.version_id = versions.rowid 
+GROUP BY scans.rowid
+ORDER BY 1 DESC;
