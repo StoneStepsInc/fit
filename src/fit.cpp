@@ -57,8 +57,18 @@ static const char *copyright = "Copyright (c) 2022 Stone Steps Inc.";
 // is incremented when the schema is changed in the trunk (e.g.
 // 1.0, 2.0, 3.0). The least significant component is incremented
 // when database schema changes in patch-level branches.
+//
+//   v0.0   Database version is not maintained
 // 
-static const int DB_SCHEMA_VERSION = 20;
+//   v1.0   Introduced PRAGMA user_version
+// 
+//   v2.0   Added a file extension column
+// 
+//   v3.0   Added table scansets
+//          Renamed table files to versions
+//          Moved path, name, ext from the versions table to files
+//
+static const int DB_SCHEMA_VERSION = 30;
 
 std::atomic<bool> abort_scan = false;
 
@@ -302,12 +312,20 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
          print_stream.info("Creating a new SQLite database %s", options.db_path.generic_u8string().c_str());
 
          // files table
-         if(sqlite3_exec(file_scan_db, "create table files ("
-                                          "scan_id INTEGER NOT NULL,"
-                                          "version INTEGER NOT NULL,"
+         if(sqlite3_exec(file_scan_db, "CREATE TABLE files ("
                                           "name TEXT NOT NULL,"
                                           "ext TEXT NULL,"
-                                          "path TEXT NOT NULL,"
+                                          "path TEXT NOT NULL);", nullptr, nullptr, &errmsg) != SQLITE_OK)
+            throw std::runtime_error("Cannot create table 'files' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
+
+         if(sqlite3_exec(file_scan_db, "CREATE UNIQUE INDEX ix_files_path ON files (path);", nullptr, nullptr, &errmsg) != SQLITE_OK)
+            throw std::runtime_error("Cannot create path index for 'files' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get());
+
+         // versions table
+         if(sqlite3_exec(file_scan_db, "CREATE TABLE versions ("
+                                          "scan_id INTEGER NOT NULL,"
+                                          "file_id INTEGER NOT NULL,"
+                                          "version INTEGER NOT NULL,"
                                           "mod_time INTEGER NOT NULL,"
                                           "entry_size INTEGER NOT NULL,"
                                           "read_size INTEGER NOT NULL, "
@@ -315,14 +333,14 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
                                           "hash TEXT);", nullptr, nullptr, &errmsg) != SQLITE_OK)
             throw std::runtime_error("Cannot create table 'files' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
-         if(sqlite3_exec(file_scan_db, "create unique index ix_files_path on files (path, version);", nullptr, nullptr, &errmsg) != SQLITE_OK)
+         if(sqlite3_exec(file_scan_db, "CREATE UNIQUE INDEX ix_versions_file ON versions (file_id, version);", nullptr, nullptr, &errmsg) != SQLITE_OK)
             throw std::runtime_error("Cannot create path index for 'files' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get());
 
-         if(sqlite3_exec(file_scan_db, "create index ix_files_hash on files (hash, hash_type);", nullptr, nullptr, &errmsg) != SQLITE_OK)
+         if(sqlite3_exec(file_scan_db, "CREATE INDEX ix_versions_hash ON versions (hash, hash_type);", nullptr, nullptr, &errmsg) != SQLITE_OK)
             throw std::runtime_error("Cannot create a hash index for 'files' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
          // scans table
-         if(sqlite3_exec(file_scan_db, "create table scans ("
+         if(sqlite3_exec(file_scan_db, "CREATE TABLE scans ("
                                           "app_version TEXT NOT NULL,"
                                           "scan_time INTEGER NOT NULL,"
                                           "scan_path TEXT NOT NULL,"
@@ -331,8 +349,18 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
                                           "message TEXT);", nullptr, nullptr, &errmsg) != SQLITE_OK)
             throw std::runtime_error("Cannot create table 'scans' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
-         if(sqlite3_exec(file_scan_db, "create index ix_scans_timestamp on scans (scan_time);", nullptr, nullptr, &errmsg) != SQLITE_OK)
+         if(sqlite3_exec(file_scan_db, "CREATE INDEX ix_scans_timestamp ON scans (scan_time);", nullptr, nullptr, &errmsg) != SQLITE_OK)
             throw std::runtime_error("Cannot create time stamp index for 'scans' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
+
+         // scansets table
+         if(sqlite3_exec(file_scan_db, "CREATE TABLE scansets ("
+                                          "scan_id INTEGER NOT NULL,"
+                                          "file_id INTEGER NOT NULL,"
+                                          "version_id INTEGER NOT NULL);", nullptr, nullptr, &errmsg) != SQLITE_OK)
+            throw std::runtime_error("Cannot create table 'scansets' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
+
+         if(sqlite3_exec(file_scan_db, "CREATE UNIQUE INDEX ix_scansets_scan_file ON scansets (scan_id, file_id);", nullptr, nullptr, &errmsg) != SQLITE_OK)
+            throw std::runtime_error("Cannot create file/scan ID index for 'scansets' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
          // set the current database schema version
          if(sqlite3_exec(file_scan_db, ("PRAGMA user_version="+std::to_string(DB_SCHEMA_VERSION)+";").c_str(), nullptr, nullptr, &errmsg) != SQLITE_OK)

@@ -72,6 +72,9 @@ class file_hasher_t {
       sqlite3 *file_scan_db = nullptr;
 
       sqlite3_stmt *stmt_insert_file = nullptr;
+      sqlite3_stmt *stmt_insert_version = nullptr;
+      sqlite3_stmt *stmt_insert_scanset_file = nullptr;
+
       sqlite3_stmt *stmt_find_file = nullptr;
 
    private:
