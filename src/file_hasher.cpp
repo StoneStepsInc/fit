@@ -179,7 +179,7 @@ void file_hasher_t::hash_file(const std::filesystem::path& filepath, uint64_t& f
 
    // hash for zero-length files should not be evaluated
    if(!filesize)
-      memset(hexhash, 0, SHA256_SIZE_BYTES);
+      memset(hexhash, 0, SHA256_HEX_SIZE);
    else {
       uint8_t filehash[SHA256_SIZE_BYTES];
 
