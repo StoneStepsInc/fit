@@ -168,8 +168,7 @@ sizes, specified via `-s`, may improve scanning speed.
 
 ## SQLite Database
 
-The SQLite database contains two tables, one for scans and one
-for files.
+The SQLite database contains tables described in this section.
 
 All text fields are stored as UTF-8 characters. Note that all
 text comparisons in SQLite are case-sensitive and `ABC` will not
@@ -177,7 +176,7 @@ compare equal to `abc`. Moreover, if case-insensitive collation
 is used in queries, it will only work with ASCII characters and
 will not apply across all Unicode characters.
 
-### Scan Table
+### Scans Table
 
 The `scans` table contains a record for each run of `fit`
 without the `-v` option and has the following fields:
@@ -218,14 +217,24 @@ without the `-v` option and has the following fields:
 
     A text message to describe this scan. If omitted, `NULL` is stored.
 
-### Files Table
+### Versions Table
 
-The files table contains a record per scanned file and has the
-following fields:
+The `versions` table contains a record per scanned file that has
+a different hash value from the previous version of the same file.
+This table has following fields:
+
+  * `rowid` `INTEGER NOT NULL`
+
+    A version record identifier.
 
   * `scan_id` `INTEGER NOT NULL`
 
-    Scan record identifier from `scans.rowid`.
+    A scan identifier where this version of the file was seen first.
+
+  * `file_id` `INTEGER NOT NULL`
+
+    A file identifier for this version record. Multiple versions of
+    the same file path have the same `file_id` value.
 
   * `version` `INTEGER NOT NULL`
 
@@ -236,31 +245,6 @@ following fields:
     The last version is always used when comparing file checksums
     during scans.
 
-  * `name` `TEXT NOT NULL`
-
-    File name without file path. This field is only useful for file
-    name queries and it will contain numerous duplicates across
-    multiple file path versions and files with the same name located
-    in different directories.
-
-    This field is not indexed and a full table scan will be performed
-    for every query that uses the file name as the only criteria. It
-    is useful for file name queries to avoid a `LIKE` clause against
-    the file path that compares just the file name at the end of the
-    path.
-
-  * `ext` `TEXT NULL`
-
-    File extension, including the leading dot, as reported by the
-    underlying file system layer.
-
-  * `path` `TEXT NOT NULL`
-
-    A file path with the base path removed, if a base path is used.
-
-    File paths are versioned and the latest version should be selected
-    to obtain the record for the most recent scan.
-    
   * `mod_time` `INTEGER  NOT NULL`
 
     File modification time in platform-specific units. It should not
@@ -296,6 +280,67 @@ following fields:
     A file checksum value in hex format using lowercase characters
     for letters `abcdef`. A hash will be `NULL` for zero-length
     files.
+
+### Files Table
+
+The `files` table contains a record per file path. Multiple versions
+of the same file reference the same file record.
+
+  * `rowid` `INTEGER NOT NULL`
+
+    A file record identifier.
+
+  * `name` `TEXT NOT NULL`
+
+    File name without file path. This field is only useful for file
+    name queries and it will contain numerous duplicates across
+    multiple file path versions and files with the same name located
+    in different directories.
+
+    This field is not indexed and a full table scan will be performed
+    for every query that uses the file name as the only criteria. It
+    is useful for file name queries to avoid a `LIKE` clause against
+    the file path that compares just the file name at the end of the
+    path.
+
+  * `ext` `TEXT NULL`
+
+    File extension, including the leading dot, as reported by the
+    underlying file system layer.
+
+  * `path` `TEXT NOT NULL`
+
+    A file path with the base path removed, if a base path is used.
+
+    File paths are versioned and the latest version should be selected
+    to obtain the record for the most recent scan.
+   
+
+### Scansets Table
+
+The `scansets` table contains a record per scanned file, whether
+there is a new version of the file detected or not.
+
+  * `rowid` `INTEGER NOT NULL`
+
+    A scan set record identifier.
+
+  * `scan_id` `INTEGER NOT NULL`
+
+    A scan record identifier. This field should not be used when
+    joining to the `versions` table.
+
+  * `file_id` `INTEGER NOT NULL`
+
+    A file record identifier.
+
+  * `version_id` `INTEGER NOT NULL`
+
+    A version record identifier. This field should be used when
+    joining to the `versions` table.
+
+This table represents the set of files scanned in a single `fit`
+run.
 
 ### Useful SQL
 
