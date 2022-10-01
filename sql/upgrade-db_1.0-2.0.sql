@@ -1,6 +1,6 @@
 --
 -- This script upgrades the database schema from version 1.0 to
--- the current 2.0 version.
+-- version 2.0.
 --
 -- sqlite3 sqlite.db < upgrade-db_1.0-2.0.sql
 --

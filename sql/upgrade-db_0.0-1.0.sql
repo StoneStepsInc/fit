@@ -1,7 +1,9 @@
 --
 -- This script upgrades the database schema from the initial 0.0 to
--- the current 1.0 version.
-
+-- version 1.0.
+--
+-- sqlite3 sqlite.db < upgrade-db_0.0-1.0.sql
+--
 -- The script uses the DROP COLUMN statement, which was introduced
 -- in 3.35.0 (March of 2021), and will fail in earlier SQLite
 -- versions. DROP COLUMN may be replaced with RENAME COLUMN for
