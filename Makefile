@@ -18,10 +18,10 @@ ifeq ($(strip $(BLDDIR)),)
 BLDDIR := build
 endif
 
-SRCS := fit.cpp file_tree_walker.cpp file_hasher.cpp \
+SRCS := fit.cpp file_tree_walker.cpp file_hasher.cpp exif_reader.cpp \
         print_stream.cpp sqlite.cpp sha256/sha256.c
 
-LIBS := sqlite3 pthread stdc++fs
+LIBS := sqlite3 pthread stdc++fs exif
 
 OBJS := $(patsubst %.c,%.o,$(filter %.c,$(SRCS))) \
 	$(patsubst %.cpp,%.o,$(filter %.cpp,$(SRCS)))

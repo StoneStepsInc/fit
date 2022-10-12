@@ -19,6 +19,9 @@
     <ClCompile Include="src\sha256\sha256.c">
       <Filter>sha256</Filter>
     </ClCompile>
+    <ClCompile Include="src\exif_reader.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\file_hasher.h">
@@ -38,6 +41,9 @@
     </ClInclude>
     <ClInclude Include="src\sha256\sha256.h">
       <Filter>sha256</Filter>
+    </ClInclude>
+    <ClInclude Include="src\exif_reader.h">
+      <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -62,5 +68,6 @@
     <Library Include="$(SQLiteDir)lib\$(Platform)\$(Configuration)\$(SQLiteLibName).lib">
       <Filter>lib</Filter>
     </Library>
+    <Library Include="$(LibExifDir)lib\$(Platform)\$(Configuration)\$(LibExifName).lib" />
   </ItemGroup>
 </Project>

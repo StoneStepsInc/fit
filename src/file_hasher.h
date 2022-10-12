@@ -2,6 +2,7 @@
 #define FIT_FILE_HASHER_H
 
 #include "print_stream.h"
+#include "exif_reader.h"
 
 #include "fit.h"
 
@@ -12,6 +13,7 @@
 #include <atomic>
 #include <thread>
 #include <queue>
+#include <vector>
 
 #include <cstdlib>
 #include <cstdint>
@@ -69,11 +71,16 @@ class file_hasher_t {
 
       progress_info_t& progress_info;
 
+      std::vector<std::string> pic_exts;
+
+      exif_reader_t exif_reader;
+
       sqlite3 *file_scan_db = nullptr;
 
       sqlite3_stmt *stmt_insert_file = nullptr;
       sqlite3_stmt *stmt_insert_version = nullptr;
       sqlite3_stmt *stmt_insert_scanset_file = nullptr;
+      sqlite3_stmt *stmt_insert_exif = nullptr;
 
       sqlite3_stmt *stmt_find_file = nullptr;
 

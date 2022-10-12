@@ -1,4 +1,5 @@
 #include "file_hasher.h"
+#include "exif_reader.h"
 
 #include "fit.h"
 
@@ -17,15 +18,41 @@
 #include <vector>
 #include <queue>
 #include <chrono>
+#include <algorithm>
+#include <optional>
 
 #include <cstring>
+
+#ifndef _MSC_VER
+#include <strings.h>    // for strcasecmp
+#endif
+
+#ifdef _MSC_VER
+#define strcasecmp _stricmp
+#endif
 
 using namespace std::literals::string_view_literals;
 using namespace std::literals::string_literals;
 
 namespace fit {
 
+struct less_ci {
+   bool operator () (const std::string& s1, const std::string& s2)
+   {
+      if(s1.empty() && s2.empty())
+         return false;
+
+      if(s1.length() != s2.length())
+         return s1.length() < s2.length();
+
+      return strcasecmp(s1.c_str(), s2.c_str()) < 0;
+   }
+};
+
 static constexpr const size_t SHA256_HEX_SIZE = SHA256_SIZE_BYTES * 2;
+
+// TODO: make cnfigurable
+static const std::initializer_list<std::string> pic_exts = {".jpg", ".jpeg", ".png", ".cr2", ".dng", ".nef", ".tiff", ".tif", ".heif", ".webp"};
 
 file_hasher_t::file_hasher_t(const options_t& options, int64_t scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info, print_stream_t& print_stream) :
       options(options),
@@ -35,9 +62,12 @@ file_hasher_t::file_hasher_t(const options_t& options, int64_t scan_id, std::que
       file_buffer(new unsigned char[options.buffer_size]),
       files(files),
       files_mtx(files_mtx),
-      progress_info(progress_info)
+      progress_info(progress_info),
+      pic_exts(fit::pic_exts)
 {
    int errcode = SQLITE_OK;
+
+   std::sort(pic_exts.begin(), pic_exts.end(), less_ci());
 
    if((errcode = sqlite3_open_v2(options.db_path.u8string().c_str(), &file_scan_db, SQLITE_OPEN_READWRITE, nullptr)) != SQLITE_OK)
       throw std::runtime_error(sqlite3_errstr(errcode));
@@ -59,8 +89,8 @@ file_hasher_t::file_hasher_t(const options_t& options, int64_t scan_id, std::que
    if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_file.data(), (int) sql_insert_file.length()+1, &stmt_insert_file, nullptr)) != SQLITE_OK)
       print_stream.error("Cannot prepare a SQLite statement to insert a file (%s)", sqlite3_errstr(errcode));
 
-   // insert statement for new file version records                   1        2        3         4           5          6          7     8
-   std::string_view sql_insert_version = "insert into versions (scan_id, file_id, version, mod_time, entry_size, read_size, hash_type, hash) values (?, ?, ?, ?, ?, ?, ?, ?)"sv;
+   // insert statement for new file version records                   1        2        3         4           5          6          7     8        9
+   std::string_view sql_insert_version = "insert into versions (scan_id, file_id, version, mod_time, entry_size, read_size, hash_type, hash, exif_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?)"sv;
 
    if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_version.data(), (int) sql_insert_version.length()+1, &stmt_insert_version, nullptr)) != SQLITE_OK)
       print_stream.error("Cannot prepare a SQLite statement to insert a file version (%s)", sqlite3_errstr(errcode));
@@ -87,6 +117,30 @@ file_hasher_t::file_hasher_t(const options_t& options, int64_t scan_id, std::que
 
    if((errcode = sqlite3_bind_int64(stmt_insert_scanset_file, 1, scan_id)) != SQLITE_OK)
       print_stream.error("Cannot bind a scan ID for a SQLite statement to insert a scanset file (%s)", sqlite3_errstr(errcode));
+
+   // insert statement for EXIF records
+   std::string sql_insert_exif = "INSERT INTO exif ("
+                                      "BitsPerSample,Compression,DocumentName,ImageDescription,Make,Model,Orientation,SamplesPerPixel,"
+                                      "Software,DateTime,Artist,Copyright,ExposureTime,FNumber,ExposureProgram,ISOSpeedRatings,"
+                                      "SensitivityType,ISOSpeed,TimeZoneOffset,DateTimeOriginal,DateTimeDigitized,OffsetTime,OffsetTimeOriginal,OffsetTimeDigitized,"
+                                      "ShutterSpeedValue,ApertureValue,SubjectDistance,BrightnessValue,ExposureBiasValue,MaxApertureValue,MeteringMode,LightSource,"
+                                      "Flash,FocalLength,UserComment,SubsecTime,SubSecTimeOriginal,SubSecTimeDigitized,FlashpixVersion,FlashEnergy,"
+                                      "SubjectLocation,ExposureIndex,SensingMethod,SceneType,ExposureMode,WhiteBalance,DigitalZoomRatio,FocalLengthIn35mmFilm,"
+                                      "SceneCaptureType,DeviceSettingDescription,SubjectDistanceRange,ImageUniqueID,CameraOwnerName,BodySerialNumber,LensSpecification,LensMake,"
+                                      "LensModel,LensSerialNumber,GPSLatitudeRef,GPSLatitude,GPSLongitudeRef,GPSLongitude,GPSAltitudeRef,GPSAltitude,"
+                                      "GPSTimeStamp,GPSSpeedRef,GPSSpeed,GPSDateStamp) "
+                                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, "
+                                         "?, ?, ?, ?, ?, ?, ?, ?, "
+                                         "?, ?, ?, ?, ?, ?, ?, ?, "
+                                         "?, ?, ?, ?, ?, ?, ?, ?, "
+                                         "?, ?, ?, ?, ?, ?, ?, ?, "
+                                         "?, ?, ?, ?, ?, ?, ?, ?, "
+                                         "?, ?, ?, ?, ?, ?, ?, ?, "
+                                         "?, ?, ?, ?, ?, ?, ?, ?, "
+                                         "?, ?, ?, ?)";
+
+   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_exif.c_str(), (int) sql_insert_exif.length()+1, &stmt_insert_exif, nullptr)) != SQLITE_OK)
+      print_stream.error("Cannot prepare a SQLite statement to insert an EXIF record (%s)", sqlite3_errstr(errcode));
 }
 
 file_hasher_t::file_hasher_t(file_hasher_t&& other) :
@@ -103,13 +157,17 @@ file_hasher_t::file_hasher_t(file_hasher_t&& other) :
       stmt_insert_file(other.stmt_insert_file),
       stmt_insert_version(other.stmt_insert_version),
       stmt_insert_scanset_file(other.stmt_insert_scanset_file),
-      stmt_find_file(other.stmt_find_file)
+      stmt_insert_exif(other.stmt_insert_exif),
+      stmt_find_file(other.stmt_find_file),
+      pic_exts(std::move(other.pic_exts)),
+      exif_reader(std::move(other.exif_reader))
 {
    other.file_scan_db = nullptr;
 
    other.stmt_insert_version = nullptr;
    other.stmt_insert_file = nullptr;
    other.stmt_insert_scanset_file = nullptr;
+   other.stmt_insert_exif = nullptr;
 
    other.stmt_find_file = nullptr;
 }
@@ -136,6 +194,11 @@ file_hasher_t::~file_hasher_t(void)
    if(stmt_insert_scanset_file) {
       if((errcode = sqlite3_finalize(stmt_insert_scanset_file)) != SQLITE_OK)
          print_stream.error("Cannot finalize SQLite statment to insert a scanset file (%s)", sqlite3_errstr(errcode));
+   }
+
+   if(stmt_insert_exif) {
+      if((errcode = sqlite3_finalize(stmt_insert_exif)) != SQLITE_OK)
+         print_stream.error("Cannot finalize SQLite statment to insert an EXIF record (%s)", sqlite3_errstr(errcode));
    }
 
    if(file_scan_db) {
@@ -274,6 +337,7 @@ void file_hasher_t::run(void)
          int64_t mod_time = 0;
          int64_t file_ver_id = 0;
          int64_t file_id = 0;
+         std::optional<int64_t> exif_id;
 
          errcode = sqlite3_step(stmt_find_file);
 
@@ -365,6 +429,41 @@ void file_hasher_t::run(void)
             }
             else {
                //
+               // Check if this file is a picture and we need to check for EXIF
+               // data.
+               //
+               if(!dir_entry.path().extension().empty()) {
+                  if(binary_search(pic_exts.begin(), pic_exts.end(), dir_entry.path().extension().u8string(), less_ci())) {
+                     exif_field_bitset_t field_bitset = exif_reader.read_file_exif(filepath);
+
+                     if(field_bitset.any()) {
+                        const std::vector<exif_field_value_t>& exif_fields = exif_reader.get_exif_fields();
+
+                        sqlite_stmt_binder_t insert_exif_stmt(stmt_insert_exif, "insert exif"sv);
+
+                        for(size_t i = 0; i < exif_fields.size(); i++) {
+                           if(!field_bitset.test(i))
+                              insert_exif_stmt.bind_param(nullptr);
+                           else {
+                              if(exif_fields[i].index() == 1)
+                                 insert_exif_stmt.bind_param(std::get<1>(exif_fields[i]));
+                              else if(exif_fields[i].index() == 2)
+                                 insert_exif_stmt.bind_param(std::get<2>(exif_fields[i]));
+                           }
+                        }
+
+                        if((errcode = sqlite3_step(stmt_insert_exif)) != SQLITE_DONE)
+                           throw std::runtime_error("Cannot insert an EXIF record for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
+
+                        // get the row ID for the new file record
+                        exif_id = sqlite3_last_insert_rowid(file_scan_db);
+
+                        insert_exif_stmt.reset();
+                     }
+                  }
+               }
+
+               //
                // Insert a new version record for this file. There is no
                // concurrency for this record because each file path is
                // unique in the queue, so there is no danger of a version
@@ -403,6 +502,11 @@ void file_hasher_t::run(void)
                   insert_version_stmt.bind_param(nullptr);
                else
                   insert_version_stmt.bind_param(std::string_view(reinterpret_cast<const char*>(hexhash_file), SHA256_HEX_SIZE));
+
+               if(exif_id.has_value())
+                  insert_version_stmt.bind_param(exif_id.value());
+               else
+                  insert_version_stmt.bind_param(nullptr);
 
                //
                // If we get SQLITE_BUSY after the busy handler runs for allowed

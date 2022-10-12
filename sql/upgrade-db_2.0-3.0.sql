@@ -62,6 +62,7 @@ DROP INDEX ix_files_hash;
 ALTER TABLE files RENAME TO versions;
 
 ALTER TABLE versions ADD COLUMN file_id INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE versions ADD COLUMN exif_id INTEGER NULL;
 
 CREATE TABLE files (
     name TEXT NOT NULL,
@@ -97,7 +98,7 @@ CREATE UNIQUE INDEX ix_versions_file ON versions (file_id, version);
 CREATE INDEX ix_versions_hash ON versions (hash, hash_type);
 
 --
--- Add a new table for snapshot files
+-- Add a new table for scansets - file versions created in a scan
 --
 CREATE TABLE scansets (
     scan_id INTEGER NOT NULL,
@@ -109,6 +110,28 @@ CREATE UNIQUE INDEX ix_scansets_scan_file ON scansets (
     scan_id,
     file_id
 );
+
+--
+-- Add a new table for EXIF values
+--
+CREATE TABLE exif (
+    BitsPerSample TEXT NULL, Compression INTEGER NULL, DocumentName TEXT NULL, ImageDescription TEXT NULL, 
+    Make TEXT NULL, Model TEXT NULL, Orientation INTEGER NULL, SamplesPerPixel TEXT NULL, 
+    Software TEXT NULL, DateTime TEXT NULL, Artist TEXT NULL, Copyright TEXT NULL, 
+    ExposureTime TEXT NULL, FNumber TEXT NULL, ExposureProgram INTEGER NULL, ISOSpeedRatings INTEGER NULL, 
+    SensitivityType INTEGER NULL, ISOSpeed INTEGER NULL, TimeZoneOffset TEXT NULL, DateTimeOriginal TEXT NULL,
+    DateTimeDigitized TEXT NULL, OffsetTime TEXT NULL, OffsetTimeOriginal TEXT NULL, OffsetTimeDigitized TEXT NULL,
+    ShutterSpeedValue TEXT NULL, ApertureValue TEXT NULL, SubjectDistance TEXT NULL, BrightnessValue TEXT NULL,
+    ExposureBiasValue TEXT NULL, MaxApertureValue TEXT NULL, MeteringMode INTEGER NULL, LightSource INTEGER NULL,
+    Flash INTEGER NULL, FocalLength TEXT NULL, UserComment TEXT NULL, SubsecTime TEXT NULL,
+    SubSecTimeOriginal TEXT NULL, SubSecTimeDigitized TEXT NULL, FlashpixVersion TEXT NULL, FlashEnergy TEXT NULL,
+    SubjectLocation TEXT NULL, ExposureIndex TEXT NULL, SensingMethod INTEGER NULL, SceneType INTEGER NULL,
+    ExposureMode INTEGER NULL, WhiteBalance INTEGER NULL, DigitalZoomRatio TEXT NULL, FocalLengthIn35mmFilm TEXT NULL,
+    SceneCaptureType INTEGER NULL, DeviceSettingDescription TEXT NULL, SubjectDistanceRange TEXT NULL, ImageUniqueID TEXT NULL,
+    CameraOwnerName TEXT NULL, BodySerialNumber TEXT NULL, LensSpecification TEXT NULL, LensMake TEXT NULL,
+    LensModel TEXT NULL, LensSerialNumber TEXT NULL, GPSLatitudeRef TEXT NULL, GPSLatitude TEXT NULL,
+    GPSLongitudeRef TEXT NULL, GPSLongitude TEXT NULL, GPSAltitudeRef TEXT NULL, GPSAltitude TEXT NULL,
+    GPSTimeStamp TEXT NULL, GPSSpeedRef TEXT NULL, GPSSpeed TEXT NULL, GPSDateStamp TEXT NULL);
 
 --
 -- Set the target database version
