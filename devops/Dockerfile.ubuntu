@@ -4,4 +4,4 @@ LABEL org.opencontainers.image.description="CI build image for Ubuntu (https://g
 
 RUN apt-get update -y
 
-RUN apt-get install -y patch curl unzip make g++ libsqlite3-dev
+RUN apt-get install -y patch curl unzip make g++ libsqlite3-dev libexif-dev

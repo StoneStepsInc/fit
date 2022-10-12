@@ -2,4 +2,4 @@ FROM fedora:36
 
 LABEL org.opencontainers.image.description="CI build image for Fedora (https://github.com/StoneStepsInc/fit)"
 
-RUN dnf -y install patch curl unzip make gcc-c++ sqlite-devel
+RUN dnf -y install patch curl unzip make gcc-c++ sqlite-devel libexif-devel
