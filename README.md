@@ -269,6 +269,12 @@ This table has following fields:
     file or the directory entry was updated after it was read
     by the file scanner.
 
+  * `exif_id` `INTEGER NULL`
+
+    An EXIF record identifier for this file version record. This
+    value is set to `NULL` for file versions that do not have
+    EXIF data associated with them.
+
   * `hash_type` `VARCHAR(32) NOT NULL`
 
     File checksums are computed as a SHA-256 hash in the current
@@ -342,6 +348,52 @@ there is a new version of the file detected or not.
 This table represents the set of files scanned in a single `fit`
 run.
 
+### EXIF Table
+
+Files with extensions in the list below are also scanned for EXIF
+information.
+
+    .jpg .jpeg .png .cr2 .dng .nef .tiff .tif .heif .webp
+
+If EXIF data is found in the file being scanned, EXIF values listed
+below are recorded in the `exif` table.
+
+  * BitsPerSample, Compression, DocumentName, ImageDescription, 
+  * Make, Model, Orientation, SamplesPerPixel, 
+  * Software, DateTime, Artist, Copyright, 
+  * ExposureTime, FNumber, ExposureProgram, ISOSpeedRatings, 
+  * SensitivityType, ISOSpeed, TimeZoneOffset, DateTimeOriginal,
+  * DateTimeDigitized, OffsetTime, OffsetTimeOriginal, OffsetTimeDigitized,
+  * ShutterSpeedValue, ApertureValue, SubjectDistance, BrightnessValue,
+  * ExposureBiasValue, MaxApertureValue, MeteringMode, LightSource,
+  * Flash, FocalLength, UserComment, SubsecTime,
+  * SubSecTimeOriginal, SubSecTimeDigitized, FlashpixVersion, FlashEnergy,
+  * SubjectLocation, ExposureIndex, SensingMethod, SceneType,
+  * ExposureMode, WhiteBalance, DigitalZoomRatio, FocalLengthIn35mmFilm,
+  * SceneCaptureType, DeviceSettingDescription, SubjectDistanceRange, ImageUniqueID,
+  * CameraOwnerName, BodySerialNumber, LensSpecification, LensMake,
+  * LensModel, LensSerialNumber, GPSLatitudeRef, GPSLatitude,
+  * GPSLongitudeRef, GPSLongitude, GPSAltitudeRef, GPSAltitude,
+  * GPSTimeStamp, GPSSpeedRef, GPSSpeed, GPSDateStamp
+
+See this page for EXIF tag descriptions:
+
+https://exiv2.org/tags.html
+
+Most EXIF values are recorded as-is, without translating them into
+human-readable formats. For example, `ExposureProgram` is recorded
+as an integer, not as `Manual`, `Aperture priority`, etc.
+
+Single numeric values are stored as integers and decimal values
+are stored as strings or string lists. For example, `GPSLongitude`
+is recorded in EXIF as 3 decimal values, which are stored in the
+`exif` table as text similar to `79,36,4.1143`. `ApertureValue`,
+on the other hand, is recorded as a decimal string `2.97`, which
+can be used to compute FNumber as `2 ^ (2.97/2) = f/2.8`.
+
+EXIF values are experimental at this point and their format may
+change in the futuure.
+
 ### Useful SQL
 
 You can run SQL queries against the SQLite database using the
@@ -403,6 +455,10 @@ done to verify the results.
 SQLite development package needs to be installed (e.g. `sqlite-devel`
 on Fedora). See Docker files in `devops` for a list of packages
 required to build on various Linux flavors.
+
+Versions of `libexif` older than `0.6.24` may not compile due to
+missing tag definitions referenced in `exif_reader.cpp`, such as
+`EXIF_TAG_LENS_MAKE`.
 
 SHA-256 does not have a package and may be obtained via a script
 included in the project (`get-sha256`). After running the script,
