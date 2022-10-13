@@ -51,7 +51,7 @@ struct less_ci {
 
 static constexpr const size_t SHA256_HEX_SIZE = SHA256_SIZE_BYTES * 2;
 
-// TODO: make cnfigurable
+// TODO: make configurable
 static const std::initializer_list<std::string> pic_exts = {".jpg", ".jpeg", ".png", ".cr2", ".dng", ".nef", ".tiff", ".tif", ".heif", ".webp"};
 
 file_hasher_t::file_hasher_t(const options_t& options, int64_t scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info, print_stream_t& print_stream) :
@@ -434,10 +434,10 @@ void file_hasher_t::run(void)
                //
                if(!dir_entry.path().extension().empty()) {
                   if(binary_search(pic_exts.begin(), pic_exts.end(), dir_entry.path().extension().u8string(), less_ci())) {
-                     exif_field_bitset_t field_bitset = exif_reader.read_file_exif(filepath);
+                     exif::field_bitset_t field_bitset = exif_reader.read_file_exif(filepath);
 
                      if(field_bitset.any()) {
-                        const std::vector<exif_field_value_t>& exif_fields = exif_reader.get_exif_fields();
+                        const std::vector<exif::field_value_t>& exif_fields = exif_reader.get_exif_fields();
 
                         sqlite_stmt_binder_t insert_exif_stmt(stmt_insert_exif, "insert exif"sv);
 
@@ -449,6 +449,8 @@ void file_hasher_t::run(void)
                                  insert_exif_stmt.bind_param(std::get<1>(exif_fields[i]));
                               else if(exif_fields[i].index() == 2)
                                  insert_exif_stmt.bind_param(std::get<2>(exif_fields[i]));
+                              else
+                                 throw std::runtime_error("Bad field value in EXIF record for "s + filepath + " (" + std::to_string(i) + ")");
                            }
                         }
 

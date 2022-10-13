@@ -5,10 +5,13 @@
 #include <cstring>
 #include <cmath>
 
+#include <memory.h>
+
 #include <libexif/exif-tag.h>
 #include <libexif/exif-data.h>
 
 namespace fit {
+namespace exif {
 
 exif_reader_t::exif_reader_t(void) :
       EXIF_SIZE_RATIONAL(exif_format_get_size(EXIF_FORMAT_RATIONAL)),
@@ -32,19 +35,28 @@ exif_reader_t::exif_reader_t(exif_reader_t&& other) :
 {
 }
 
+//
+// Formats a byte array within the field value as a set of space-separated
+// values.
+// 
+// If formatted output is truncated, outputs `...` at the end of formatted
+// string in the field value.
+//
 template <typename T>
-void exif_reader_t::fmt_exif_byte(const ExifEntry *exif_entry, const char *format, exif_field_value_t& field_value, ExifByteOrder byte_order)
+void exif_reader_t::fmt_exif_byte(const ExifEntry *exif_entry, const char *format, field_value_t& field_value, ExifByteOrder byte_order)
 {
    size_t slen;
    char buf[128];
 
    slen = snprintf(buf, sizeof(buf), format, *exif_entry->data);
 
+   // append additional bytes until we run out of values or buffer is full
    for(size_t i = 1; i < exif_entry->components && slen < sizeof(buf)-1; i++) {
       *(buf+slen++) = ' ';
       slen += snprintf(buf+slen, sizeof(buf)-slen, format, *(exif_entry->data+i));
    }
 
+   // if snprintf indicated truncation, replace last 3 characters with `...` (there's a null character from snprintf)
    if(slen >= sizeof(buf)) {
       slen = sizeof(buf)-4;
       *(buf+slen++) = '.';
@@ -55,15 +67,24 @@ void exif_reader_t::fmt_exif_byte(const ExifEntry *exif_entry, const char *forma
    field_value.emplace<std::string>(buf, slen);
 }
 
+//
+// Converts a single numeric component to an `int64_t` and stores it within
+// the field value. Formats multiple components as space-separated values
+// within the field value.
+//
+// Returns true if an integer is returned for a single component or the
+// formatted string wasn't truncated. Returns false if the formatted string
+// would be truncated.
+//
 template <typename T>
-void exif_reader_t::fmt_exif_number(const ExifEntry *exif_entry, const char *format, T (*exif_get_type_fn)(const unsigned char*, ExifByteOrder), exif_field_value_t& field_value, size_t item_size, ExifByteOrder byte_order)
+bool exif_reader_t::fmt_exif_number(const ExifEntry *exif_entry, const char *format, T (*exif_get_type_fn)(const unsigned char*, ExifByteOrder), field_value_t& field_value, size_t item_size, ExifByteOrder byte_order)
 {
    size_t slen;
    char buf[128];
 
    if(exif_entry->components == 1) {
       field_value = exif_get_type_fn(exif_entry->data, byte_order);
-      return;
+      return true;
    }
 
    slen = snprintf(buf, sizeof(buf), format, exif_get_type_fn(exif_entry->data, byte_order));
@@ -73,7 +94,7 @@ void exif_reader_t::fmt_exif_number(const ExifEntry *exif_entry, const char *for
       slen += snprintf(buf+slen, sizeof(buf)-slen, format, exif_get_type_fn(exif_entry->data+(item_size*i), byte_order));
    }
 
-   // if the last output truncated the value replace the end with ellipses (there's a null character from snprintf)
+   // if snprintf indicated truncation, replace last 3 characters with `...` (there's a null character from snprintf)
    if(slen >= sizeof(buf)) {
       slen = sizeof(buf)-4;
       *(buf+slen++) = '.';
@@ -82,10 +103,18 @@ void exif_reader_t::fmt_exif_number(const ExifEntry *exif_entry, const char *for
    }
 
    field_value.emplace<std::string>(buf, slen);
+
+   return true;
 }
 
+//
+// Formats rational numbers within the field value as a set of space-separated
+// values.
+// 
+// Returns false if the formatted string would be truncated and true otherwise.
+//
 template <typename T>
-bool exif_reader_t::fmt_exif_rational(const ExifEntry *exif_entry, T (*exif_get_type_fn)(const unsigned char*, ExifByteOrder), exif_field_value_t& field_value, size_t item_size, ExifByteOrder byte_order)
+bool exif_reader_t::fmt_exif_rational(const ExifEntry *exif_entry, T (*exif_get_type_fn)(const unsigned char*, ExifByteOrder), field_value_t& field_value, size_t item_size, ExifByteOrder byte_order)
 {
    size_t fsize;
    size_t slen = 0;
@@ -95,11 +124,10 @@ bool exif_reader_t::fmt_exif_rational(const ExifEntry *exif_entry, T (*exif_get_
       int64_t numerator, denominator;
 
       if(i) {
-         // include room for the null terminator
-         if(sizeof(buf) - slen < 2)
+         if(sizeof(buf) - slen == 0)
             return false;
 
-         *(buf+slen++) = ',';
+         *(buf+slen++) = ' ';
       }
 
       T rational = exif_get_type_fn(exif_entry->data + i * item_size, byte_order);
@@ -127,9 +155,9 @@ bool exif_reader_t::fmt_exif_rational(const ExifEntry *exif_entry, T (*exif_get_
    return true;
 }
 
-exif_field_bitset_t exif_reader_t::read_file_exif(const std::string& filepath)
+field_bitset_t exif_reader_t::read_file_exif(const std::string& filepath)
 {
-   exif_field_bitset_t field_bitset;
+   field_bitset_t field_bitset;
 
    ExifData *exif_data = exif_data_new_from_file(filepath.c_str());
 
@@ -274,7 +302,27 @@ exif_field_bitset_t exif_reader_t::read_file_exif(const std::string& filepath)
                      field_index = EXIF_FIELD_Artist;
                      break;
                   case EXIF_TAG_COPYRIGHT:
-                     field_index = EXIF_FIELD_Copyright;
+                     if(exif_entry->format != EXIF_FORMAT_ASCII)
+                        field_index = EXIF_FIELD_Copyright;
+                     else {
+                        //
+                        // may be one of 3 forms:
+                        // 
+                        //   * photographer copyright \x0 editor copyright \x0
+                        //   * photographer copyright \x0
+                        //   * \x20\x0 editor copyright \x0
+                        //
+                        if(exif_entry->size > 1) {
+                           std::string& copyright = exif_fields[EXIF_FIELD_Copyright].emplace<std::string>(reinterpret_cast<const char*>(exif_entry->data), exif_entry->size-1);
+
+                           // search for the editor copyright separator and replace it with a semicolon
+                           const unsigned char *editor = static_cast<const unsigned char*>(memchr(exif_entry->data, '\x0', exif_entry->size-1));
+                           if(editor)
+                              copyright[editor - exif_entry->data] = ';';
+
+                           field_bitset.set(EXIF_FIELD_Copyright);
+                        }
+                     }
                      break;
                   case EXIF_TAG_EXPOSURE_TIME:
                      if(exif_entry->format != EXIF_FORMAT_RATIONAL)
@@ -396,14 +444,21 @@ exif_field_bitset_t exif_reader_t::read_file_exif(const std::string& filepath)
                      break;
                   case EXIF_TAG_USER_COMMENT:
                      //
-                     // The first 8 bytes are supposed to identify the character set, but
-                     // it isn't done well and there is no byte order identified for the
-                     // Unicode identifier or what format it is. We can only interpret
-                     // ASCII intelligently, which also will handle UTF-8. Ignore other
-                     // encoding types.
+                     // The first 8 bytes identify the character set, but it isn't well
+                     // designed and there is no byte order defined for the "Unicode"
+                     // identifier, which may be different from the EXIF byte order).
+                     // We can only interpret ASCII intelligently, which will also
+                     // work for UTF-8. Other encoding types are ignored. Note that
+                     // the field itself has the type UNDEFINED, so the string isn't
+                     // null-terminated.
                      //
-                     if(exif_entry->size += 8 && !memcmp(exif_entry->data, "ASCII\x0\x0\x0", 8))
-                        exif_fields[EXIF_FIELD_UserComment].emplace<std::string>(reinterpret_cast<const char*>(exif_entry->data+8), exif_entry->size);
+                     if(exif_entry->size > 8 && !memcmp(exif_entry->data, "ASCII\x0\x0\x0", 8)) {
+                        // some files identify as ASCII, but store UCS-2, which would put an empty string into the database
+                        if(*(exif_entry->data+8) && exif_entry->size > 9 && *(exif_entry->data+9)) {
+                           exif_fields[EXIF_FIELD_UserComment].emplace<std::string>(reinterpret_cast<const char*>(exif_entry->data+8), exif_entry->size-8);
+                           field_bitset.set(EXIF_FIELD_UserComment);
+                        }
+                     }
                      break;
                   case EXIF_TAG_SUB_SEC_TIME:
                      field_index = EXIF_FIELD_SubsecTime;
@@ -485,20 +540,20 @@ exif_field_bitset_t exif_reader_t::read_file_exif(const std::string& filepath)
                      fmt_exif_byte<unsigned char>(exif_entry, "%02hhx", exif_fields[field_index.value()], byte_order);
                      field_bitset.set(field_index.value());
                      break;
-                  case EXIF_FORMAT_ASCII: {
-                     // it's unspecified whether size includes the null character
-                     size_t entry_size = *(exif_entry->data+exif_entry->size-1) ? exif_entry->size : exif_entry->size-1;
-                     exif_fields[field_index.value()].emplace<std::string>(reinterpret_cast<const char*>(exif_entry->data), entry_size);
-                     field_bitset.set(field_index.value());
+                  case EXIF_FORMAT_ASCII:
+                     // ASCII entries are always null-terminated (some may have null character embedded in the string - e.g. Copyright)
+                     if(exif_entry->size > 1) {
+                        exif_fields[field_index.value()].emplace<std::string>(reinterpret_cast<const char*>(exif_entry->data), exif_entry->size-1);
+                        field_bitset.set(field_index.value());
                      }
                      break;
                   case EXIF_FORMAT_SHORT:
-                     fmt_exif_number(exif_entry, "%hu", exif_get_short, exif_fields[field_index.value()], EXIF_SIZE_SHORT, byte_order);
-                     field_bitset.set(field_index.value());
+                     if(fmt_exif_number(exif_entry, "%hu", exif_get_short, exif_fields[field_index.value()], EXIF_SIZE_SHORT, byte_order))
+                        field_bitset.set(field_index.value());
                      break;
                   case EXIF_FORMAT_LONG:
-                     fmt_exif_number(exif_entry, "%" PRIu32, exif_get_short, exif_fields[field_index.value()], EXIF_SIZE_LONG, byte_order);
-                     field_bitset.set(field_index.value());
+                     if(fmt_exif_number(exif_entry, "%" PRIu32, exif_get_short, exif_fields[field_index.value()], EXIF_SIZE_LONG, byte_order))
+                        field_bitset.set(field_index.value());
                      break;
                   case EXIF_FORMAT_RATIONAL:
                      if(fmt_exif_rational(exif_entry, exif_get_rational, exif_fields[field_index.value()], EXIF_SIZE_RATIONAL, byte_order))
@@ -510,25 +565,26 @@ exif_field_bitset_t exif_reader_t::read_file_exif(const std::string& filepath)
                      break;
                   case EXIF_FORMAT_SBYTE:
                      fmt_exif_byte<char>(exif_entry, "%hhd", exif_fields[field_index.value()], byte_order);
+                     field_bitset.set(field_index.value());
                      break;
                   case EXIF_FORMAT_UNDEFINED:
                      //
-                     // This format type is can be anything and can be one byte (e.g.
-                     // scene type), four bytes (flash PIX version) or arbitrary number
-                     // of bytes (e.g. user comment). Use this crude size boundary to
-                     // interpret up to four bytes as hex data and anything else as a
-                     // string.
+                     // This format type is can be anything, ranging from one byte
+                     // (e.g. scene type) to four bytes (e.g. flash PIX version) to
+                     // arbitrary structures (e.g. MakerNote). Those fields we know
+                     // about should be formatted in the section above and here we
+                     // can only output values as hex data, which may be truncated.
                      //
-                     if(exif_entry->components <= 4)
-                        fmt_exif_byte<unsigned char>(exif_entry, "%02hhx", exif_fields[field_index.value()], byte_order);
-                     else
-                        exif_fields[field_index.value()].emplace<std::string>(reinterpret_cast<const char*>(exif_entry->data), exif_entry->size);
+                     fmt_exif_byte<unsigned char>(exif_entry, "%02hhx", exif_fields[field_index.value()], byte_order);
+                     field_bitset.set(field_index.value());
                      break;
                   case EXIF_FORMAT_SSHORT:
-                     fmt_exif_number(exif_entry, "%hd", exif_get_sshort, exif_fields[field_index.value()], EXIF_SIZE_SSHORT, byte_order);
+                     if(fmt_exif_number(exif_entry, "%hd", exif_get_sshort, exif_fields[field_index.value()], EXIF_SIZE_SSHORT, byte_order))
+                        field_bitset.set(field_index.value());
                      break;
                   case EXIF_FORMAT_SLONG:
-                     fmt_exif_number(exif_entry, "%" PRId32, exif_get_slong, exif_fields[field_index.value()], EXIF_SIZE_SLONG, byte_order);
+                     if(fmt_exif_number(exif_entry, "%" PRId32, exif_get_slong, exif_fields[field_index.value()], EXIF_SIZE_SLONG, byte_order))
+                        field_bitset.set(field_index.value());
                      break;
                   case EXIF_FORMAT_FLOAT:
                      // unsupported in libexif/0.6.24
@@ -549,9 +605,10 @@ exif_field_bitset_t exif_reader_t::read_file_exif(const std::string& filepath)
    return field_bitset;
 }
 
-const std::vector<exif_field_value_t>& exif_reader_t::get_exif_fields(void) const
+const std::vector<field_value_t>& exif_reader_t::get_exif_fields(void) const
 {
    return exif_fields;
 }
 
+}
 }

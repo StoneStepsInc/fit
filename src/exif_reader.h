@@ -10,8 +10,9 @@
 #include <bitset>
 
 namespace fit {
+namespace exif {
 
-enum exif_field_t {
+enum field_index_t {
    EXIF_FIELD_BitsPerSample,
    EXIF_FIELD_Compression,
    EXIF_FIELD_DocumentName,
@@ -83,10 +84,14 @@ enum exif_field_t {
    EXIF_FIELD_FieldCount
 };
 
-typedef std::variant<nullptr_t, int64_t, std::string> exif_field_value_t;
+typedef std::variant<nullptr_t, int64_t, std::string> field_value_t;
 
-typedef std::bitset<EXIF_FIELD_FieldCount> exif_field_bitset_t;
+typedef std::bitset<EXIF_FIELD_FieldCount> field_bitset_t;
 
+//
+// A class that reads EXIF data from a file and maps EXIF values
+// to database columns via a field index.
+//
 class exif_reader_t {
    private:
       size_t EXIF_SIZE_RATIONAL;
@@ -96,28 +101,29 @@ class exif_reader_t {
       size_t EXIF_SIZE_LONG;
       size_t EXIF_SIZE_SLONG;
 
-      std::vector<exif_field_value_t> exif_fields;
+      std::vector<field_value_t> exif_fields;
 
    private:
       template <typename T>
-      static void fmt_exif_byte(const ExifEntry *exif_entry, const char *format, exif_field_value_t& field_value, ExifByteOrder byte_order);
+      static void fmt_exif_byte(const ExifEntry *exif_entry, const char *format, field_value_t& field_value, ExifByteOrder byte_order);
 
       template <typename T>
-      static void fmt_exif_number(const ExifEntry *exif_entry, const char *format, T (*exif_get_type_fn)(const unsigned char*, ExifByteOrder), exif_field_value_t& field_value, size_t item_size, ExifByteOrder byte_order);
+      static bool fmt_exif_number(const ExifEntry *exif_entry, const char *format, T (*exif_get_type_fn)(const unsigned char*, ExifByteOrder), field_value_t& field_value, size_t item_size, ExifByteOrder byte_order);
 
       template <typename T>
-      static bool fmt_exif_rational(const ExifEntry *exif_entry, T (*exif_get_type_fn)(const unsigned char*, ExifByteOrder), exif_field_value_t& field_value, size_t item_size, ExifByteOrder byte_order);
+      static bool fmt_exif_rational(const ExifEntry *exif_entry, T (*exif_get_type_fn)(const unsigned char*, ExifByteOrder), field_value_t& field_value, size_t item_size, ExifByteOrder byte_order);
 
    public:
       exif_reader_t(void);
 
       exif_reader_t(exif_reader_t&& other);
 
-      exif_field_bitset_t read_file_exif(const std::string& filepath);
+      field_bitset_t read_file_exif(const std::string& filepath);
 
-      const std::vector<exif_field_value_t>& get_exif_fields(void) const;
+      const std::vector<field_value_t>& get_exif_fields(void) const;
 };
 
+}
 }
 
 #endif // FIT_EXIF_READER_H

@@ -73,7 +73,7 @@ class file_hasher_t {
 
       std::vector<std::string> pic_exts;
 
-      exif_reader_t exif_reader;
+      exif::exif_reader_t exif_reader;
 
       sqlite3 *file_scan_db = nullptr;
 
