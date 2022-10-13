@@ -122,7 +122,7 @@ file_hasher_t::file_hasher_t(const options_t& options, int64_t scan_id, std::que
    std::string sql_insert_exif = "INSERT INTO exif ("
                                       "BitsPerSample,Compression,DocumentName,ImageDescription,Make,Model,Orientation,SamplesPerPixel,"
                                       "Software,DateTime,Artist,Copyright,ExposureTime,FNumber,ExposureProgram,ISOSpeedRatings,"
-                                      "SensitivityType,ISOSpeed,TimeZoneOffset,DateTimeOriginal,DateTimeDigitized,OffsetTime,OffsetTimeOriginal,OffsetTimeDigitized,"
+                                      "TimeZoneOffset,SensitivityType,ISOSpeed,DateTimeOriginal,DateTimeDigitized,OffsetTime,OffsetTimeOriginal,OffsetTimeDigitized,"
                                       "ShutterSpeedValue,ApertureValue,SubjectDistance,BrightnessValue,ExposureBiasValue,MaxApertureValue,MeteringMode,LightSource,"
                                       "Flash,FocalLength,UserComment,SubsecTime,SubSecTimeOriginal,SubSecTimeDigitized,FlashpixVersion,FlashEnergy,"
                                       "SubjectLocation,ExposureIndex,SensingMethod,SceneType,ExposureMode,WhiteBalance,DigitalZoomRatio,FocalLengthIn35mmFilm,"
