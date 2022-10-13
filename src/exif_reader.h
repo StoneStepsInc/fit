@@ -62,7 +62,6 @@ enum field_index_t {
    EXIF_FIELD_DigitalZoomRatio,
    EXIF_FIELD_FocalLengthIn35mmFilm,
    EXIF_FIELD_SceneCaptureType,
-   EXIF_FIELD_DeviceSettingDescription,
    EXIF_FIELD_SubjectDistanceRange,
    EXIF_FIELD_ImageUniqueID,
    EXIF_FIELD_CameraOwnerName,

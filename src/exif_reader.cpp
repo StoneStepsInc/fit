@@ -502,9 +502,6 @@ field_bitset_t exif_reader_t::read_file_exif(const std::string& filepath)
                   case EXIF_TAG_SCENE_CAPTURE_TYPE:
                      field_index = EXIF_FIELD_SceneCaptureType;
                      break;
-                  case EXIF_TAG_DEVICE_SETTING_DESCRIPTION:
-                     field_index = EXIF_FIELD_DeviceSettingDescription;
-                     break;
                   case EXIF_TAG_SUBJECT_DISTANCE_RANGE:
                      field_index = EXIF_FIELD_SubjectDistanceRange;
                      break;

@@ -127,11 +127,11 @@ CREATE TABLE exif (
     SubSecTimeOriginal TEXT NULL, SubSecTimeDigitized TEXT NULL, FlashpixVersion TEXT NULL, FlashEnergy TEXT NULL,
     SubjectLocation TEXT NULL, ExposureIndex TEXT NULL, SensingMethod INTEGER NULL, SceneType INTEGER NULL,
     ExposureMode INTEGER NULL, WhiteBalance INTEGER NULL, DigitalZoomRatio TEXT NULL, FocalLengthIn35mmFilm TEXT NULL,
-    SceneCaptureType INTEGER NULL, DeviceSettingDescription TEXT NULL, SubjectDistanceRange TEXT NULL, ImageUniqueID TEXT NULL,
-    CameraOwnerName TEXT NULL, BodySerialNumber TEXT NULL, LensSpecification TEXT NULL, LensMake TEXT NULL,
-    LensModel TEXT NULL, LensSerialNumber TEXT NULL, GPSLatitudeRef TEXT NULL, GPSLatitude TEXT NULL,
-    GPSLongitudeRef TEXT NULL, GPSLongitude TEXT NULL, GPSAltitudeRef TEXT NULL, GPSAltitude TEXT NULL,
-    GPSTimeStamp TEXT NULL, GPSSpeedRef TEXT NULL, GPSSpeed TEXT NULL, GPSDateStamp TEXT NULL);
+    SceneCaptureType INTEGER NULL, SubjectDistanceRange TEXT NULL, ImageUniqueID TEXT NULL, CameraOwnerName TEXT NULL,
+    BodySerialNumber TEXT NULL, LensSpecification TEXT NULL, LensMake TEXT NULL, LensModel TEXT NULL,
+    LensSerialNumber TEXT NULL, GPSLatitudeRef TEXT NULL, GPSLatitude TEXT NULL, GPSLongitudeRef TEXT NULL,
+    GPSLongitude TEXT NULL, GPSAltitudeRef TEXT NULL, GPSAltitude TEXT NULL, GPSTimeStamp TEXT NULL,
+    GPSSpeedRef TEXT NULL, GPSSpeed TEXT NULL, GPSDateStamp TEXT NULL);
 
 --
 -- Set the target database version

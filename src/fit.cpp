@@ -354,11 +354,11 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
                                           "SubSecTimeOriginal TEXT NULL,SubSecTimeDigitized TEXT NULL,FlashpixVersion TEXT NULL,FlashEnergy TEXT NULL,"
                                           "SubjectLocation TEXT NULL,ExposureIndex TEXT NULL,SensingMethod INTEGER NULL,SceneType INTEGER NULL,"
                                           "ExposureMode INTEGER NULL,WhiteBalance INTEGER NULL,DigitalZoomRatio TEXT NULL,FocalLengthIn35mmFilm TEXT NULL,"
-                                          "SceneCaptureType INTEGER NULL,DeviceSettingDescription TEXT NULL,SubjectDistanceRange TEXT NULL,ImageUniqueID TEXT NULL,"
-                                          "CameraOwnerName TEXT NULL,BodySerialNumber TEXT NULL,LensSpecification TEXT NULL,LensMake TEXT NULL,"
-                                          "LensModel TEXT NULL,LensSerialNumber TEXT NULL,GPSLatitudeRef TEXT NULL,GPSLatitude TEXT NULL,"
-                                          "GPSLongitudeRef TEXT NULL,GPSLongitude TEXT NULL,GPSAltitudeRef TEXT NULL,GPSAltitude TEXT NULL,"
-                                          "GPSTimeStamp TEXT NULL,GPSSpeedRef TEXT NULL,GPSSpeed TEXT NULL,GPSDateStamp TEXT NULL);",nullptr,nullptr,&errmsg) != SQLITE_OK)
+                                          "SceneCaptureType INTEGER NULL,SubjectDistanceRange TEXT NULL,ImageUniqueID TEXT NULL,CameraOwnerName TEXT NULL,"
+                                          "BodySerialNumber TEXT NULL,LensSpecification TEXT NULL,LensMake TEXT NULL,LensModel TEXT NULL,"
+                                          "LensSerialNumber TEXT NULL,GPSLatitudeRef TEXT NULL,GPSLatitude TEXT NULL,GPSLongitudeRef TEXT NULL,"
+                                          "GPSLongitude TEXT NULL,GPSAltitudeRef TEXT NULL,GPSAltitude TEXT NULL,GPSTimeStamp TEXT NULL,"
+                                          "GPSSpeedRef TEXT NULL,GPSSpeed TEXT NULL,GPSDateStamp TEXT NULL);",nullptr,nullptr,&errmsg) != SQLITE_OK)
             throw std::runtime_error("Cannot create table 'exif' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
          // scans table
