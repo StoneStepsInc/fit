@@ -85,9 +85,9 @@ jobs:
        - fedora
        - ubuntu
 
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/stonestepsinc/fit/${{ matrix.linux-flavor }}:20220527
+      image: ghcr.io/stonestepsinc/fit/${{ matrix.linux-flavor }}:20221014
 
     steps:
     - name: Checkout source
@@ -122,7 +122,7 @@ jobs:
   #
   create-draft-release:
     name: Create a draft release
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: 
     - build-windows
     - build-linux
@@ -146,7 +146,7 @@ jobs:
   #
   upload-release-assets:
     name: Upload release assets
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     needs:
     - create-draft-release
