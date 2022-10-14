@@ -34,7 +34,7 @@ jobs:
     
     steps:
     - name: Checkout source
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Restore Nuget packages
       run: nuget restore
@@ -67,7 +67,7 @@ jobs:
         7z a fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.windows.x64.zip fit-${{ env.VERSION }}-windows
 
     - name: Upload Windows package
-      uses: actions/upload-artifact@v2.2.1
+      uses: actions/upload-artifact@v3
       with:
         name: fit-${{ env.VERSION }}-windows
         path: fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.windows.x64.zip
@@ -91,7 +91,7 @@ jobs:
 
     steps:
     - name: Checkout source
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Set up SHA-256
       run: |
@@ -112,7 +112,7 @@ jobs:
         tar czf fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.${{ matrix.linux-flavor }}.x64.tar.gz fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}
 
     - name: Upload ${{ matrix.linux-flavor }} package
-      uses: actions/upload-artifact@v2.2.1
+      uses: actions/upload-artifact@v3
       with:
         name: fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}
         path: fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.${{ matrix.linux-flavor }}.x64.tar.gz
@@ -133,7 +133,7 @@ jobs:
     steps:
     - name: Create a draft release
       id: draft-release
-      uses: actions/create-release@v1.1.4
+      uses: actions/create-release@1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
@@ -166,7 +166,7 @@ jobs:
 
     steps:
     - name: Download ${{ matrix.build-flavor }} package
-      uses: actions/download-artifact@v2.0.7
+      uses: actions/download-artifact@v3
       with:
         name: fit-${{ env.VERSION }}-${{ matrix.build-flavor }}
         path: .
