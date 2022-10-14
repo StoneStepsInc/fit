@@ -84,6 +84,10 @@ class file_hasher_t {
 
       sqlite3_stmt *stmt_find_file = nullptr;
 
+      sqlite3_stmt *stmt_begin_txn = nullptr;
+      sqlite3_stmt *stmt_commit_txn = nullptr;
+      sqlite3_stmt *stmt_rollback_txn = nullptr;
+
    private:
       void hash_file(const std::filesystem::path& filepath, uint64_t& filesize, uint8_t hexhash[]);
 

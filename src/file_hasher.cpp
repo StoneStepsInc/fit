@@ -147,6 +147,24 @@ file_hasher_t::file_hasher_t(const options_t& options, int64_t scan_id, std::que
 
    if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_exif.c_str(), (int) sql_insert_exif.length()+1, &stmt_insert_exif, nullptr)) != SQLITE_OK)
       print_stream.error("Cannot prepare a SQLite statement to insert an EXIF record (%s)", sqlite3_errstr(errcode));
+
+   //
+   // SQLite transaction statements
+   //
+   std::string_view sql_begin_txn = "BEGIN DEFERRED TRANSACTION"sv;
+
+   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_begin_txn.data(), (int) sql_begin_txn.length()+1, &stmt_begin_txn, nullptr)) != SQLITE_OK)
+      print_stream.error("Cannot prepare a SQLite statement to begin a transaction (%s)", sqlite3_errstr(errcode));
+
+   std::string_view sql_commit_txn = "COMMIT TRANSACTION"sv;
+
+   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_commit_txn.data(), (int) sql_commit_txn.length()+1, &stmt_commit_txn, nullptr)) != SQLITE_OK)
+      print_stream.error("Cannot prepare a SQLite statement to commit a transaction (%s)", sqlite3_errstr(errcode));
+
+   std::string_view sql_rollback_txn = "ROLLBACK TRANSACTION"sv;
+
+   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_rollback_txn.data(), (int) sql_rollback_txn.length()+1, &stmt_rollback_txn, nullptr)) != SQLITE_OK)
+      print_stream.error("Cannot prepare a SQLite statement to roll back a transaction (%s)", sqlite3_errstr(errcode));
 }
 
 file_hasher_t::file_hasher_t(file_hasher_t&& other) :
@@ -165,6 +183,9 @@ file_hasher_t::file_hasher_t(file_hasher_t&& other) :
       stmt_insert_scanset_file(other.stmt_insert_scanset_file),
       stmt_insert_exif(other.stmt_insert_exif),
       stmt_find_file(other.stmt_find_file),
+      stmt_begin_txn(other.stmt_begin_txn),
+      stmt_commit_txn(other.stmt_commit_txn),
+      stmt_rollback_txn(other.stmt_rollback_txn),
       pic_exts(std::move(other.pic_exts)),
       exif_reader(std::move(other.exif_reader))
 {
@@ -176,6 +197,10 @@ file_hasher_t::file_hasher_t(file_hasher_t&& other) :
    other.stmt_insert_exif = nullptr;
 
    other.stmt_find_file = nullptr;
+
+   other.stmt_begin_txn = nullptr;
+   other.stmt_commit_txn = nullptr;
+   other.stmt_rollback_txn = nullptr;
 }
 
 file_hasher_t::~file_hasher_t(void)
@@ -205,6 +230,21 @@ file_hasher_t::~file_hasher_t(void)
    if(stmt_insert_exif) {
       if((errcode = sqlite3_finalize(stmt_insert_exif)) != SQLITE_OK)
          print_stream.error("Cannot finalize SQLite statment to insert an EXIF record (%s)", sqlite3_errstr(errcode));
+   }
+
+   if(stmt_begin_txn) {
+      if((errcode = sqlite3_finalize(stmt_begin_txn)) != SQLITE_OK)
+         print_stream.error("Cannot finalize SQLite statment to begin a transaction (%s)", sqlite3_errstr(errcode));
+   }
+
+   if(stmt_commit_txn) {
+      if((errcode = sqlite3_finalize(stmt_commit_txn)) != SQLITE_OK)
+         print_stream.error("Cannot finalize SQLite statment to commit a transaction (%s)", sqlite3_errstr(errcode));
+   }
+
+   if(stmt_rollback_txn) {
+      if((errcode = sqlite3_finalize(stmt_rollback_txn)) != SQLITE_OK)
+         print_stream.error("Cannot finalize SQLite statment to rollback a transaction (%s)", sqlite3_errstr(errcode));
    }
 
    if(file_scan_db) {
@@ -381,28 +421,50 @@ void file_hasher_t::run(void)
             else
                throw std::runtime_error("Unknown hash type: "s + reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 2)));
          }
-         else {
-               sqlite_stmt_binder_t insert_file_stmt(stmt_insert_file, "insert file"sv);
 
-               insert_file_stmt.bind_param(dir_entry.path().filename().u8string());
-
-               if(dir_entry.path().extension().empty())
-                  insert_file_stmt.bind_param(nullptr);
-               else
-                  insert_file_stmt.bind_param(dir_entry.path().extension().u8string());
-
-               insert_file_stmt.bind_param(filepath);
-            
-               if((errcode = sqlite3_step(stmt_insert_file)) != SQLITE_DONE)
-                  throw std::runtime_error("Cannot insert a file record for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
-
-               file_id = sqlite3_last_insert_rowid(file_scan_db);
-
-               insert_file_stmt.reset();
-         }
-
-         // reset early to release read locks the select acquired
+         //
+         // Reset the select statement to release read locks acquired above
+         // before starting a transaction. Without this step, some insert
+         // statements will fail with SQLITE_BUSY because of possible
+         // resource deadlocks, which are reported immediately and without
+         // calling the busy handler.
+         //
          find_file_stmt.reset();
+
+         errcode = sqlite3_step(stmt_begin_txn);
+
+         if(errcode != SQLITE_DONE)
+            throw std::runtime_error("Cannot start a SQLite transaction for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
+
+         //
+         // We may insert a few records after this point and need to make
+         // sure they are inserted within a transaction to avoid having a
+         // file without versions, which will trigger primary key violation
+         // next time the same file is being processed.
+         // 
+         // Worth noting that the transaction is deferred, so in case we
+         // don't insert any records, there should be no locks placed on
+         // the database.
+         //
+         if(!file_id.has_value()) {
+            sqlite_stmt_binder_t insert_file_stmt(stmt_insert_file, "insert file"sv);
+
+            insert_file_stmt.bind_param(dir_entry.path().filename().u8string());
+
+            if(dir_entry.path().extension().empty())
+               insert_file_stmt.bind_param(nullptr);
+            else
+               insert_file_stmt.bind_param(dir_entry.path().extension().u8string());
+
+            insert_file_stmt.bind_param(filepath);
+            
+            if((errcode = sqlite3_step(stmt_insert_file)) != SQLITE_DONE)
+               throw std::runtime_error("Cannot insert a file record for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
+
+            file_id = sqlite3_last_insert_rowid(file_scan_db);
+
+            insert_file_stmt.reset();
+         }
 
          // check if we still need to hash the file
          if(!options.verify_files && options.skip_hash_mod_time) {
@@ -552,6 +614,11 @@ void file_hasher_t::run(void)
 
          insert_scanset_file_stmt.reset();
 
+         errcode = sqlite3_step(stmt_commit_txn);
+
+         if(errcode != SQLITE_DONE)
+            throw std::runtime_error("Cannot commit a SQLite transaction for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
+
          //
          // Update stats for processed files
          //
@@ -562,6 +629,14 @@ void file_hasher_t::run(void)
          progress_info.failed_files++;
 
          print_stream.error("%s", error.what());
+
+         // if we started a transaction, roll it back
+         if(!sqlite3_get_autocommit(file_scan_db)) {
+            errcode = sqlite3_step(stmt_rollback_txn);
+
+            if(errcode != SQLITE_DONE)
+               print_stream.error("Cannot rollback a SQLite transaction for %s (%s)", filepath.c_str(), sqlite3_errstr(errcode));
+         }
       }
 
       // need to lock to access the queue
