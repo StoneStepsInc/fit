@@ -7,8 +7,8 @@ using namespace std::literals::string_literals;
 
 namespace fit {
 
-static const std::string err_null_stmt_msg = "SQLite statement must not be null";
-static const std::string err_reuse_stmt_msg = "SQLite statement must finalized before it can be reused";
+static const std::string err_null_stmt_msg = "SQLite statement must not be null ";
+static const std::string err_reuse_stmt_msg = "SQLite statement must finalized before it can be reused ";
 
 sqlite_stmt_binder_t::sqlite_stmt_binder_t(sqlite3_stmt *stmt, const std::string_view& name) :
       name(name),
