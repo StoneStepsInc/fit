@@ -9,6 +9,8 @@
 #include <string>
 #include <bitset>
 
+#include <cstddef>
+
 namespace fit {
 namespace exif {
 
