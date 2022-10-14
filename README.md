@@ -377,7 +377,7 @@ as an integer, not as `Manual`, `Aperture priority`, etc.
 Single numeric values are stored as integers and decimal values
 are stored as strings or string lists. For example, `GPSLongitude`
 is recorded in EXIF as 3 decimal values, which are stored in the
-`exif` table as text similar to `79,36,4.1143`. `ApertureValue`,
+`exif` table as text similar to `79 36 4.1143`. `ApertureValue`,
 on the other hand, is recorded as a decimal string `2.97`, which
 can be used to compute FNumber as `2 ^ (2.97/2) = f/2.8`.
 
