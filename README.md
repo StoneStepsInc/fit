@@ -428,9 +428,9 @@ schema is modified.
 
 ### Windows
 
-Current source requires Visual Studio 2019 to build. It uses a
-SQLite Nuget package for database access and a 3rd-party library
-to compute SHA-256 hashes.
+Current source requires Visual Studio 2019 to build. It uses
+Nuget package for database access and reading EXIF and a 3rd-party
+source package to compute SHA-256 hashes.
 
 SHA-256 does not have a package and may be obtained via a batch
 file included in the project (`get-sha256.bat`). After running
@@ -476,6 +476,13 @@ This application uses following 3rd-party libraries, licensed separately.
 A SQL database management library.
 
 LICENSE: [Pubic Domain](https://www.sqlite.org/copyright.html)
+
+#### libexif
+
+A library for parsing EXIF data.
+
+LICENSE: [GNU Lesser General Public License v2.1](https://github.com/libexif/libexif/blob/master/COPYING)
+
 
 #### SHA256
 
