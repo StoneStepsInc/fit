@@ -83,24 +83,26 @@ file_hasher_t::file_hasher_t(const options_t& options, int64_t scan_id, std::que
    if((errcode = sqlite3_busy_handler(file_scan_db, sqlite_busy_handler_cb, nullptr)) != SQLITE_OK)
       throw std::runtime_error(sqlite3_errstr(errcode));
    
+   //
    // insert statement for new file records                  1    2     3
+   //
    std::string_view sql_insert_file = "insert into files (name, ext, path) values (?, ?, ?)"sv;
 
    if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_file.data(), (int) sql_insert_file.length()+1, &stmt_insert_file, nullptr)) != SQLITE_OK)
       print_stream.error("Cannot prepare a SQLite statement to insert a file (%s)", sqlite3_errstr(errcode));
 
-   // insert statement for new file version records                   1        2        3         4           5          6          7     8        9
-   std::string_view sql_insert_version = "insert into versions (scan_id, file_id, version, mod_time, entry_size, read_size, hash_type, hash, exif_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?)"sv;
+   //
+   // insert statement for new file version records                   1        2         3           4          5          6     7        8
+   //
+   std::string_view sql_insert_version = "insert into versions (file_id, version, mod_time, entry_size, read_size, hash_type, hash, exif_id) values (?, ?, ?, ?, ?, ?, ?, ?)"sv;
 
    if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_version.data(), (int) sql_insert_version.length()+1, &stmt_insert_version, nullptr)) != SQLITE_OK)
       print_stream.error("Cannot prepare a SQLite statement to insert a file version (%s)", sqlite3_errstr(errcode));
 
-   if((errcode = sqlite3_bind_int64(stmt_insert_version, 1, scan_id)) != SQLITE_OK)
-      print_stream.error("Cannot bind a scan ID for a SQLite statement to insert a file version (%s)", sqlite3_errstr(errcode));
-
-   if((errcode = sqlite3_bind_text(stmt_insert_version, 7, hash_type.data(), static_cast<int>(hash_type.size()), SQLITE_TRANSIENT)) != SQLITE_OK)
+   if((errcode = sqlite3_bind_text(stmt_insert_version, 6, hash_type.data(), static_cast<int>(hash_type.size()), SQLITE_TRANSIENT)) != SQLITE_OK)
       print_stream.error("Cannot bind a hash type for a SQLite statement to insert a file version (%s)", sqlite3_errstr(errcode));
 
+   //
    // select statement to look-up files by their path
    // parameters:                                                                                                                                                 1
    // columns:                                    0         1          2     3               4        5
@@ -109,8 +111,10 @@ file_hasher_t::file_hasher_t(const options_t& options, int64_t scan_id, std::que
    if((errcode = sqlite3_prepare_v2(file_scan_db, sql_find_file.data(), (int) sql_find_file.length()+1, &stmt_find_file, nullptr)) != SQLITE_OK)
       print_stream.error("Cannot prepare a SQLite statement to find a file version (%s)", sqlite3_errstr(errcode));
 
-   // insert statement for scanset file records                             1        2           3
-   std::string_view sql_insert_scanset_file = "insert into scansets (scan_id, file_id, version_id) values (?, ?, ?)"sv;
+   //
+   // insert statement for scanset file records                            1           2
+   //
+   std::string_view sql_insert_scanset_file = "insert into scansets (scan_id, version_id) values (?, ?)"sv;
 
    if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_scanset_file.data(), (int) sql_insert_scanset_file.length()+1, &stmt_insert_scanset_file, nullptr)) != SQLITE_OK)
       print_stream.error("Cannot prepare a SQLite statement to insert a scanset file (%s)", sqlite3_errstr(errcode));
@@ -118,7 +122,9 @@ file_hasher_t::file_hasher_t(const options_t& options, int64_t scan_id, std::que
    if((errcode = sqlite3_bind_int64(stmt_insert_scanset_file, 1, scan_id)) != SQLITE_OK)
       print_stream.error("Cannot bind a scan ID for a SQLite statement to insert a scanset file (%s)", sqlite3_errstr(errcode));
 
+   //
    // insert statement for EXIF records
+   //
    std::string sql_insert_exif = "INSERT INTO exif ("
                                       "BitsPerSample,Compression,DocumentName,ImageDescription,Make,Model,Orientation,SamplesPerPixel,"
                                       "Software,DateTime,Artist,Copyright,ExposureTime,FNumber,ExposureProgram,ISOSpeedRatings,"
@@ -335,8 +341,8 @@ void file_hasher_t::run(void)
          int64_t version = 0;
          bool hash_match = false;
          int64_t mod_time = 0;
-         int64_t file_ver_id = 0;
-         int64_t file_id = 0;
+         std::optional<int64_t> version_id;
+         std::optional<int64_t> file_id;
          std::optional<int64_t> exif_id;
 
          errcode = sqlite3_step(stmt_find_file);
@@ -350,15 +356,17 @@ void file_hasher_t::run(void)
 
             mod_time = sqlite3_column_int64(stmt_find_file, 1);
 
-            file_ver_id = sqlite3_column_int64(stmt_find_file, 4);
+            version_id = sqlite3_column_int64(stmt_find_file, 4);
 
             file_id = sqlite3_column_int64(stmt_find_file, 5);
 
             // compare the stored hash against the one we just computed
             if(std::string_view(reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 2)), sqlite3_column_bytes(stmt_find_file, 2)) == "SHA256"sv) {
                // consider a NULL hash as a match for zero-length files
-               if(sqlite3_column_type(stmt_find_file, 3) == SQLITE_NULL)
+               if(sqlite3_column_type(stmt_find_file, 3) == SQLITE_NULL) {
                   hash_match = filesize == 0;
+                  memset(hexhash_field, 0, SHA256_HEX_SIZE);
+               }
                else {
                   if(sqlite3_column_bytes(stmt_find_file, 3) != SHA256_HEX_SIZE)
                      throw std::runtime_error("Bad hash size for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
@@ -399,17 +407,18 @@ void file_hasher_t::run(void)
          // check if we still need to hash the file
          if(!options.verify_files && options.skip_hash_mod_time) {
             // if the file modification time didn't change, assume it has the same hash, as requested
-            if(mod_time && mod_time == std::chrono::duration_cast<std::chrono::seconds>(dir_entry.last_write_time().time_since_epoch()).count())
+            if(version_id.has_value() && mod_time && mod_time == std::chrono::duration_cast<std::chrono::seconds>(dir_entry.last_write_time().time_since_epoch()).count())
                hash_match = true;
             else {
-               // hash the file if we didn't find its record or the last-modified time changed
+               // hash the file if we didn't find its version record or the last-modified time changed
                hash_file(dir_entry.path(), filesize, hexhash_file);
-               hash_match = memcmp(hexhash_file, hexhash_field, SHA256_HEX_SIZE) == 0;
+               // hexhash_field is zeroed for a NULL hash field
+               hash_match = version_id.has_value() && memcmp(hexhash_file, hexhash_field, SHA256_HEX_SIZE) == 0;
             }
          }
 
-         // handle the mismatched hash based on whether we are verifying or scanning
          if(!hash_match) {
+            // handle the mismatched hash based on whether we are verifying or scanning
             if(options.verify_files) {
                // differentiate between new, modified and changed files
                if(!mod_time) {
@@ -473,10 +482,7 @@ void file_hasher_t::run(void)
                //
                sqlite_stmt_binder_t insert_version_stmt(stmt_insert_version, "insert version"sv);
 
-               // scan_id
-               insert_version_stmt.skip_param();
-
-               insert_version_stmt.bind_param(file_id);
+               insert_version_stmt.bind_param(file_id.value());
 
                insert_version_stmt.bind_param(version+1);
 
@@ -519,8 +525,8 @@ void file_hasher_t::run(void)
                if((errcode = sqlite3_step(stmt_insert_version)) != SQLITE_DONE)
                   throw std::runtime_error("Cannot insert a version record for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
 
-               // get the row ID for the new file record
-               file_ver_id = sqlite3_last_insert_rowid(file_scan_db);
+               // get the row ID for the new version record
+               version_id = sqlite3_last_insert_rowid(file_scan_db);
 
                insert_version_stmt.reset();
             }
@@ -539,9 +545,7 @@ void file_hasher_t::run(void)
          // scan_id
          insert_scanset_file_stmt.skip_param();
 
-         insert_scanset_file_stmt.bind_param(file_id);
-
-         insert_scanset_file_stmt.bind_param(file_ver_id);
+         insert_scanset_file_stmt.bind_param(version_id.value());
 
          if((errcode = sqlite3_step(stmt_insert_scanset_file)) != SQLITE_DONE)
             throw std::runtime_error("Cannot insert a scanset file record for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");

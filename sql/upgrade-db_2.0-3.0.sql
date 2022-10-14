@@ -64,6 +64,8 @@ ALTER TABLE files RENAME TO versions;
 ALTER TABLE versions ADD COLUMN file_id INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE versions ADD COLUMN exif_id INTEGER NULL;
 
+ALTER TABLE versions DROP COLUMN scan_id;
+
 CREATE TABLE files (
     name TEXT NOT NULL,
     ext TEXT NULL,
@@ -102,13 +104,12 @@ CREATE INDEX ix_versions_hash ON versions (hash, hash_type);
 --
 CREATE TABLE scansets (
     scan_id INTEGER NOT NULL,
-    file_id INTEGER NOT NULL,
     version_id INTEGER NOT NULL
 );
 
 CREATE UNIQUE INDEX ix_scansets_scan_file ON scansets (
     scan_id,
-    file_id
+    version_id
 );
 
 --

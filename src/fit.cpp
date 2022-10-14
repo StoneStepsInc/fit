@@ -323,7 +323,6 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
 
          // versions table
          if(sqlite3_exec(file_scan_db, "CREATE TABLE versions ("
-                                          "scan_id INTEGER NOT NULL,"
                                           "file_id INTEGER NOT NULL,"
                                           "version INTEGER NOT NULL,"
                                           "mod_time INTEGER NOT NULL,"
@@ -377,11 +376,10 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
          // scansets table
          if(sqlite3_exec(file_scan_db, "CREATE TABLE scansets ("
                                           "scan_id INTEGER NOT NULL,"
-                                          "file_id INTEGER NOT NULL,"
                                           "version_id INTEGER NOT NULL);", nullptr, nullptr, &errmsg) != SQLITE_OK)
             throw std::runtime_error("Cannot create table 'scansets' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
-         if(sqlite3_exec(file_scan_db, "CREATE UNIQUE INDEX ix_scansets_scan_file ON scansets (scan_id, file_id);", nullptr, nullptr, &errmsg) != SQLITE_OK)
+         if(sqlite3_exec(file_scan_db, "CREATE UNIQUE INDEX ix_scansets_scan_file ON scansets (scan_id, version_id);", nullptr, nullptr, &errmsg) != SQLITE_OK)
             throw std::runtime_error("Cannot create file/scan ID index for 'scansets' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
          // set the current database schema version

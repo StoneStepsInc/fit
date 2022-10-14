@@ -18,8 +18,8 @@ SELECT
     round(max(entry_size) / 1000., 3) as max_entry_size_kb
 FROM
     scansets
-    JOIN files ON scansets.file_id = files.rowid
-    JOIN versions ON scansets.version_id = versions.rowid
+    JOIN versions ON version_id = versions.rowid
+    JOIN files ON file_id = files.rowid
 WHERE
     scansets.scan_id >= coalesce(@SCAN_ID, 1) AND
     ext IS NOT NULL

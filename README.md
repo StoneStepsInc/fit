@@ -227,10 +227,6 @@ This table has following fields:
 
     A version record identifier.
 
-  * `scan_id` `INTEGER NOT NULL`
-
-    A scan identifier where this version of the file was seen first.
-
   * `file_id` `INTEGER NOT NULL`
 
     A file identifier for this version record. Multiple versions of
@@ -333,17 +329,11 @@ there is a new version of the file detected or not.
 
   * `scan_id` `INTEGER NOT NULL`
 
-    A scan record identifier. This field should not be used when
-    joining to the `versions` table.
-
-  * `file_id` `INTEGER NOT NULL`
-
-    A file record identifier.
+    A scan record identifier.
 
   * `version_id` `INTEGER NOT NULL`
 
-    A version record identifier. This field should be used when
-    joining to the `versions` table.
+    A file version record identifier.
 
 This table represents the set of files scanned in a single `fit`
 run.
