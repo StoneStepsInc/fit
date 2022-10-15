@@ -84,15 +84,16 @@ INSERT INTO files (name, ext, path) SELECT DISTINCT name, ext, path FROM version
 -- delete duplicate paths with a NULL extension and leave actual NULL extensions alone
 DELETE FROM files WHERE ext IS NULL AND path IN (SELECT path FROM files GROUP BY path HAVING COUNT(path) > 1);
 
--- update version records to reference new file records (UPDATE/FROM is not available prior SQLite/3.33.0)
-UPDATE versions SET file_id = files.rowid FROM files WHERE files.path = versions.path;
+-- update version records to reference new file records
+UPDATE versions SET file_id = (SELECT files.rowid FROM files WHERE files.path = versions.path);
 
 -- attempt to create a unique path index before we drop those columns
 CREATE UNIQUE INDEX ix_files_path ON files (path);
 
-ALTER TABLE versions DROP column name;
-ALTER TABLE versions DROP column ext;
-ALTER TABLE versions DROP column path;
+-- DROP COLUMN is not available prior to SQLite/3.35.0
+ALTER TABLE versions DROP COLUMN name;
+ALTER TABLE versions DROP COLUMN ext;
+ALTER TABLE versions DROP COLUMN path;
 
 CREATE UNIQUE INDEX ix_versions_file ON versions (file_id, version);
 
