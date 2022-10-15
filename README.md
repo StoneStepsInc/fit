@@ -136,6 +136,16 @@ three labels:
     time. For example, disk corruption or direct disk access may
     change file contents without updating file modification time.
 
+With scans performed by `fit` 2.0.0 and newer, it is also possible
+to verify which files were changed between scans comparing scan
+sets in the database. For example, files changed between scans `11`
+and `12` may be listed with this command:
+
+    sqlite3 -line -cmd ".param set @SCAN_ID 12" sqlite.db < sql/list-new-files.sql
+
+Files with version `1` were added in the specified scan and
+contents of files with greater versions were changed.
+
 ## Scan Performance
 
 `fit` scans file trees using multiple threads, but actual scan
