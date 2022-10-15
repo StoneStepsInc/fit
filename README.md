@@ -424,6 +424,12 @@ Note that the database version is distinctly different from
 the application version and is changed only when the database
 schema is modified.
 
+Some of the syntax used in upgrade scripts may be incompatible
+with older versions of SQLite. For example, prior to version
+3.35.0 SQLite did not implement `DROP COLUMN`. Databases may
+be upgraded on different systems using a newer SQLite version
+in this case.
+
 ## Source
 
 ### Windows
