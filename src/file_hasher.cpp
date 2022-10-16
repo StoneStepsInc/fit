@@ -508,7 +508,8 @@ void file_hasher_t::run(void)
                      // filepath will contain a relative path if base path was specified
                      exif::field_bitset_t field_bitset = exif_reader.read_file_exif(dir_entry.path().u8string());
 
-                     if(field_bitset.any()) {
+                     // ignore EXIF unless Make or Model were specified (some image editors add meaningless default values).
+                     if(field_bitset.test(exif::EXIF_FIELD_Make) || field_bitset.test(exif::EXIF_FIELD_Model)) {
                         const std::vector<exif::field_value_t>& exif_fields = exif_reader.get_exif_fields();
 
                         sqlite_stmt_binder_t insert_exif_stmt(stmt_insert_exif, "insert exif"sv);
