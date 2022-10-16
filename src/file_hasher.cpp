@@ -505,7 +505,8 @@ void file_hasher_t::run(void)
                //
                if(!dir_entry.path().extension().empty()) {
                   if(binary_search(pic_exts.begin(), pic_exts.end(), dir_entry.path().extension().u8string(), less_ci())) {
-                     exif::field_bitset_t field_bitset = exif_reader.read_file_exif(filepath);
+                     // filepath will contain a relative path if base path was specified
+                     exif::field_bitset_t field_bitset = exif_reader.read_file_exif(dir_entry.path().u8string());
 
                      if(field_bitset.any()) {
                         const std::vector<exif::field_value_t>& exif_fields = exif_reader.get_exif_fields();
