@@ -1,16 +1,10 @@
 --
 -- sqlite3 -box -cmd ".param set @SCAN_ID N" sqlite.db < sql/group-ext-scan.sql
 --
--- Groups files by extension for scans greater than or equal to N,
--- which is defaulted to 1, if omitted.
---
--- On Windows mod_time may be shown as a date/time value using
--- this expression:
---
---   datetime(mod_time-11644473600, 'unixepoch') as mod_time
+-- Groups files by extension for the scan equal to N, which
+-- is defaulted to 1, if omitted.
 --
 SELECT
-    scansets.scan_id,
     ext,
     count(ext) as count,
     round(sum(entry_size) / 1000., 3) as entry_size_kb,
@@ -21,7 +15,7 @@ FROM
     JOIN versions ON version_id = versions.rowid
     JOIN files ON file_id = files.rowid
 WHERE
-    scansets.scan_id >= coalesce(@SCAN_ID, 1) AND
+    scansets.scan_id = coalesce(@SCAN_ID, 1) AND
     ext IS NOT NULL
 GROUP BY
     scansets.scan_id,
