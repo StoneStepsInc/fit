@@ -25,6 +25,6 @@ WHERE
     ext IS NOT NULL
 GROUP BY
     scansets.scan_id,
-    ext
+    ext COLLATE NOCASE
 ORDER BY
-    scansets.scan_id DESC, 4 DESC
+    scansets.scan_id, 4 DESC
