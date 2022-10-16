@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="packages\StoneSteps.SQLite.Static.3.39.4.1\build\native\StoneSteps.SQLite.Static.props" Condition="Exists('packages\StoneSteps.SQLite.Static.3.39.4.1\build\native\StoneSteps.SQLite.Static.props')" />
   <Import Project="packages\StoneSteps.libexif.Static.0.6.24.1\build\native\StoneSteps.libexif.Static.props" Condition="Exists('packages\StoneSteps.libexif.Static.0.6.24.1\build\native\StoneSteps.libexif.Static.props')" />
-  <Import Project="packages\StoneSteps.SQLite.Static.3.39.2.2\build\native\StoneSteps.SQLite.Static.props" Condition="Exists('packages\StoneSteps.SQLite.Static.3.39.2.2\build\native\StoneSteps.SQLite.Static.props')" />
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
@@ -109,16 +109,16 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="packages\StoneSteps.SQLite.Static.3.39.2.2\build\native\StoneSteps.SQLite.Static.targets" Condition="Exists('packages\StoneSteps.SQLite.Static.3.39.2.2\build\native\StoneSteps.SQLite.Static.targets')" />
     <Import Project="packages\StoneSteps.libexif.Static.0.6.24.1\build\native\StoneSteps.libexif.Static.targets" Condition="Exists('packages\StoneSteps.libexif.Static.0.6.24.1\build\native\StoneSteps.libexif.Static.targets')" />
+    <Import Project="packages\StoneSteps.SQLite.Static.3.39.4.1\build\native\StoneSteps.SQLite.Static.targets" Condition="Exists('packages\StoneSteps.SQLite.Static.3.39.4.1\build\native\StoneSteps.SQLite.Static.targets')" />
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
-    <Error Condition="!Exists('packages\StoneSteps.SQLite.Static.3.39.2.2\build\native\StoneSteps.SQLite.Static.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\StoneSteps.SQLite.Static.3.39.2.2\build\native\StoneSteps.SQLite.Static.props'))" />
-    <Error Condition="!Exists('packages\StoneSteps.SQLite.Static.3.39.2.2\build\native\StoneSteps.SQLite.Static.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\StoneSteps.SQLite.Static.3.39.2.2\build\native\StoneSteps.SQLite.Static.targets'))" />
     <Error Condition="!Exists('packages\StoneSteps.libexif.Static.0.6.24.1\build\native\StoneSteps.libexif.Static.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\StoneSteps.libexif.Static.0.6.24.1\build\native\StoneSteps.libexif.Static.props'))" />
     <Error Condition="!Exists('packages\StoneSteps.libexif.Static.0.6.24.1\build\native\StoneSteps.libexif.Static.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\StoneSteps.libexif.Static.0.6.24.1\build\native\StoneSteps.libexif.Static.targets'))" />
+    <Error Condition="!Exists('packages\StoneSteps.SQLite.Static.3.39.4.1\build\native\StoneSteps.SQLite.Static.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\StoneSteps.SQLite.Static.3.39.4.1\build\native\StoneSteps.SQLite.Static.props'))" />
+    <Error Condition="!Exists('packages\StoneSteps.SQLite.Static.3.39.4.1\build\native\StoneSteps.SQLite.Static.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\StoneSteps.SQLite.Static.3.39.4.1\build\native\StoneSteps.SQLite.Static.targets'))" />
   </Target>
 </Project>
