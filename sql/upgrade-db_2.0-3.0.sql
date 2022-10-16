@@ -56,14 +56,65 @@ INSERT INTO upgrades (
   CAST(strftime('%s', 'now') AS INTEGER)
 );
 
+--
+-- Add a new table for scansets, which contains file versions encountered in a scan
+--
+CREATE TABLE scansets (scan_id INTEGER NOT NULL, version_id INTEGER NOT NULL);
+
+CREATE UNIQUE INDEX ix_scansets_scan_file ON scansets (scan_id, version_id);
+
+--
+-- Collapse all existing scans into one scan set. There is not much
+-- else can be done with limited scripting capabilities in the current
+-- SQLite shell (i.e. we would need a way to loop over scans and combine
+-- file versions for unchanged and new file versions for each adjacent
+-- pair of scans). There is also a limitation of the existing schema in
+-- that deleted files cannot be distinguished from unchanged files
+-- because in neither case there will be a new version.
+--
+INSERT INTO scansets (
+    scan_id,
+    version_id
+) SELECT
+        (select MAX(rowid) FROM scans),
+        MAX(rowid) as version_id
+    FROM files
+    GROUP BY path;
+
+--
+-- Preserve file versions per scan, for reference. This table is
+-- not used in the application and can be dropped, if not needed.
+-- It should be noted that the scan_id column is dropped further
+-- in this script and this table can be used to figure out when
+-- some file version was added or changed. This table is different
+-- from scansets in that it only contains changed file versions
+-- per scan, while scansets contains all file versions encountered
+-- in a scan.
+--
+CREATE TABLE _historic_scan_versions (scan_id INTEGER NOT NULL, version_id INTEGER NOT NULL);
+
+INSERT INTO _historic_scan_versions (
+    scan_id,
+    version_id
+) SELECT
+        scan_id,
+        MAX(rowid) as version_id
+    FROM files
+    GROUP BY scan_id, path;
+
+--
+-- Rename the files table to versions and create a new files
+-- table for file information unrelated to scans.
+--
+
 DROP INDEX ix_files_path;
 DROP INDEX ix_files_hash;
 
 ALTER TABLE files RENAME TO versions;
 
 ALTER TABLE versions ADD COLUMN file_id INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE versions ADD COLUMN exif_id INTEGER NULL;
 
+-- DROP COLUMN is not available prior to SQLite/3.35.0
 ALTER TABLE versions DROP COLUMN scan_id;
 
 CREATE TABLE files (
@@ -72,9 +123,15 @@ CREATE TABLE files (
     path TEXT NOT NULL
 );
 
+-- add a temporary non-unique index for the following inserts/updates
+CREATE INDEX _temp_ix_files_path ON files (path);
+
+--
+-- Populate the files table from the existing file data in the
+-- versions table.
 --
 -- Extensions may be NULL for older scans and we may end up with
--- duplcate paths if same path has an extension in a newer scan.
+-- duplicate paths if same path has an extension in a newer scan.
 -- Allow this to happen and then explicitly delete duplicate paths
 -- that have NULL extensions, but leaving original paths that do
 -- not have extensions alone (e.g. `.gitignore`).
@@ -87,6 +144,9 @@ DELETE FROM files WHERE ext IS NULL AND path IN (SELECT path FROM files GROUP BY
 -- update version records to reference new file records
 UPDATE versions SET file_id = (SELECT files.rowid FROM files WHERE files.path = versions.path);
 
+-- done with inserts/updates and can drop the temporary index
+DROP INDEX _temp_ix_files_path;
+
 -- attempt to create a unique path index before we drop those columns
 CREATE UNIQUE INDEX ix_files_path ON files (path);
 
@@ -97,21 +157,8 @@ ALTER TABLE versions DROP COLUMN path;
 
 CREATE UNIQUE INDEX ix_versions_file ON versions (file_id, version);
 
--- 
+-- allow this index to be not unique on an odd chance of a hash collision
 CREATE INDEX ix_versions_hash ON versions (hash, hash_type);
-
---
--- Add a new table for scansets - file versions created in a scan
---
-CREATE TABLE scansets (
-    scan_id INTEGER NOT NULL,
-    version_id INTEGER NOT NULL
-);
-
-CREATE UNIQUE INDEX ix_scansets_scan_file ON scansets (
-    scan_id,
-    version_id
-);
 
 --
 -- Add a new table for EXIF values
@@ -134,6 +181,8 @@ CREATE TABLE exif (
     LensSerialNumber TEXT NULL, GPSLatitudeRef TEXT NULL, GPSLatitude TEXT NULL, GPSLongitudeRef TEXT NULL,
     GPSLongitude TEXT NULL, GPSAltitudeRef TEXT NULL, GPSAltitude TEXT NULL, GPSTimeStamp TEXT NULL,
     GPSSpeedRef TEXT NULL, GPSSpeed TEXT NULL, GPSDateStamp TEXT NULL);
+
+ALTER TABLE versions ADD COLUMN exif_id INTEGER NULL;
 
 --
 -- Set the target database version
