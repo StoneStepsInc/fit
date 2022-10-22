@@ -123,7 +123,8 @@ options_t parse_options(int argc, char *argv[])
       if(i > 1)
          options.all += ' ';
 
-      options.all += argv[i];
+      if(*(argv[i]+1) != 'm')
+         options.all += argv[i];
 
       switch(*(argv[i]+1)) {
          case 'b':
@@ -194,11 +195,13 @@ options_t parse_options(int argc, char *argv[])
             throw std::runtime_error("Unknown option: " + std::string(argv[i]));
       }
 
-      // if option index was advanced, add the value wrapped in quotes
-      if(opt_i != i) {
-         options.all += " \"";
-         options.all += argv[i];
-         options.all += "\"";
+      // if option index was advanced, append the value to the option line, but skip the message
+      if(opt_i != i && *(argv[opt_i]+1) != 'm') {
+         // wrap arguments that may have spaces in quotes
+         if(strchr("bdlp", *(argv[opt_i]+1)))
+            options.all = options.all + " \"" + argv[i] + "\"";
+         else
+            options.all = options.all + " " + argv[i];
       }
    }
 
