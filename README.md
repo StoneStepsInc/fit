@@ -223,6 +223,10 @@ without the `-v` option and has the following fields:
 
     The current path recorded when `fit` was launched.
 
+  * `options` `TEXT NOT NULL`
+
+    Command line options used for this scan.
+
   * `message` `TEXT`
 
     A text message to describe this scan. If omitted, `NULL` is stored.

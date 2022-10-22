@@ -102,6 +102,9 @@ INSERT INTO _historic_scan_versions (
     FROM files
     GROUP BY scan_id, path;
 
+-- there's no way we can recreate options, so track them with an invalid option character
+ALTER TABLE scans ADD COLUMN options TEXT NOT NULL DEFAULT '-';
+
 --
 -- Rename the files table to versions and create a new files
 -- table for file information unrelated to scans.

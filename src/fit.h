@@ -30,6 +30,7 @@ struct options_t {
    bool print_usage = false;
    bool skip_hash_mod_time = false;
    bool skip_no_access_paths = false;
+   bool update_scan = false;
 
    std::string scan_message;
    std::string log_file;
@@ -38,6 +39,8 @@ struct options_t {
    size_t buffer_size = 65536;
 
    int progress_interval = 10;
+
+   std::string all;
 };
 
 }

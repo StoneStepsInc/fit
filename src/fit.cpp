@@ -5,6 +5,7 @@
 //
 #include "file_tree_walker.h"
 #include "print_stream.h"
+#include "sqlite.h"
 
 #include "fit.h"
 
@@ -67,6 +68,7 @@ static const char *copyright = "Copyright (c) 2022 Stone Steps Inc.";
 //   v3.0   Added table scansets
 //          Renamed table files to versions
 //          Moved path, name, ext from the versions table to files
+//          Added column options to scans
 //
 static const int DB_SCHEMA_VERSION = 30;
 
@@ -107,12 +109,21 @@ options_t parse_options(int argc, char *argv[])
 {
    options_t options;
 
+   // start with 1 to skip the command program name
    for(size_t i = 1; i < argc; i++) {
       if(!argv[i])
          throw std::runtime_error("A null argument is not valid: " + std::to_string(i));
 
       if(*argv[i] != '-')
          throw std::runtime_error("Invalid option: " + std::string(argv[i]));
+
+      // hold onto the option index to detect option values
+      size_t opt_i = i;
+
+      if(i > 1)
+         options.all += ' ';
+
+      options.all += argv[i];
 
       switch(*(argv[i]+1)) {
          case 'b':
@@ -181,6 +192,13 @@ options_t parse_options(int argc, char *argv[])
             break;
          default:
             throw std::runtime_error("Unknown option: " + std::string(argv[i]));
+      }
+
+      // if option index was advanced, add the value wrapped in quotes
+      if(opt_i != i) {
+         options.all += " \"";
+         options.all += argv[i];
+         options.all += "\"";
       }
    }
 
@@ -367,6 +385,7 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
                                           "scan_path TEXT NOT NULL,"
                                           "base_path TEXT,"
                                           "current_path TEXT NOT NULL,"
+                                          "options TEXT NOT NULL,"
                                           "message TEXT);", nullptr, nullptr, &errmsg) != SQLITE_OK)
             throw std::runtime_error("Cannot create table 'scans' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
@@ -409,39 +428,46 @@ void close_sqlite_database(sqlite3 *file_scan_db)
 
 int64_t insert_scan_record(const options_t& options, sqlite3 *file_scan_db)
 {
+   int64_t scan_id = 0;
+
    int errcode = SQLITE_OK;
 
    sqlite3_stmt *stmt_insert_scan = nullptr;
 
-   //                                                               1          2          3          4             5        6
-   std::string_view sql_insert_scan = "insert into scans (app_version, scan_time, scan_path, base_path, current_path, message) values (?, ?, ?, ?, ?, ?)"sv;
+   //                                                               1          2          3          4             5        6        7
+   std::string_view sql_insert_scan = "insert into scans (app_version, scan_time, scan_path, base_path, current_path, options, message) values (?, ?, ?, ?, ?, ?, ?)"sv;
 
    // SQLite docs say there's a small performance gain if the null terminator is included in length
    if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_scan.data(), (int) sql_insert_scan.length()+1, &stmt_insert_scan, nullptr)) != SQLITE_OK)
       throw std::runtime_error("Cannot prepare a SQLite statement to insert a scan ("s + sqlite3_errstr(errcode) + ")");
 
-   errcode = sqlite3_bind_text(stmt_insert_scan, 1, version, -1, SQLITE_STATIC);
-   errcode = sqlite3_bind_int64(stmt_insert_scan, 2, std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
-   errcode = sqlite3_bind_text(stmt_insert_scan, 3, options.scan_path.u8string().c_str(), static_cast<int>(options.scan_path.u8string().size()), SQLITE_TRANSIENT);
+   {
+      // need a statement block here to make sure statement is reset before it is finalized
+      sqlite_stmt_binder_t insert_scan_stmt(stmt_insert_scan, "insert scan"sv);
 
-   if(options.base_path.empty())
-      errcode = sqlite3_bind_null(stmt_insert_scan, 4);
-   else
-      errcode = sqlite3_bind_text(stmt_insert_scan, 4, options.base_path.u8string().c_str(), static_cast<int>(options.base_path.u8string().size()), SQLITE_TRANSIENT);
+      insert_scan_stmt.bind_param(std::string_view(version));
+      insert_scan_stmt.bind_param(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
+      insert_scan_stmt.bind_param(options.scan_path.u8string());
 
-   errcode = sqlite3_bind_text(stmt_insert_scan, 5, std::filesystem::current_path().u8string().c_str(), static_cast<int>(std::filesystem::current_path().u8string().size()), SQLITE_TRANSIENT);
+      if(options.base_path.empty())
+         insert_scan_stmt.bind_param(nullptr);
+      else
+         insert_scan_stmt.bind_param(options.base_path.u8string());
 
-   if(options.scan_message.empty())
-      errcode = sqlite3_bind_null(stmt_insert_scan, 6);
-   else
-      errcode = sqlite3_bind_text(stmt_insert_scan, 6, options.scan_message.c_str(), static_cast<int>(options.scan_message.size()), SQLITE_TRANSIENT);
+      insert_scan_stmt.bind_param(std::filesystem::current_path().u8string());
 
-   int64_t scan_id = 0;
+      insert_scan_stmt.bind_param(options.all);
 
-   if((errcode = sqlite3_step(stmt_insert_scan)) == SQLITE_DONE)
-      scan_id = sqlite3_last_insert_rowid(file_scan_db);
-   else
-      throw std::runtime_error("Cannot insert a scan record ("s + sqlite3_errstr(errcode) + ")");
+      if(options.scan_message.empty())
+         insert_scan_stmt.bind_param(nullptr);
+      else
+         insert_scan_stmt.bind_param(options.scan_message);
+
+      if((errcode = sqlite3_step(stmt_insert_scan)) == SQLITE_DONE)
+         scan_id = sqlite3_last_insert_rowid(file_scan_db);
+      else
+         throw std::runtime_error("Cannot insert a scan record ("s + sqlite3_errstr(errcode) + ")");
+   }
 
    if((errcode = sqlite3_finalize(stmt_insert_scan)) != SQLITE_OK)
       throw std::runtime_error("Cannot finalize SQLite statment to insert a scan record ("s + sqlite3_errstr(errcode) + ")");
@@ -509,10 +535,7 @@ int main(int argc, char *argv[])
       //
       // Walk the file tree
       //
-      if(!options.scan_message.empty())
-         print_stream.info("%s %s (%s)", options.verify_files ? "Verifying" : "Scanning", options.scan_path.u8string().c_str(), options.scan_message.c_str());
-      else
-         print_stream.info("%s %s", options.verify_files ? "Verifying" : "Scanning", options.scan_path.u8string().c_str());
+      print_stream.info("%s \"%s\" with options %s", options.verify_files ? "Verifying" : "Scanning", options.scan_path.u8string().c_str(), options.all.c_str());
 
       fit::file_tree_walker_t file_tree_walker(options, scan_id, print_stream);
 

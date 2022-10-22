@@ -15,6 +15,7 @@ SELECT
   MAX(scan_path) AS scan_path,
   MAX(base_path) AS base_path,
   MAX(current_path) AS current_path,
+  MAX(options) as options,
   MAX(message) AS message
 FROM 
   scans
