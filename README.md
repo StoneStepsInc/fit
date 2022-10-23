@@ -54,6 +54,16 @@ modes and are as follows:
     checksums for all files that have been processed when Ctrl-C
     was pressed.
 
+  * `-u`
+
+    This option instructs `fit` to continue last scan instead of
+    creating a new one. A typical use of this option will be to
+    continue an interrupted scan or process multiple directories
+    separately.
+
+    When this option is used, all other options must be exactly
+    the same as was in the original scan, including their order.
+
   * `-i 10`
 
     Sets the time interval in seconds to report scanning progress.

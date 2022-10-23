@@ -30,7 +30,7 @@ struct options_t {
    bool print_usage = false;
    bool skip_hash_mod_time = false;
    bool skip_no_access_paths = false;
-   bool update_scan = false;
+   bool update_last_scanset = false;
 
    std::string scan_message;
    std::string log_file;

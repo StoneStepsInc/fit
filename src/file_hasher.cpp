@@ -104,9 +104,9 @@ file_hasher_t::file_hasher_t(const options_t& options, int64_t scan_id, std::que
 
    //
    // select statement to look-up files by their path
-   // parameters:                                                                                                                                                 1
-   // columns:                                    0         1          2     3               4        5
-   std::string_view sql_find_file = "select version, mod_time, hash_type, hash, versions.rowid, file_id from versions join files on file_id = files.rowid where path = ? order by version desc limit 1"sv;
+   // parameters:                                                                                                                                                                                                            1
+   // columns:                                    0         1          2     3               4        5        6
+   std::string_view sql_find_file = "SELECT version, mod_time, hash_type, hash, versions.rowid, file_id, scan_id FROM versions JOIN files ON file_id = files.rowid JOIN scansets ON version_id = versions.rowid WHERE path = ? ORDER BY scan_id DESC, version DESC LIMIT 1"sv;
 
    if((errcode = sqlite3_prepare_v2(file_scan_db, sql_find_file.data(), (int) sql_find_file.length()+1, &stmt_find_file, nullptr)) != SQLITE_OK)
       print_stream.error("Cannot prepare a SQLite statement to find a file version (%s)", sqlite3_errstr(errcode));
@@ -287,9 +287,7 @@ void file_hasher_t::hash_file(const std::filesystem::path& filepath, uint64_t& f
       throw std::runtime_error("Cannot read file (" + std::string(strerror(errno)) + ") " + filepath.u8string());
 
    // hash for zero-length files should not be evaluated
-   if(!filesize)
-      memset(hexhash, 0, SHA256_HEX_SIZE);
-   else {
+   if(filesize) {
       uint8_t filehash[SHA256_SIZE_BYTES];
 
       sha256_done(&ctx, filehash);
@@ -303,6 +301,140 @@ void file_hasher_t::hash_file(const std::filesystem::path& filepath, uint64_t& f
    }
 }
 
+int64_t file_hasher_t::insert_file_record(const std::string& filepath, const std::filesystem::directory_entry& dir_entry)
+{
+   int64_t file_id = 0;
+   int errcode = SQLITE_OK;
+
+   sqlite_stmt_binder_t insert_file_stmt(stmt_insert_file, "insert file"sv);
+
+   insert_file_stmt.bind_param(dir_entry.path().filename().u8string());
+
+   if(dir_entry.path().extension().empty())
+      insert_file_stmt.bind_param(nullptr);
+   else
+      insert_file_stmt.bind_param(dir_entry.path().extension().u8string());
+
+   insert_file_stmt.bind_param(filepath);
+            
+   if((errcode = sqlite3_step(stmt_insert_file)) != SQLITE_DONE)
+      throw std::runtime_error("Cannot insert a file record for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
+
+   file_id = sqlite3_last_insert_rowid(file_scan_db);
+
+   insert_file_stmt.reset();
+
+   return file_id;
+}
+
+int64_t file_hasher_t::insert_exif_record(const std::string& filepath, const std::vector<exif::field_value_t>& exif_fields, const exif::field_bitset_t& field_bitset)
+{
+   int64_t exif_id = 0;
+
+   int errcode = SQLITE_OK;
+
+   sqlite_stmt_binder_t insert_exif_stmt(stmt_insert_exif, "insert exif"sv);
+
+   for(size_t i = 0; i < exif_fields.size(); i++) {
+      if(!field_bitset.test(i))
+         insert_exif_stmt.bind_param(nullptr);
+      else {
+         if(exif_fields[i].index() == 1)
+            insert_exif_stmt.bind_param(std::get<1>(exif_fields[i]));
+         else if(exif_fields[i].index() == 2)
+            insert_exif_stmt.bind_param(std::get<2>(exif_fields[i]));
+         else
+            throw std::runtime_error("Bad field value in EXIF record for "s + filepath + " (" + std::to_string(i) + ")");
+      }
+   }
+
+   if((errcode = sqlite3_step(stmt_insert_exif)) != SQLITE_DONE)
+      throw std::runtime_error("Cannot insert an EXIF record for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
+
+   // get the row ID for the new EXIF record
+   exif_id = sqlite3_last_insert_rowid(file_scan_db);
+
+   insert_exif_stmt.reset();
+
+   return exif_id;
+}
+
+int64_t file_hasher_t::insert_version_record(const std::string& filepath, int64_t file_id, int64_t version, int64_t filesize, const std::filesystem::directory_entry& dir_entry, uint8_t hexhash_file[SHA256_HEX_SIZE], std::optional<int64_t> exif_id)
+{
+   int64_t version_id = 0;
+
+   int errcode = SQLITE_OK;
+
+   sqlite_stmt_binder_t insert_version_stmt(stmt_insert_version, "insert version"sv);
+
+   insert_version_stmt.bind_param(file_id);
+
+   insert_version_stmt.bind_param(version);
+
+   //
+   // File system time is implementation specific and for Windows
+   // is the FILETIME value, which can be translated to Unix epoch
+   // time with this SQLite statement:
+   // 
+   //     datetime(mod_time-11644473600, 'unixepoch')
+   // 
+   // We don't need to evaluate it as time, just whether it's the
+   // same or not, so there is no need for a platform-specific way
+   // to interpret it as time.
+   //
+   insert_version_stmt.bind_param(static_cast<int64_t>(std::chrono::duration_cast<std::chrono::seconds>(dir_entry.last_write_time().time_since_epoch()).count()));
+
+   insert_version_stmt.bind_param(static_cast<int64_t>(dir_entry.file_size()));
+   insert_version_stmt.bind_param(static_cast<int64_t>(filesize));
+
+   // hash_type
+   insert_version_stmt.skip_param();
+
+   // insert a NULL for a zero-length file
+   if(!filesize)
+      insert_version_stmt.bind_param(nullptr);
+   else
+      insert_version_stmt.bind_param(std::string_view(reinterpret_cast<const char*>(hexhash_file), SHA256_HEX_SIZE));
+
+   if(exif_id.has_value())
+      insert_version_stmt.bind_param(exif_id.value());
+   else
+      insert_version_stmt.bind_param(nullptr);
+
+   //
+   // If we get SQLITE_BUSY after the busy handler runs for allowed
+   // amount of time, report this file as failed. The most likely
+   // cause for this would be that one of statements wasn't reset
+   // and left SQLite record storage locked.
+   //
+   if((errcode = sqlite3_step(stmt_insert_version)) != SQLITE_DONE)
+      throw std::runtime_error("Cannot insert a version record for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
+
+   // get the row ID for the new version record
+   version_id = sqlite3_last_insert_rowid(file_scan_db);
+
+   insert_version_stmt.reset();
+
+   return version_id;
+}
+
+void file_hasher_t::insert_scanset_record(const std::string& filepath, int64_t version_id)
+{
+   int errcode = SQLITE_OK;
+
+   sqlite_stmt_binder_t insert_scanset_file_stmt(stmt_insert_scanset_file, "insert scanset file"sv);
+
+   // scan_id
+   insert_scanset_file_stmt.skip_param();
+
+   insert_scanset_file_stmt.bind_param(version_id);
+
+   if((errcode = sqlite3_step(stmt_insert_scanset_file)) != SQLITE_DONE)
+      throw std::runtime_error("Cannot insert a scanset record for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
+
+   insert_scanset_file_stmt.reset();
+}
+
 void file_hasher_t::run(void)
 {
    int errcode = SQLITE_OK;
@@ -312,7 +444,8 @@ void file_hasher_t::run(void)
 
    filepath.reserve(1024);
                
-   uint8_t hexhash_file[SHA256_HEX_SIZE + 1] = {}, hexhash_field[SHA256_HEX_SIZE + 1] = {};
+   uint8_t hexhash_file[SHA256_HEX_SIZE + 1] = {};       // file hash; should not be accessed if filesize == 0
+   uint8_t hexhash_field[SHA256_HEX_SIZE + 1] = {};      // database hash; should no be accessed if hash_field_is_null is false
 
    std::unique_lock<std::mutex> lock(files_mtx);
 
@@ -342,18 +475,6 @@ void file_hasher_t::run(void)
          uint64_t filesize = 0;
 
          //
-         // Check if we were asked to skip hashing based on the file
-         // modification time being unchanged from what was recorded
-         // in the database, in which case we need to query the
-         // database first.
-         // 
-         // Note that only files intended for hashing are queued, so
-         // there is no need to check directory entry flags.
-         //
-         if(options.verify_files || !options.skip_hash_mod_time)
-            hash_file(dir_entry.path(), filesize, hexhash_file);
-
-         //
          // If we have a base path, remove it from the full path, so files
          // can be verified with a different base path.
          // 
@@ -378,9 +499,14 @@ void file_hasher_t::run(void)
 
          find_file_stmt.bind_param(filepath);
 
+         // these variables should be evaluated only if version_id has value
          int64_t version = 0;
-         bool hash_match = false;
          int64_t mod_time = 0;
+         int64_t scanset_scan_id = 0;           
+         bool hash_field_is_null = false;
+
+         bool hash_match = false;
+
          std::optional<int64_t> version_id;
          std::optional<int64_t> file_id;
          std::optional<int64_t> exif_id;
@@ -400,26 +526,21 @@ void file_hasher_t::run(void)
 
             file_id = sqlite3_column_int64(stmt_find_file, 5);
 
-            // compare the stored hash against the one we just computed
-            if(std::string_view(reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 2)), sqlite3_column_bytes(stmt_find_file, 2)) == "SHA256"sv) {
-               // consider a NULL hash as a match for zero-length files
-               if(sqlite3_column_type(stmt_find_file, 3) == SQLITE_NULL) {
-                  hash_match = filesize == 0;
-                  memset(hexhash_field, 0, SHA256_HEX_SIZE);
-               }
-               else {
+            scanset_scan_id = sqlite3_column_int64(stmt_find_file, 6);
+
+            hash_field_is_null = sqlite3_column_type(stmt_find_file, 3) == SQLITE_NULL;
+
+            if(!hash_field_is_null) {
+               // hold onto the column hash value
+               if(std::string_view(reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 2)), sqlite3_column_bytes(stmt_find_file, 2)) == "SHA256"sv) {
                   if(sqlite3_column_bytes(stmt_find_file, 3) != SHA256_HEX_SIZE)
                      throw std::runtime_error("Bad hash size for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
 
-                  // compare in-place, unless scanning with delayed hashing was requested
-                  if(options.verify_files || !options.skip_hash_mod_time)
-                     hash_match = memcmp(hexhash_file, reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 3)), SHA256_HEX_SIZE) == 0;
-                  else
-                     memcpy(hexhash_field, reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 3)), SHA256_HEX_SIZE);
+                  memcpy(hexhash_field, reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 3)), SHA256_HEX_SIZE);
                }
+               else
+                  throw std::runtime_error("Unknown hash type: "s + reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 2)));
             }
-            else
-               throw std::runtime_error("Unknown hash type: "s + reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 2)));
          }
 
          //
@@ -431,195 +552,110 @@ void file_hasher_t::run(void)
          //
          find_file_stmt.reset();
 
-         errcode = sqlite3_step(stmt_begin_txn);
-
-         if(errcode != SQLITE_DONE)
-            throw std::runtime_error("Cannot start a SQLite transaction for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
-
          //
-         // We may insert a few records after this point and need to make
-         // sure they are inserted within a transaction to avoid having a
-         // file without versions, which will trigger primary key violation
-         // next time the same file is being processed.
-         // 
-         // Worth noting that the transaction is deferred, so in case we
-         // don't insert any records, there should be no locks placed on
-         // the database.
+         // Skip all file processing if we are updating the last scanset and
+         // found a file version record with the same scan number as we have
+         // in this file hasher instance, which is the last scan number.
          //
-         if(!file_id.has_value()) {
-            sqlite_stmt_binder_t insert_file_stmt(stmt_insert_file, "insert file"sv);
-
-            insert_file_stmt.bind_param(dir_entry.path().filename().u8string());
-
-            if(dir_entry.path().extension().empty())
-               insert_file_stmt.bind_param(nullptr);
-            else
-               insert_file_stmt.bind_param(dir_entry.path().extension().u8string());
-
-            insert_file_stmt.bind_param(filepath);
-            
-            if((errcode = sqlite3_step(stmt_insert_file)) != SQLITE_DONE)
-               throw std::runtime_error("Cannot insert a file record for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
-
-            file_id = sqlite3_last_insert_rowid(file_scan_db);
-
-            insert_file_stmt.reset();
-         }
-
-         // check if we still need to hash the file
-         if(!options.verify_files && options.skip_hash_mod_time) {
-            // if the file modification time didn't change, assume it has the same hash, as requested
-            if(version_id.has_value() && mod_time && mod_time == std::chrono::duration_cast<std::chrono::seconds>(dir_entry.last_write_time().time_since_epoch()).count())
+         if(!options.update_last_scanset || !version_id.has_value() || scanset_scan_id != scan_id) {
+            //
+            // Check if we were asked to skip hashing based on the file
+            // modification time being unchanged from what was recorded
+            // in the database.
+            // 
+            if(!options.verify_files && options.skip_hash_mod_time && version_id.has_value()
+                  && mod_time == std::chrono::duration_cast<std::chrono::seconds>(dir_entry.last_write_time().time_since_epoch()).count())
                hash_match = true;
             else {
                // hash the file if we didn't find its version record or the last-modified time changed
                hash_file(dir_entry.path(), filesize, hexhash_file);
-               // hexhash_field is zeroed for a NULL hash field
-               hash_match = version_id.has_value() && memcmp(hexhash_file, hexhash_field, SHA256_HEX_SIZE) == 0;
-            }
-         }
 
-         if(!hash_match) {
-            // handle the mismatched hash based on whether we are verifying or scanning
-            if(options.verify_files) {
-               // differentiate between new, modified and changed files
-               if(!mod_time) {
-                  progress_info.new_files++;
-                  print_stream.info(   "new file: %s", filepath.c_str());
-               }
-               else {
-                  if(mod_time != std::chrono::duration_cast<std::chrono::seconds>(dir_entry.last_write_time().time_since_epoch()).count()) {
-                     progress_info.modified_files++;
-                     print_stream.info("modified: %s", filepath.c_str());
+               // consider a NULL hash field as a match for zero-length files
+               hash_match = version_id.has_value() && ((filesize == 0 && hash_field_is_null) || memcmp(hexhash_file, hexhash_field, SHA256_HEX_SIZE) == 0);
+            }
+
+            //
+            // We may insert a few records after this point and need to make
+            // sure they are inserted within a transaction to avoid having a
+            // file without versions, which will trigger primary key violation
+            // next time the same file is being processed.
+            // 
+            // Worth noting that the transaction is deferred, so in case we
+            // don't insert any records, there should be no locks placed on
+            // the database.
+            //
+            if(!options.verify_files) {
+               errcode = sqlite3_step(stmt_begin_txn);
+
+               if(errcode != SQLITE_DONE)
+                  throw std::runtime_error("Cannot start a SQLite transaction for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
+            }
+
+            // if there is no file record for this path, insert one to get a file ID
+            if(!options.verify_files && !file_id.has_value())
+               file_id = insert_file_record(filepath, dir_entry);
+
+            // if there's no version record or the hash didn't match, we need to insert a new one
+            if(!hash_match) {
+               // handle the mismatched hash based on whether we are verifying or scanning
+               if(options.verify_files) {
+                  // differentiate between new, modified and changed files
+                  if(!mod_time) {
+                     progress_info.new_files++;
+                     print_stream.info(   "new file: %s", filepath.c_str());
                   }
                   else {
-                     progress_info.changed_files++;
-                     print_stream.info("changed : %s", filepath.c_str());
-                  }
-               }
-            }
-            else {
-               //
-               // Check if this file is a picture and we need to check for EXIF
-               // data.
-               //
-               if(!dir_entry.path().extension().empty()) {
-                  if(binary_search(pic_exts.begin(), pic_exts.end(), dir_entry.path().extension().u8string(), less_ci())) {
-                     // filepath will contain a relative path if base path was specified
-                     exif::field_bitset_t field_bitset = exif_reader.read_file_exif(dir_entry.path().u8string());
-
-                     // ignore EXIF unless Make or Model were specified (some image editors add meaningless default values).
-                     if(field_bitset.test(exif::EXIF_FIELD_Make) || field_bitset.test(exif::EXIF_FIELD_Model)) {
-                        const std::vector<exif::field_value_t>& exif_fields = exif_reader.get_exif_fields();
-
-                        sqlite_stmt_binder_t insert_exif_stmt(stmt_insert_exif, "insert exif"sv);
-
-                        for(size_t i = 0; i < exif_fields.size(); i++) {
-                           if(!field_bitset.test(i))
-                              insert_exif_stmt.bind_param(nullptr);
-                           else {
-                              if(exif_fields[i].index() == 1)
-                                 insert_exif_stmt.bind_param(std::get<1>(exif_fields[i]));
-                              else if(exif_fields[i].index() == 2)
-                                 insert_exif_stmt.bind_param(std::get<2>(exif_fields[i]));
-                              else
-                                 throw std::runtime_error("Bad field value in EXIF record for "s + filepath + " (" + std::to_string(i) + ")");
-                           }
-                        }
-
-                        if((errcode = sqlite3_step(stmt_insert_exif)) != SQLITE_DONE)
-                           throw std::runtime_error("Cannot insert an EXIF record for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
-
-                        // get the row ID for the new file record
-                        exif_id = sqlite3_last_insert_rowid(file_scan_db);
-
-                        insert_exif_stmt.reset();
+                     if(mod_time != std::chrono::duration_cast<std::chrono::seconds>(dir_entry.last_write_time().time_since_epoch()).count()) {
+                        progress_info.modified_files++;
+                        print_stream.info("modified: %s", filepath.c_str());
+                     }
+                     else {
+                        progress_info.changed_files++;
+                        print_stream.info("changed : %s", filepath.c_str());
                      }
                   }
                }
+               else {
+                  //
+                  // Check if this file is a picture and we need to check for EXIF
+                  // data. We don't try to figure out if EXIF changed and store an
+                  // EXIF record for every version of the picture file.
+                  //
+                  if(!dir_entry.path().extension().empty()) {
+                     if(binary_search(pic_exts.begin(), pic_exts.end(), dir_entry.path().extension().u8string(), less_ci())) {
+                        // filepath will contain a relative path if base path was specified
+                        exif::field_bitset_t field_bitset = exif_reader.read_file_exif(dir_entry.path().u8string());
 
-               //
-               // Insert a new version record for this file. There is no
-               // concurrency for this record because each file path is
-               // unique in the queue, so there is no danger of a version
-               // conflict.
-               //
-               sqlite_stmt_binder_t insert_version_stmt(stmt_insert_version, "insert version"sv);
+                        // ignore EXIF unless Make or Model were specified (some image editors add meaningless default values).
+                        if(field_bitset.test(exif::EXIF_FIELD_Make) || field_bitset.test(exif::EXIF_FIELD_Model))
+                           exif_id = insert_exif_record(filepath, exif_reader.get_exif_fields(), field_bitset);
+                     }
+                  }
 
-               insert_version_stmt.bind_param(file_id.value());
+                  //
+                  // Insert a new version record for this file. There is no
+                  // concurrency for this record because each file path is
+                  // unique in the queue, so there is no danger of a version
+                  // conflict.
+                  //
+                  version_id = insert_version_record(filepath, file_id.value(), version+1, filesize, dir_entry, hexhash_file, exif_id);
+               }
 
-               insert_version_stmt.bind_param(version+1);
-
-               //
-               // File system time is implementation specific and for Windows
-               // is the FILETIME value, which can be translated to Unix epoch
-               // time with this SQLite statement:
-               // 
-               //     datetime(mod_time-11644473600, 'unixepoch')
-               // 
-               // We don't need to evaluate it as time, just whether it's the
-               // same or not, so there is no need for a platform-specific way
-               // to interpret it as time.
-               //
-               insert_version_stmt.bind_param(static_cast<int64_t>(std::chrono::duration_cast<std::chrono::seconds>(dir_entry.last_write_time().time_since_epoch()).count()));
-
-               insert_version_stmt.bind_param(static_cast<int64_t>(dir_entry.file_size()));
-               insert_version_stmt.bind_param(static_cast<int64_t>(filesize));
-
-               // hash_type
-               insert_version_stmt.skip_param();
-
-               // insert a NULL for a zero-length file
-               if(!filesize)
-                  insert_version_stmt.bind_param(nullptr);
-               else
-                  insert_version_stmt.bind_param(std::string_view(reinterpret_cast<const char*>(hexhash_file), SHA256_HEX_SIZE));
-
-               if(exif_id.has_value())
-                  insert_version_stmt.bind_param(exif_id.value());
-               else
-                  insert_version_stmt.bind_param(nullptr);
-
-               //
-               // If we get SQLITE_BUSY after the busy handler runs for allowed
-               // amount of time, report this file as failed. The most likely
-               // cause for this would be that one of statements wasn't reset
-               // and left SQLite record storage locked.
-               //
-               if((errcode = sqlite3_step(stmt_insert_version)) != SQLITE_DONE)
-                  throw std::runtime_error("Cannot insert a version record for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
-
-               // get the row ID for the new version record
-               version_id = sqlite3_last_insert_rowid(file_scan_db);
-
-               insert_version_stmt.reset();
+               // reuse for updated files during scans and for mismatched files during verification
+               progress_info.updated_files++;
+               progress_info.updated_size += options.skip_hash_mod_time ? dir_entry.file_size() : filesize;
             }
 
-            // reuse for updated files during scans and for mismatched files during verification
-            progress_info.updated_files++;
-            progress_info.updated_size += options.skip_hash_mod_time ? dir_entry.file_size() : filesize;
+            if(!options.verify_files) {
+               // insert a scanset record with the new or existing version ID
+               insert_scanset_record(filepath, version_id.value());
+
+               errcode = sqlite3_step(stmt_commit_txn);
+
+               if(errcode != SQLITE_DONE)
+                  throw std::runtime_error("Cannot commit a SQLite transaction for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
+            }
          }
-
-         //
-         // Insert a scanset file record with the file ID of a new or
-         // the existing file.
-         //
-         sqlite_stmt_binder_t insert_scanset_file_stmt(stmt_insert_scanset_file, "insert scanset file"sv);
-
-         // scan_id
-         insert_scanset_file_stmt.skip_param();
-
-         insert_scanset_file_stmt.bind_param(version_id.value());
-
-         if((errcode = sqlite3_step(stmt_insert_scanset_file)) != SQLITE_DONE)
-            throw std::runtime_error("Cannot insert a scanset file record for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
-
-         insert_scanset_file_stmt.reset();
-
-         errcode = sqlite3_step(stmt_commit_txn);
-
-         if(errcode != SQLITE_DONE)
-            throw std::runtime_error("Cannot commit a SQLite transaction for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
 
          //
          // Update stats for processed files

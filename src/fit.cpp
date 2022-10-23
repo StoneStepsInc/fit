@@ -26,6 +26,7 @@
 #include <vector>
 #include <queue>
 #include <chrono>
+#include <optional>
 
 using namespace std::literals::string_view_literals;
 using namespace std::literals::string_literals;
@@ -98,6 +99,7 @@ void print_usage(void)
    fputs("    -s size      - file buffer size (default: 65536, min: 512, max: 1048576)\n", stdout);
    fputs("    -i seconds   - progress reporting interval (default: 10, min: 1)\n", stdout);
    fputs("    -w           - skip hashing for files with same last-modified time\n", stdout);
+   fputs("    -u           - continue last scan (update last scanset)\n", stdout);
    fputs("    -l path      - log file path\n", stdout);
    fputs("    -a           - skip restricted access directories\n", stdout);
    fputs("    -?           - this help\n", stdout);
@@ -177,6 +179,9 @@ options_t parse_options(int argc, char *argv[])
             break;
          case 'w':
             options.skip_hash_mod_time = true;
+            break;
+         case 'u':
+            options.update_last_scanset = true;
             break;
          case 'l':
             if(i+1 == argc || *(argv[i+1]) == '-')
@@ -478,6 +483,94 @@ int64_t insert_scan_record(const options_t& options, sqlite3 *file_scan_db)
    return scan_id;
 }
 
+int64_t select_last_scan_id(const options_t& options, sqlite3 *file_scan_db)
+{
+   std::string scan_options;
+   std::optional<int64_t> scan_id;
+   std::optional<std::runtime_error> select_error;
+
+   int errcode = SQLITE_OK;
+
+   sqlite3_stmt *stmt_last_scan = nullptr;
+
+   std::string_view sql_last_scan = "SELECT scans.rowid, options FROM scans ORDER BY scans.rowid DESC LIMIT 1"sv;
+
+   // SQLite docs say there's a small performance gain if the null terminator is included in length
+   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_last_scan.data(), (int) sql_last_scan.length()+1, &stmt_last_scan, nullptr)) != SQLITE_OK)
+      throw std::runtime_error("Cannot prepare a last scan statement ("s + sqlite3_errstr(errcode) + ")");
+
+   errcode = sqlite3_step(stmt_last_scan);
+
+   // if there's any error, hold onto it, so we can finalize the statement
+   if(errcode != SQLITE_DONE && errcode != SQLITE_ROW)
+      select_error.emplace("SQLite select the last scan "s + " (" + sqlite3_errstr(errcode) + ")");
+   else {
+      if(errcode == SQLITE_ROW) {
+         scan_id = sqlite3_column_int64(stmt_last_scan, 0);
+
+         scan_options.assign(reinterpret_cast<const char*>(sqlite3_column_text(stmt_last_scan, 1)), sqlite3_column_bytes(stmt_last_scan, 1));
+      }
+   }
+
+   if((errcode = sqlite3_reset(stmt_last_scan)) != SQLITE_OK)
+      throw std::runtime_error("Cannot reset a last scan statement ("s + sqlite3_errstr(errcode) + ")");
+
+   if((errcode = sqlite3_finalize(stmt_last_scan)) != SQLITE_OK)
+      throw std::runtime_error("Cannot finalize a last scan statment ("s + sqlite3_errstr(errcode) + ")");
+
+   // error out if we didn't find the last scan
+   if(!scan_id.has_value()) {
+      if(!select_error.has_value())
+         throw std::runtime_error("Cannot find the last scan in the database");
+      else
+         throw select_error.value();
+   }
+
+   //
+   // Make sure last scan was created with exact same options, in the
+   // same order as the current one, with an extra -u. Current scan
+   // options should be validated at this point.
+   // 
+
+   // current options must be longer than original options because of the extra -u
+   if(options.all.length() <= scan_options.length())
+      throw std::runtime_error("Update scan cannot have fewer options than the last scan");
+   
+   const char *optcp = options.all.c_str();
+   const char *scncp = scan_options.c_str();
+
+   // both sets of options are normalized and have same spacing and quoting
+   while(*optcp) {
+      if(*optcp == *scncp)
+         optcp++, scncp++;
+      else {
+         // if we ran out of scan options, we must have only -u at the end
+         if(!*scncp) { 
+            if(!strcmp(optcp, " -u"))
+               optcp += 3;
+            break;
+         }
+
+         if(*optcp != 'u')
+            break;
+
+         //
+         // We got -u verified, skip to the next one, if any (e.g. `-r -b "xyz.db" -r`
+         // vs. `-r -b "xyz.db" -u -u` will not have space after the last -u).
+         //
+         if(*++optcp == ' ' && *++optcp == '-')
+            optcp++;
+      }
+   }
+
+   // error out if either of the pointers isn't at the null terminator
+   if(*optcp || *scncp)
+      throw std::runtime_error("Update scan must have the same options as the last scan");
+
+   return scan_id.value();
+}
+
+
 }
 
 int main(int argc, char *argv[])
@@ -530,8 +623,12 @@ int main(int argc, char *argv[])
 
       int64_t scan_id = 0;
       
-      if(!options.verify_files)
-         scan_id = fit::insert_scan_record(options, file_scan_db.get());
+      if(!options.verify_files) {
+         if(!options.update_last_scanset)
+            scan_id = fit::insert_scan_record(options, file_scan_db.get());
+         else
+            scan_id = fit::select_last_scan_id(options, file_scan_db.get());
+      }
 
       std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
 
