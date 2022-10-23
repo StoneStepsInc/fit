@@ -48,7 +48,7 @@ struct progress_info_t {
 //
 // A threaded file hasher.
 //
-class file_hasher_t {
+class file_tracker_t {
    private:
       static constexpr const int DB_BUSY_TIMEOUT = 1000;
 
@@ -66,7 +66,7 @@ class file_hasher_t {
       std::queue<std::filesystem::directory_entry>& files;
       std::mutex& files_mtx;
 
-      std::thread file_hasher_thread;
+      std::thread file_tracker_thread;
 
       std::atomic<bool> stop_request = 0;
 
@@ -105,11 +105,11 @@ class file_hasher_t {
       static int sqlite_busy_handler_cb(void*, int count);
 
    public:
-      file_hasher_t(const options_t& options, int64_t scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info, print_stream_t& print_stream);
+      file_tracker_t(const options_t& options, int64_t scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info, print_stream_t& print_stream);
 
-      file_hasher_t(file_hasher_t&& other);
+      file_tracker_t(file_tracker_t&& other);
 
-      ~file_hasher_t(void);
+      ~file_tracker_t(void);
 
       void start(void);
 

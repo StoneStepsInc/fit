@@ -54,7 +54,7 @@ static constexpr const size_t SHA256_HEX_SIZE = SHA256_SIZE_BYTES * 2;
 // TODO: make configurable
 static const std::initializer_list<std::string> pic_exts = {".jpg", ".jpeg", ".png", ".cr2", ".dng", ".nef", ".tiff", ".tif", ".heif", ".webp"};
 
-file_hasher_t::file_hasher_t(const options_t& options, int64_t scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info, print_stream_t& print_stream) :
+file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info, print_stream_t& print_stream) :
       options(options),
       print_stream(print_stream),
       scan_id(scan_id),
@@ -167,7 +167,7 @@ file_hasher_t::file_hasher_t(const options_t& options, int64_t scan_id, std::que
       print_stream.error("Cannot prepare a SQLite statement to roll back a transaction (%s)", sqlite3_errstr(errcode));
 }
 
-file_hasher_t::file_hasher_t(file_hasher_t&& other) :
+file_tracker_t::file_tracker_t(file_tracker_t&& other) :
       options(other.options),
       print_stream(other.print_stream),
       scan_id(other.scan_id),
@@ -176,7 +176,7 @@ file_hasher_t::file_hasher_t(file_hasher_t&& other) :
       files(other.files),
       files_mtx(other.files_mtx),
       progress_info(other.progress_info),
-      file_hasher_thread(std::move(other.file_hasher_thread)),
+      file_tracker_thread(std::move(other.file_tracker_thread)),
       file_scan_db(other.file_scan_db),
       stmt_insert_file(other.stmt_insert_file),
       stmt_insert_version(other.stmt_insert_version),
@@ -203,7 +203,7 @@ file_hasher_t::file_hasher_t(file_hasher_t&& other) :
    other.stmt_rollback_txn = nullptr;
 }
 
-file_hasher_t::~file_hasher_t(void)
+file_tracker_t::~file_tracker_t(void)
 {
    int errcode = SQLITE_OK;
 
@@ -253,7 +253,7 @@ file_hasher_t::~file_hasher_t(void)
    }
 }
 
-void file_hasher_t::hash_file(const std::filesystem::path& filepath, uint64_t& filesize, uint8_t hexhash[])
+void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& filesize, uint8_t hexhash[])
 {
    //
    // The narrow character version of fopen will fail to open files
@@ -301,7 +301,7 @@ void file_hasher_t::hash_file(const std::filesystem::path& filepath, uint64_t& f
    }
 }
 
-int64_t file_hasher_t::insert_file_record(const std::string& filepath, const std::filesystem::directory_entry& dir_entry)
+int64_t file_tracker_t::insert_file_record(const std::string& filepath, const std::filesystem::directory_entry& dir_entry)
 {
    int64_t file_id = 0;
    int errcode = SQLITE_OK;
@@ -327,7 +327,7 @@ int64_t file_hasher_t::insert_file_record(const std::string& filepath, const std
    return file_id;
 }
 
-int64_t file_hasher_t::insert_exif_record(const std::string& filepath, const std::vector<exif::field_value_t>& exif_fields, const exif::field_bitset_t& field_bitset)
+int64_t file_tracker_t::insert_exif_record(const std::string& filepath, const std::vector<exif::field_value_t>& exif_fields, const exif::field_bitset_t& field_bitset)
 {
    int64_t exif_id = 0;
 
@@ -359,7 +359,7 @@ int64_t file_hasher_t::insert_exif_record(const std::string& filepath, const std
    return exif_id;
 }
 
-int64_t file_hasher_t::insert_version_record(const std::string& filepath, int64_t file_id, int64_t version, int64_t filesize, const std::filesystem::directory_entry& dir_entry, uint8_t hexhash_file[SHA256_HEX_SIZE], std::optional<int64_t> exif_id)
+int64_t file_tracker_t::insert_version_record(const std::string& filepath, int64_t file_id, int64_t version, int64_t filesize, const std::filesystem::directory_entry& dir_entry, uint8_t hexhash_file[SHA256_HEX_SIZE], std::optional<int64_t> exif_id)
 {
    int64_t version_id = 0;
 
@@ -418,7 +418,7 @@ int64_t file_hasher_t::insert_version_record(const std::string& filepath, int64_
    return version_id;
 }
 
-void file_hasher_t::insert_scanset_record(const std::string& filepath, int64_t version_id)
+void file_tracker_t::insert_scanset_record(const std::string& filepath, int64_t version_id)
 {
    int errcode = SQLITE_OK;
 
@@ -435,7 +435,7 @@ void file_hasher_t::insert_scanset_record(const std::string& filepath, int64_t v
    insert_scanset_file_stmt.reset();
 }
 
-void file_hasher_t::run(void)
+void file_tracker_t::run(void)
 {
    int errcode = SQLITE_OK;
 
@@ -682,7 +682,7 @@ void file_hasher_t::run(void)
    }
 }
 
-int file_hasher_t::sqlite_busy_handler_cb(void*, int count)
+int file_tracker_t::sqlite_busy_handler_cb(void*, int count)
 {
    //
    // Try immediately for the first 10 attempts, then speel for
@@ -702,20 +702,20 @@ int file_hasher_t::sqlite_busy_handler_cb(void*, int count)
    return 1;
 }
 
-void file_hasher_t::start(void)
+void file_tracker_t::start(void)
 {
-   file_hasher_thread = std::thread(&file_hasher_t::run, this);
+   file_tracker_thread = std::thread(&file_tracker_t::run, this);
 }
 
-void file_hasher_t::stop(void)
+void file_tracker_t::stop(void)
 {
    stop_request = true;
 }
 
-void file_hasher_t::join(void)
+void file_tracker_t::join(void)
 {
-   if(file_hasher_thread.joinable())
-      file_hasher_thread.join();
+   if(file_tracker_thread.joinable())
+      file_tracker_thread.join();
 }
 
 }
