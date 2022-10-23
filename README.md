@@ -224,10 +224,6 @@ without the `-v` option and has the following fields:
 
         datetime(scan_time, 'unixepoch')
 
-  * `scan_path` `TEXT NOT NULL`
-
-    The scan directory path, derived from the `-d` option.
-
   * `base_path` `TEXT`
 
     The base path, derived from the `-p` option.

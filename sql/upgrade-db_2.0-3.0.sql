@@ -107,6 +107,7 @@ ALTER TABLE scans ADD COLUMN options TEXT NOT NULL DEFAULT '-';
 
 -- DROP COLUMN is not available prior to SQLite/3.35.0
 ALTER TABLE scans DROP COLUMN current_path;
+ALTER TABLE scans DROP COLUMN scan_path;
 
 --
 -- Rename the files table to versions and create a new files

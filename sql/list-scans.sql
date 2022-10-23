@@ -12,7 +12,6 @@ SELECT
   round(SUM(entry_size) / 1000., 3) AS entry_size_kb,
   round(AVG(entry_size) / 1000., 3) AS avg_entry_size_kb,
   round(MAX(entry_size) / 1000., 3) AS max_entry_size_kb,
-  MAX(scan_path) AS scan_path,
   MAX(base_path) AS base_path,
   MAX(options) as options,
   MAX(message) AS message
