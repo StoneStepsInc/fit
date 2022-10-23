@@ -49,20 +49,23 @@ modes and are as follows:
     This option instructs `fit` to compare the file modification
     time against the time stored in the SQLite database for each
     file as an indicator whether the file was changed or not,
-    rather than to compute checksums. This option is intended to
-    recover from an interrupted scan, without having to compute
-    checksums for all files that have been processed when Ctrl-C
-    was pressed.
+    rather than to compute checksums. This option was originally
+    intended to recover from an interrupted scan, but using the
+    `-u` option works better for this.
 
   * `-u`
 
-    This option instructs `fit` to continue last scan instead of
-    creating a new one. A typical use of this option will be to
+    This option instructs `fit` to update the last scanset instead
+    of creating a new one. A typical use of this option will be to
     continue an interrupted scan or process multiple directories
-    separately.
+    separately, but keep them within the same scanset.
 
     When this option is used, all other options must be exactly
     the same as was in the original scan, including their order.
+
+    Note that the last scan record is not updated when this option
+    is used and all additionally scanned directories will appear
+    as if they were selected and scanned in the initial run.
 
   * `-i 10`
 
@@ -228,10 +231,6 @@ without the `-v` option and has the following fields:
   * `base_path` `TEXT`
 
     The base path, derived from the `-p` option.
-
-  * `current_path` `TEXT NOT NULL`
-
-    The current path recorded when `fit` was launched.
 
   * `options` `TEXT NOT NULL`
 

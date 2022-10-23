@@ -122,11 +122,13 @@ options_t parse_options(int argc, char *argv[])
       // hold onto the option index to detect option values
       size_t opt_i = i;
 
-      if(i > 1)
-         options.all += ' ';
+      // see below
+      if(*(argv[i]+1) != 'm' && *(argv[i]+1) != 'd') {
+         if(i > 1)
+            options.all += ' ';
 
-      if(*(argv[i]+1) != 'm')
          options.all += argv[i];
+      }
 
       switch(*(argv[i]+1)) {
          case 'b':
@@ -200,10 +202,16 @@ options_t parse_options(int argc, char *argv[])
             throw std::runtime_error("Unknown option: " + std::string(argv[i]));
       }
 
-      // if option index was advanced, append the value to the option line, but skip the message
-      if(opt_i != i && *(argv[opt_i]+1) != 'm') {
+      //
+      // For options with values, append it to the option line, unless it
+      // is a message or a scan directory. We also don't want to enforce
+      // either for scanset updates, so multiple directories under the
+      // same base path can be scanned within one scanset. The message is
+      // stored in its own column and both are reported in the output.
+      // 
+      if(opt_i != i && *(argv[opt_i]+1) != 'm' && *(argv[opt_i]+1) != 'd') {
          // wrap arguments that may have spaces in quotes
-         if(strchr("bdlp", *(argv[opt_i]+1)))
+         if(strchr("blp", *(argv[opt_i]+1)))
             options.all = options.all + " \"" + argv[i] + "\"";
          else
             options.all = options.all + " " + argv[i];
@@ -632,7 +640,10 @@ int main(int argc, char *argv[])
       //
       // Walk the file tree
       //
-      print_stream.info("%s \"%s\" with options %s", options.verify_files ? "Verifying" : "Scanning", options.scan_path.u8string().c_str(), options.all.c_str());
+      if(!options.scan_message.empty())
+         print_stream.info("%s \"%s\" (%s) with options %s", options.verify_files ? "Verifying" : "Scanning", options.scan_path.u8string().c_str(), options.scan_message.c_str(), options.all.c_str());
+      else
+         print_stream.info("%s \"%s\" with options %s", options.verify_files ? "Verifying" : "Scanning", options.scan_path.u8string().c_str(), options.all.c_str());
 
       fit::file_tree_walker_t file_tree_walker(options, scan_id, print_stream);
 
