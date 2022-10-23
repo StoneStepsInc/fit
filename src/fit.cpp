@@ -392,7 +392,6 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
                                           "scan_time INTEGER NOT NULL,"
                                           "scan_path TEXT NOT NULL,"
                                           "base_path TEXT,"
-                                          "current_path TEXT NOT NULL,"
                                           "options TEXT NOT NULL,"
                                           "message TEXT);", nullptr, nullptr, &errmsg) != SQLITE_OK)
             throw std::runtime_error("Cannot create table 'scans' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
@@ -442,8 +441,8 @@ int64_t insert_scan_record(const options_t& options, sqlite3 *file_scan_db)
 
    sqlite3_stmt *stmt_insert_scan = nullptr;
 
-   //                                                               1          2          3          4             5        6        7
-   std::string_view sql_insert_scan = "insert into scans (app_version, scan_time, scan_path, base_path, current_path, options, message) values (?, ?, ?, ?, ?, ?, ?)"sv;
+   //                                                               1          2          3          4        6        7
+   std::string_view sql_insert_scan = "insert into scans (app_version, scan_time, scan_path, base_path, options, message) values (?, ?, ?, ?, ?, ?)"sv;
 
    // SQLite docs say there's a small performance gain if the null terminator is included in length
    if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_scan.data(), (int) sql_insert_scan.length()+1, &stmt_insert_scan, nullptr)) != SQLITE_OK)
@@ -461,8 +460,6 @@ int64_t insert_scan_record(const options_t& options, sqlite3 *file_scan_db)
          insert_scan_stmt.bind_param(nullptr);
       else
          insert_scan_stmt.bind_param(options.base_path.u8string());
-
-      insert_scan_stmt.bind_param(std::filesystem::current_path().u8string());
 
       insert_scan_stmt.bind_param(options.all);
 
