@@ -17,6 +17,7 @@
 #include <cinttypes>
 #include <csignal>
 #include <cstdarg>
+#include <cstring>
 
 #include <string>
 #include <stdexcept>
