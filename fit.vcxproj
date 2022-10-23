@@ -84,7 +84,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\exif_reader.cpp" />
-    <ClCompile Include="src\file_hasher.cpp" />
+    <ClCompile Include="src\file_tracker.cpp" />
     <ClCompile Include="src\file_tree_walker.cpp" />
     <ClCompile Include="src\fit.cpp" />
     <ClCompile Include="src\print_stream.cpp" />
@@ -93,7 +93,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\exif_reader.h" />
-    <ClInclude Include="src\file_hasher.h" />
+    <ClInclude Include="src\file_tracker.h" />
     <ClInclude Include="src\file_tree_walker.h" />
     <ClInclude Include="src\fit.h" />
     <ClInclude Include="src\print_stream.h" />

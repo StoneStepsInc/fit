@@ -1,7 +1,7 @@
 #ifndef FIT_FILE_TREE_WALKER_H
 #define FIT_FILE_TREE_WALKER_H
 
-#include "file_hasher.h"
+#include "file_tracker.h"
 #include "print_stream.h"
 
 #include "fit.h"

@@ -1,4 +1,4 @@
-#include "file_hasher.h"
+#include "file_tracker.h"
 #include "exif_reader.h"
 
 #include "fit.h"
