@@ -6,8 +6,9 @@
 --
 SELECT
     ext,
-    count(ext) as count,
-    round(sum(entry_size) / 1000., 3) as entry_size_kb,
+    count(ext) as file_count,
+    count(exif_id) as EXIF_count,
+    round(sum(entry_size) / 1000., 3) as sum_entry_size_kb,
     round(avg(entry_size) / 1000., 3) as avg_entry_size_kb,
     round(max(entry_size) / 1000., 3) as max_entry_size_kb
 FROM
@@ -21,4 +22,4 @@ GROUP BY
     scansets.scan_id,
     ext COLLATE NOCASE
 ORDER BY
-    scansets.scan_id, 4 DESC
+    scansets.scan_id, 5 DESC
