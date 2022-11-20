@@ -384,6 +384,7 @@ below are recorded in the `exif` table.
   * LensModel, LensSerialNumber, GPSLatitudeRef, GPSLatitude,
   * GPSLongitudeRef, GPSLongitude, GPSAltitudeRef, GPSAltitude,
   * GPSTimeStamp, GPSSpeedRef, GPSSpeed, GPSDateStamp
+  * XMP.xmp.Rating
 
 See this page for EXIF tag descriptions:
 
@@ -401,7 +402,7 @@ on the other hand, is recorded as a decimal string `2.97`, which
 can be used to compute FNumber as `2 ^ (2.97/2) = f/2.8`.
 
 EXIF values are experimental at this point and their format may
-change in the futuure.
+change in the future.
 
 ### Useful SQL
 
@@ -471,10 +472,6 @@ SQLite development package needs to be installed (e.g. `sqlite-devel`
 on Fedora). See Docker files in `devops` for a list of packages
 required to build on various Linux flavors.
 
-Versions of `libexif` older than `0.6.24` may not compile due to
-missing tag definitions referenced in `exif_reader.cpp`, such as
-`EXIF_TAG_LENS_MAKE`.
-
 SHA-256 does not have a package and may be obtained via a script
 included in the project (`get-sha256`). After running the script,
 a directory `src/sha256` will contain the source for the SHA-256
@@ -502,11 +499,11 @@ A SQL database management library.
 
 LICENSE: [Pubic Domain](https://www.sqlite.org/copyright.html)
 
-#### libexif
+#### Exiv2
 
 A library for parsing EXIF data.
 
-LICENSE: [GNU Lesser General Public License v2.1](https://github.com/libexif/libexif/blob/master/COPYING)
+LICENSE: [GPL-2.0](https://github.com/Exiv2/exiv2/blob/0.27-maintenance/COPYING)
 
 
 #### SHA256
