@@ -16,10 +16,13 @@ SELECT
     version,
     path,
     mod_time,
-    round(entry_size/1000., 3) AS entry_size_kb
+    round(entry_size/1000., 3) AS entry_size_kb,
+    message
 FROM
-    versions
-    JOIN files ON versions.file_id = files.rowid
+    scansets
+    JOIN versions ON version_id = versions.rowid
+    JOIN files ON file_id = files.rowid
+    JOIN scans on scan_id = scans.rowid
 WHERE
     hash = @HASH COLLATE NOCASE
 ORDER BY

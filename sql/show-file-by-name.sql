@@ -13,10 +13,13 @@ SELECT
     path,
     mod_time,
     round(entry_size/1000., 3) as entry_size_kb,
-    hash
+    hash,
+    message
 FROM
-    versions
-    JOIN files ON versions.file_id = files.rowid
+    scansets
+    JOIN versions ON version_id = versions.rowid
+    JOIN files ON file_id = files.rowid
+    JOIN scans on scan_id = scans.rowid
 WHERE
     name = @FILENAME
 ORDER BY
