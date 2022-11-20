@@ -2,12 +2,15 @@
 
 #include <cinttypes>
 #include <optional>
+#include <string_view>
 #include <cstring>
 #include <cmath>
 
 #include <memory.h>
 
 #include <exiv2/exiv2.hpp>
+
+using namespace std::literals::string_view_literals;
 
 namespace fit {
 namespace exif {
@@ -714,6 +717,46 @@ field_bitset_t exif_reader_t::read_file_exif(const std::string& filepath, print_
                      //
                      break;
                }
+            }
+         }
+      }
+
+      if(!image->xmpData().empty()) {
+         //
+         // XMP value key will include the XML namespace and will have
+         // the `Xmp.` prefix, so for this XMP element:
+         // 
+         //   <xmp:Rating>5</xmp:Rating>
+         //
+         // , this key will be returned. There is no tag numbers in XMP.
+         // 
+         //   Xmp.xmp.Rating (XmpText,1): 5
+         // 
+         // For the purposes of avoiding conflicts with other tag names
+         // and with similar tags within XMP, use the lowercase XMP
+         // namespace between XMP and capitalized tag name, such as these:
+         // 
+         //   XMPxmpRating
+         //   XMPdcSubject
+         // 
+         // We are only interested in xmp.Rating at this point and break
+         // out as soon as it is found to avoid unnecessary iterations.
+         //
+         for(Exiv2::XmpData::const_iterator i = image->xmpData().begin(); i != image->xmpData().end(); ++i) {
+            if(i->key() == "Xmp.xmp.Rating"sv) {
+               //
+               // According to this ExifTool page, xmp.Rating is supposed to
+               // be a floating point number, but it is retrieved as XmpText
+               // in Exiv2, so we'll keep it simple and store it as-is.
+               // 
+               // https://exiftool.org/TagNames/XMP.html#xmp
+               //
+               if(i->typeName() == "XmpText"sv) {
+                  const Exiv2::XmpTextValue& xmp_text = static_cast<const Exiv2::XmpTextValue&>(i->value());
+                  exif_fields[EXIF_FIELD_XMPxmpRating] = xmp_text.value_;
+                  field_bitset.set(EXIF_FIELD_XMPxmpRating);
+               }
+               break;
             }
          }
       }

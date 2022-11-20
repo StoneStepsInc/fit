@@ -86,6 +86,7 @@ enum field_index_t {
    EXIF_FIELD_GPSSpeedRef,
    EXIF_FIELD_GPSSpeed,
    EXIF_FIELD_GPSDateStamp,
+   EXIF_FIELD_XMPxmpRating,
    EXIF_FIELD_FieldCount
 };
 

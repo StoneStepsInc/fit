@@ -187,7 +187,7 @@ CREATE TABLE exif (
     BodySerialNumber TEXT NULL, LensSpecification TEXT NULL, LensMake TEXT NULL, LensModel TEXT NULL,
     LensSerialNumber TEXT NULL, GPSLatitudeRef TEXT NULL, GPSLatitude TEXT NULL, GPSLongitudeRef TEXT NULL,
     GPSLongitude TEXT NULL, GPSAltitudeRef TEXT NULL, GPSAltitude TEXT NULL, GPSTimeStamp TEXT NULL,
-    GPSSpeedRef TEXT NULL, GPSSpeed TEXT NULL, GPSDateStamp TEXT NULL);
+    GPSSpeedRef TEXT NULL, GPSSpeed TEXT NULL, GPSDateStamp TEXT NULL, XMPxmpRating TEXT NULL);
 
 ALTER TABLE versions ADD COLUMN exif_id INTEGER NULL;
 

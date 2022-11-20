@@ -134,7 +134,7 @@ file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::q
                                       "SubjectLocation,ExposureIndex,SensingMethod,SceneType,ExposureMode,WhiteBalance,DigitalZoomRatio,FocalLengthIn35mmFilm,"
                                       "SceneCaptureType,SubjectDistanceRange,ImageUniqueID,CameraOwnerName,BodySerialNumber,LensSpecification,LensMake,LensModel,"
                                       "LensSerialNumber,GPSLatitudeRef,GPSLatitude,GPSLongitudeRef,GPSLongitude,GPSAltitudeRef,GPSAltitude,GPSTimeStamp,"
-                                      "GPSSpeedRef,GPSSpeed,GPSDateStamp) "
+                                      "GPSSpeedRef,GPSSpeed,GPSDateStamp,XMPxmpRating) "
                                  "VALUES (?, ?, ?, ?, ?, ?, ?, ?, "
                                          "?, ?, ?, ?, ?, ?, ?, ?, "
                                          "?, ?, ?, ?, ?, ?, ?, ?, "
@@ -143,7 +143,7 @@ file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::q
                                          "?, ?, ?, ?, ?, ?, ?, ?, "
                                          "?, ?, ?, ?, ?, ?, ?, ?, "
                                          "?, ?, ?, ?, ?, ?, ?, ?, "
-                                         "?, ?, ?)";
+                                         "?, ?, ?, ?)";
 
    if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_exif.c_str(), (int) sql_insert_exif.length()+1, &stmt_insert_exif, nullptr)) != SQLITE_OK)
       print_stream.error("Cannot prepare a SQLite statement to insert an EXIF record (%s)", sqlite3_errstr(errcode));
