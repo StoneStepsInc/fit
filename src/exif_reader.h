@@ -1,8 +1,7 @@
 #ifndef FIT_EXIF_READER_H
 #define FIT_EXIF_READER_H
 
-#include <libexif/exif-tag.h>
-#include <libexif/exif-data.h>
+#include "print_stream.h"
 
 #include <vector>
 #include <variant>
@@ -10,6 +9,11 @@
 #include <bitset>
 
 #include <cstddef>
+
+namespace Exiv2 {
+class DataValue;
+template <typename T> class ValueType;
+}
 
 namespace fit {
 namespace exif {
@@ -95,31 +99,28 @@ typedef std::bitset<EXIF_FIELD_FieldCount> field_bitset_t;
 //
 class exif_reader_t {
    private:
-      size_t EXIF_SIZE_RATIONAL;
-      size_t EXIF_SIZE_SRATIONAL;
-      size_t EXIF_SIZE_SHORT;
-      size_t EXIF_SIZE_SSHORT;
-      size_t EXIF_SIZE_LONG;
-      size_t EXIF_SIZE_SLONG;
-
       std::vector<field_value_t> exif_fields;
 
    private:
       template <typename T>
-      static void fmt_exif_byte(const ExifEntry *exif_entry, const char *format, field_value_t& field_value, ExifByteOrder byte_order);
+      static void fmt_exif_byte(const Exiv2::DataValue& exif_value, const char *format, field_value_t& field_value);
 
       template <typename T>
-      static bool fmt_exif_number(const ExifEntry *exif_entry, const char *format, T (*exif_get_type_fn)(const unsigned char*, ExifByteOrder), field_value_t& field_value, size_t item_size, ExifByteOrder byte_order);
+      static bool fmt_exif_number(const Exiv2::ValueType<T>& exif_value, const char *format, field_value_t& field_value);
 
       template <typename T>
-      static bool fmt_exif_rational(const ExifEntry *exif_entry, T (*exif_get_type_fn)(const unsigned char*, ExifByteOrder), field_value_t& field_value, size_t item_size, ExifByteOrder byte_order);
+      static bool fmt_exif_rational(const Exiv2::ValueType<T>& exif_value, field_value_t& field_value);
 
    public:
       exif_reader_t(void);
 
       exif_reader_t(exif_reader_t&& other);
 
-      field_bitset_t read_file_exif(const std::string& filepath);
+      static void initialize(print_stream_t& print_stream);
+
+      static void cleanup(print_stream_t& print_stream) noexcept;
+
+      field_bitset_t read_file_exif(const std::string& filepath, print_stream_t& print_stream);
 
       const std::vector<field_value_t>& get_exif_fields(void) const;
 };

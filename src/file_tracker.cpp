@@ -624,7 +624,7 @@ void file_tracker_t::run(void)
                   if(!dir_entry.path().extension().empty()) {
                      if(binary_search(pic_exts.begin(), pic_exts.end(), dir_entry.path().extension().u8string(), less_ci())) {
                         // filepath will contain a relative path if base path was specified
-                        exif::field_bitset_t field_bitset = exif_reader.read_file_exif(dir_entry.path().u8string());
+                        exif::field_bitset_t field_bitset = exif_reader.read_file_exif(dir_entry.path().u8string(), print_stream);
 
                         // ignore EXIF unless Make or Model were specified (some image editors add meaningless default values).
                         if(field_bitset.test(exif::EXIF_FIELD_Make) || field_bitset.test(exif::EXIF_FIELD_Model))
@@ -700,6 +700,16 @@ int file_tracker_t::sqlite_busy_handler_cb(void*, int count)
    // return value.
    //
    return 1;
+}
+
+void file_tracker_t::initialize(print_stream_t& print_stream)
+{
+   exif::exif_reader_t::initialize(print_stream);
+}
+
+void file_tracker_t::cleanup(print_stream_t& print_stream) noexcept
+{
+   exif::exif_reader_t::cleanup(print_stream);
 }
 
 void file_tracker_t::start(void)

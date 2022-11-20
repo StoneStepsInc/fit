@@ -31,6 +31,16 @@ file_tree_walker_t::file_tree_walker_t(const options_t& options, int64_t scan_id
       file_hashers.emplace_back(options, scan_id, files, files_mtx, progress_info, print_stream);
 }
 
+void file_tree_walker_t::initialize(print_stream_t& print_stream)
+{
+   file_tracker_t::initialize(print_stream);
+}
+
+void file_tree_walker_t::cleanup(print_stream_t& print_stream) noexcept
+{
+   file_tracker_t::cleanup(print_stream);
+}
+
 void file_tree_walker_t::report_progress(void)
 {
    if(!progress_info.updated_files) {

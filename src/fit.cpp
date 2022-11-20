@@ -574,7 +574,6 @@ int64_t select_last_scan_id(const options_t& options, sqlite3 *file_scan_db)
    return scan_id.value();
 }
 
-
 }
 
 int main(int argc, char *argv[])
@@ -644,43 +643,57 @@ int main(int argc, char *argv[])
       else
          print_stream.info("%s \"%s\" with options %s", options.verify_files ? "Verifying" : "Scanning", options.scan_path.u8string().c_str(), options.all.c_str());
 
-      fit::file_tree_walker_t file_tree_walker(options, scan_id, print_stream);
-
-      if(options.recursive_scan)
-         file_tree_walker.walk_tree<std::filesystem::recursive_directory_iterator>();
-      else
-         file_tree_walker.walk_tree<std::filesystem::directory_iterator>();
-
-      std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
-
-      fit::close_sqlite_database(file_scan_db.release());
-
       //
-      // Print scan results and timing
+      // Initialize underlying libraries before any of the components
+      // are created and threads started.
       //
+      fit::file_tree_walker_t::initialize(print_stream);
 
-      // for quick scans, just report processed files and elapsed time
-      if(std::chrono::duration_cast<std::chrono::seconds>(end_time-start_time).count() == 0) {
-         print_stream.info("Processed %.1f GB in %" PRIu64 " files in %.1f min",
-                           file_tree_walker.get_processed_size()/1'000'000'000., file_tree_walker.get_processed_files(),
-                           std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/60000.);
+      try {
+         fit::file_tree_walker_t file_tree_walker(options, scan_id, print_stream);
+
+         if(options.recursive_scan)
+            file_tree_walker.walk_tree<std::filesystem::recursive_directory_iterator>();
+         else
+            file_tree_walker.walk_tree<std::filesystem::directory_iterator>();
+
+         std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
+
+         fit::close_sqlite_database(file_scan_db.release());
+
+         //
+         // Print scan results and timing
+         //
+
+         // for quick scans, just report processed files and elapsed time
+         if(std::chrono::duration_cast<std::chrono::seconds>(end_time-start_time).count() == 0) {
+            print_stream.info("Processed %.1f GB in %" PRIu64 " files in %.1f min",
+                              file_tree_walker.get_processed_size()/1'000'000'000., file_tree_walker.get_processed_files(),
+                              std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/60000.);
+         }
+         else {
+            print_stream.info("Processed %.1f GB in %" PRIu64 " files in %.1f min (%.1f files/sec, %.1f MB/sec)",
+                              file_tree_walker.get_processed_size()/1'000'000'000., file_tree_walker.get_processed_files(),
+                              std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/60000.,
+                              file_tree_walker.get_processed_files()/(std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/1000.),
+                              file_tree_walker.get_processed_size()/1'000'000./(std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/1000.));
+         }
+
+         if(options.verify_files) {
+            print_stream.info("Found %" PRIu64 " modified, %" PRIu64 " new and %" PRIu64 " changed files",
+                              file_tree_walker.get_modified_files(), file_tree_walker.get_new_files(), file_tree_walker.get_changed_files());
+         }
       }
-      else {
-         print_stream.info("Processed %.1f GB in %" PRIu64 " files in %.1f min (%.1f files/sec, %.1f MB/sec)",
-                           file_tree_walker.get_processed_size()/1'000'000'000., file_tree_walker.get_processed_files(),
-                           std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/60000.,
-                           file_tree_walker.get_processed_files()/(std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/1000.),
-                           file_tree_walker.get_processed_size()/1'000'000./(std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/1000.));
+      catch (...) {
+         fit::file_tree_walker_t::cleanup(print_stream);
+         throw;
       }
 
-      if(options.verify_files) {
-         print_stream.info("Found %" PRIu64 " modified, %" PRIu64 " new and %" PRIu64 " changed files",
-                           file_tree_walker.get_modified_files(), file_tree_walker.get_new_files(), file_tree_walker.get_changed_files());
-      }
+      fit::file_tree_walker_t::cleanup(print_stream);
 
       return EXIT_SUCCESS;
    }
-   catch(const std::exception& error) {
+   catch (const std::exception& error) {
       fprintf(stderr, "%s\n", error.what());
    }
 

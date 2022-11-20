@@ -111,6 +111,10 @@ class file_tracker_t {
 
       ~file_tracker_t(void);
 
+      static void initialize(print_stream_t& print_stream);
+
+      static void cleanup(print_stream_t& print_stream) noexcept;
+
       void start(void);
 
       void stop(void);

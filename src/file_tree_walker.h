@@ -45,6 +45,10 @@ class file_tree_walker_t {
    public:
       file_tree_walker_t(const options_t& options, int64_t scan_id, print_stream_t& print_stream);
 
+      static void initialize(print_stream_t& print_stream);
+
+      static void cleanup(print_stream_t& print_stream) noexcept;
+
       void report_progress(void);
 
       template <typename dir_iter_t>

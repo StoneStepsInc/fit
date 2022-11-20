@@ -65,9 +65,20 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <Library Include="$(ZLibDir)lib\$(Platform)\$(Configuration)\$(ZLibName).lib">
+      <Filter>lib</Filter>
+    </Library>
     <Library Include="$(SQLiteDir)lib\$(Platform)\$(Configuration)\$(SQLiteLibName).lib">
       <Filter>lib</Filter>
     </Library>
-    <Library Include="$(LibExifDir)lib\$(Platform)\$(Configuration)\$(LibExifName).lib" />
+    <Library Include="$(Exiv2Dir)lib\$(Platform)\$(Configuration)\$(Exiv2XMPName).lib">
+      <Filter>lib</Filter>
+    </Library>
+    <Library Include="$(Exiv2Dir)lib\$(Platform)\$(Configuration)\$(Exiv2Name).lib">
+      <Filter>lib</Filter>
+    </Library>
+    <Library Include="$(LibExpatDir)lib\$(Platform)\$(Configuration)\$(LibExpatName).lib">
+      <Filter>lib</Filter>
+    </Library>
   </ItemGroup>
 </Project>
