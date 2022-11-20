@@ -18,6 +18,9 @@ template <typename T> class ValueType;
 namespace fit {
 namespace exif {
 
+//
+// A field index within a SQL statement that inserts EXIF fields.
+// 
 enum field_index_t {
    EXIF_FIELD_BitsPerSample,
    EXIF_FIELD_Compression,
