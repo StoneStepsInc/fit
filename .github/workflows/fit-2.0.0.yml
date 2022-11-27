@@ -60,7 +60,7 @@ jobs:
         mkdir fit-${{ env.VERSION }}-windows
         mkdir fit-${{ env.VERSION }}-windows\sql
         copy /y x64\Release\fit.exe fit-${{ env.VERSION }}-windows
-        copy /y packages\StoneSteps.SQLite.Static.3.39.4.1\build\native\bin\sqlite3.exe fit-${{ env.VERSION }}-windows
+        copy /y packages\StoneSteps.SQLite.VS2022.Static.3.39.4.1\build\native\bin\sqlite3.exe fit-${{ env.VERSION }}-windows
         copy /y README.md fit-${{ env.VERSION }}-windows
         copy /y LICENSE. fit-${{ env.VERSION }}-windows
         copy /y sql\* fit-${{ env.VERSION }}-windows\sql\
