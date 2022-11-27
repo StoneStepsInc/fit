@@ -99,9 +99,10 @@ modes and are as follows:
 
   * `-X`
 
-    This option provides a list of EXIF file extensions or disables
-    EXIF scanning if used without a value. The default list is
-    `.jpg.jpeg.cr2.dng.nef.tiff.tif.heif.webp`.
+    This option provides a list of EXIF file extensions. The default
+    list is `.jpg.jpeg.cr2.dng.nef.tiff.tif.heif.webp`.
+    
+    When used without a value, disables EXIF processing altogether.
 
 ## Scanning a File Tree
 
