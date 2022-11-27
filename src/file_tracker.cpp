@@ -646,7 +646,7 @@ void file_tracker_t::run(void)
                   if(!EXIF_exts.empty() && !dir_entry.path().extension().empty()) {
                      if(binary_search(EXIF_exts.begin(), EXIF_exts.end(), dir_entry.path().extension().u8string(), less_ci())) {
                         // filepath will contain a relative path if base path was specified
-                        exif::field_bitset_t field_bitset = exif_reader.read_file_exif(dir_entry.path().u8string(), print_stream);
+                        exif::field_bitset_t field_bitset = exif_reader.read_file_exif(dir_entry.path(), print_stream);
 
                         // ignore EXIF unless Make or Model were specified (some image editors add meaningless default values).
                         if(field_bitset.test(exif::EXIF_FIELD_Make) || field_bitset.test(exif::EXIF_FIELD_Model))

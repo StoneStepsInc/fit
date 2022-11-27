@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="packages\StoneSteps.Exiv2.VS2022.Static.0.27.5.4\build\native\StoneSteps.Exiv2.VS2022.Static.props" Condition="Exists('packages\StoneSteps.Exiv2.VS2022.Static.0.27.5.4\build\native\StoneSteps.Exiv2.VS2022.Static.props')" />
+  <Import Project="packages\StoneSteps.Exiv2.VS2022.Static.0.27.5.5\build\native\StoneSteps.Exiv2.VS2022.Static.props" Condition="Exists('packages\StoneSteps.Exiv2.VS2022.Static.0.27.5.5\build\native\StoneSteps.Exiv2.VS2022.Static.props')" />
   <Import Project="packages\StoneSteps.zLib.VS2022.Static.1.2.13.1\build\native\StoneSteps.zLib.VS2022.Static.props" Condition="Exists('packages\StoneSteps.zLib.VS2022.Static.1.2.13.1\build\native\StoneSteps.zLib.VS2022.Static.props')" />
   <Import Project="packages\StoneSteps.Expat.VS2022.Static.2.5.0.2\build\native\StoneSteps.expat.VS2022.Static.props" Condition="Exists('packages\StoneSteps.Expat.VS2022.Static.2.5.0.2\build\native\StoneSteps.expat.VS2022.Static.props')" />
   <Import Project="packages\StoneSteps.SQLite.VS2022.Static.3.39.4.1\build\native\StoneSteps.SQLite.VS2022.Static.props" Condition="Exists('packages\StoneSteps.SQLite.VS2022.Static.3.39.4.1\build\native\StoneSteps.SQLite.VS2022.Static.props')" />
@@ -124,7 +124,7 @@ copy /Y $(LibExpatDir)lib\$(Platform)\$(Configuration)\*.pdb $(OutDir)</Command>
     <Import Project="packages\StoneSteps.SQLite.VS2022.Static.3.39.4.1\build\native\StoneSteps.SQLite.VS2022.Static.targets" Condition="Exists('packages\StoneSteps.SQLite.VS2022.Static.3.39.4.1\build\native\StoneSteps.SQLite.VS2022.Static.targets')" />
     <Import Project="packages\StoneSteps.Expat.VS2022.Static.2.5.0.2\build\native\StoneSteps.expat.VS2022.Static.targets" Condition="Exists('packages\StoneSteps.Expat.VS2022.Static.2.5.0.2\build\native\StoneSteps.expat.VS2022.Static.targets')" />
     <Import Project="packages\StoneSteps.zLib.VS2022.Static.1.2.13.1\build\native\StoneSteps.zLib.VS2022.Static.targets" Condition="Exists('packages\StoneSteps.zLib.VS2022.Static.1.2.13.1\build\native\StoneSteps.zLib.VS2022.Static.targets')" />
-    <Import Project="packages\StoneSteps.Exiv2.VS2022.Static.0.27.5.4\build\native\StoneSteps.Exiv2.VS2022.Static.targets" Condition="Exists('packages\StoneSteps.Exiv2.VS2022.Static.0.27.5.4\build\native\StoneSteps.Exiv2.VS2022.Static.targets')" />
+    <Import Project="packages\StoneSteps.Exiv2.VS2022.Static.0.27.5.5\build\native\StoneSteps.Exiv2.VS2022.Static.targets" Condition="Exists('packages\StoneSteps.Exiv2.VS2022.Static.0.27.5.5\build\native\StoneSteps.Exiv2.VS2022.Static.targets')" />
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
@@ -136,7 +136,7 @@ copy /Y $(LibExpatDir)lib\$(Platform)\$(Configuration)\*.pdb $(OutDir)</Command>
     <Error Condition="!Exists('packages\StoneSteps.Expat.VS2022.Static.2.5.0.2\build\native\StoneSteps.expat.VS2022.Static.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\StoneSteps.Expat.VS2022.Static.2.5.0.2\build\native\StoneSteps.expat.VS2022.Static.targets'))" />
     <Error Condition="!Exists('packages\StoneSteps.zLib.VS2022.Static.1.2.13.1\build\native\StoneSteps.zLib.VS2022.Static.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\StoneSteps.zLib.VS2022.Static.1.2.13.1\build\native\StoneSteps.zLib.VS2022.Static.props'))" />
     <Error Condition="!Exists('packages\StoneSteps.zLib.VS2022.Static.1.2.13.1\build\native\StoneSteps.zLib.VS2022.Static.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\StoneSteps.zLib.VS2022.Static.1.2.13.1\build\native\StoneSteps.zLib.VS2022.Static.targets'))" />
-    <Error Condition="!Exists('packages\StoneSteps.Exiv2.VS2022.Static.0.27.5.4\build\native\StoneSteps.Exiv2.VS2022.Static.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\StoneSteps.Exiv2.VS2022.Static.0.27.5.4\build\native\StoneSteps.Exiv2.VS2022.Static.props'))" />
-    <Error Condition="!Exists('packages\StoneSteps.Exiv2.VS2022.Static.0.27.5.4\build\native\StoneSteps.Exiv2.VS2022.Static.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\StoneSteps.Exiv2.VS2022.Static.0.27.5.4\build\native\StoneSteps.Exiv2.VS2022.Static.targets'))" />
+    <Error Condition="!Exists('packages\StoneSteps.Exiv2.VS2022.Static.0.27.5.5\build\native\StoneSteps.Exiv2.VS2022.Static.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\StoneSteps.Exiv2.VS2022.Static.0.27.5.5\build\native\StoneSteps.Exiv2.VS2022.Static.props'))" />
+    <Error Condition="!Exists('packages\StoneSteps.Exiv2.VS2022.Static.0.27.5.5\build\native\StoneSteps.Exiv2.VS2022.Static.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\StoneSteps.Exiv2.VS2022.Static.0.27.5.5\build\native\StoneSteps.Exiv2.VS2022.Static.targets'))" />
   </Target>
 </Project>

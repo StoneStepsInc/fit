@@ -7,6 +7,7 @@
 #include <variant>
 #include <string>
 #include <bitset>
+#include <filesystem>
 
 #include <cstddef>
 
@@ -124,7 +125,7 @@ class exif_reader_t {
 
       static void cleanup(print_stream_t& print_stream) noexcept;
 
-      field_bitset_t read_file_exif(const std::string& filepath, print_stream_t& print_stream);
+      field_bitset_t read_file_exif(const std::filesystem::path& filepath, print_stream_t& print_stream);
 
       const std::vector<field_value_t>& get_exif_fields(void) const;
 };

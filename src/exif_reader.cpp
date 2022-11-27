@@ -244,12 +244,30 @@ void exif_reader_t::cleanup(print_stream_t& print_stream) noexcept
    }
 }
 
-field_bitset_t exif_reader_t::read_file_exif(const std::string& filepath, print_stream_t& print_stream)
+field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepath, print_stream_t& print_stream)
 {
    try {
       field_bitset_t field_bitset;
 
-      Exiv2::Image::AutoPtr image = Exiv2::ImageFactory::open(filepath, false /* useCurl? */);
+      //
+      // Exiv2 handles wide characters in a way that may fail valid paths.
+      // For example, in `FileIo::setPath`, in basicio.cpp, there's code
+      // like this:
+      // 
+      //     void FileIo::setPath(const std::wstring& wpath)
+      //     {   ...
+      //         std::string path;
+      //         path.assign(wpath.begin(), wpath.end());
+      // 
+      // , which will take the lower byte of a UCS-2 character instead of
+      // performing proper conversion from UCS-2 to the target character
+      // set.
+      //
+#ifdef _WIN32
+      Exiv2::Image::AutoPtr image = Exiv2::ImageFactory::open(filepath.wstring(), false /* useCurl? */);
+#else
+      Exiv2::Image::AutoPtr image = Exiv2::ImageFactory::open(filepath.string(), false /* useCurl? */);
+#endif
 
       if(!image)
          return field_bitset;
