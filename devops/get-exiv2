@@ -1,0 +1,47 @@
+#!/bin/bash
+
+PKG_VER=0.27.5
+PKG_REV=%~1
+
+EXIV2_FNAME=exiv2-$PKG_VER-Source.tar.gz
+EXIV2_DNAME=exiv2-$PKG_VER-Source
+EXIV2_SHA256=35a58618ab236a901ca4928b0ad8b31007ebdc0386d904409d825024e45ea6e2
+
+curl --location --output $EXIV2_FNAME https://github.com/Exiv2/exiv2/releases/download/v$PKG_VER/$EXIV2_FNAME
+
+echo "$EXIV2_SHA256  $EXIV2_FNAME" | sha256sum --check
+
+if [ $? -ne 0 ]
+then
+    echo "Bad checksum: $EXIV2_FNAME"
+    exit 1
+fi
+
+tar xzf $EXIV2_FNAME
+
+rm -f $EXIV2_FNAME
+
+patch -p1 --unified --directory $EXIV2_DNAME --input ../exiv2-c++17.patch
+
+cmake -S $EXIV2_DNAME -B exiv2/Release \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DEXIV2_ENABLE_WEBREADY=OFF \
+    -DEXIV2_ENABLE_CURL=OFF \
+    -DEXIV2_ENABLE_XMP=ON \
+    -DEXIV2_ENABLE_SSH=OFF \
+    -DEXIV2_BUILD_SAMPLES=OFF \
+    -DEXIV2_BUILD_EXIV2_COMMAND=OFF \
+    -DEXIV2_BUILD_UNIT_TESTS=OFF \
+    -DEXIV2_BUILD_FUZZ_TESTS=OFF \
+    -DEXIV2_ENABLE_PNG=ON
+
+cmake --build exiv2/Release
+
+cmake --install exiv2/Release
+
+cp exiv2/Release/install_manifest.txt exiv2_install_manifest.txt
+
+rm -rf exiv2/Release
+
+rm -rf $EXIV2_DNAME

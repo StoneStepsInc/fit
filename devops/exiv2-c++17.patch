@@ -1,0 +1,1490 @@
+diff --git a/.gitignore b/.gitignore
+index d3090138..0e4d54e2 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,3 +1,5 @@
++/.vs/
++
+ *~
+ *.gmo
+ *.la
+diff --git a/include/exiv2/basicio.hpp b/include/exiv2/basicio.hpp
+index e2a0ce44..b6b45dad 100644
+--- a/include/exiv2/basicio.hpp
++++ b/include/exiv2/basicio.hpp
+@@ -30,7 +30,7 @@
+ #include "types.hpp"
+ 
+ // + standard includes
+-#include <memory>       // for std::auto_ptr
++#include <memory>       // for std::unique_ptr
+ 
+ // The way to handle data from stdin or data uri path. If EXV_XPATH_MEMIO = 1,
+ // it uses MemIo. Otherwises, it uses FileIo.
+@@ -54,8 +54,8 @@ namespace Exiv2 {
+      */
+     class EXIV2API BasicIo {
+     public:
+-        //! BasicIo auto_ptr type
+-        typedef std::auto_ptr<BasicIo> AutoPtr;
++        //! BasicIo unique_ptr type
++        typedef std::unique_ptr<BasicIo> AutoPtr;
+ 
+         //! Seek starting positions
+         enum Position { beg, cur, end };
+@@ -521,7 +521,7 @@ namespace Exiv2 {
+ 
+         // Pimpl idiom
+         class Impl;
+-        std::auto_ptr<Impl> p_;
++        std::unique_ptr<Impl> p_;
+ 
+     }; // class FileIo
+ 
+@@ -721,7 +721,7 @@ namespace Exiv2 {
+ 
+         // Pimpl idiom
+         class Impl;
+-        std::auto_ptr<Impl> p_;
++        std::unique_ptr<Impl> p_;
+ 
+     }; // class MemIo
+ 
+diff --git a/include/exiv2/config.h b/include/exiv2/config.h
+index 8c35ec21..044d443a 100644
+--- a/include/exiv2/config.h
++++ b/include/exiv2/config.h
+@@ -102,7 +102,7 @@ typedef int pid_t;
+     #include <unistd.h>
+   #endif
+   template <typename T>
+-  using auto_ptr = std::unique_ptr<T>;
++  using unique_ptr = std::unique_ptr<T>;
+ #endif
+ 
+ #endif // _CONFIG_H_
+diff --git a/include/exiv2/datasets.hpp b/include/exiv2/datasets.hpp
+index 0e7c4a43..b78934d4 100644
+--- a/include/exiv2/datasets.hpp
++++ b/include/exiv2/datasets.hpp
+@@ -275,7 +275,7 @@ namespace Exiv2 {
+     class EXIV2API IptcKey : public Key {
+     public:
+         //! Shortcut for an %IptcKey auto pointer.
+-        typedef std::auto_ptr<IptcKey> AutoPtr;
++        typedef std::unique_ptr<IptcKey> AutoPtr;
+ 
+         //! @name Creators
+         //@{
+diff --git a/include/exiv2/image.hpp b/include/exiv2/image.hpp
+index 7000c512..3245de21 100644
+--- a/include/exiv2/image.hpp
++++ b/include/exiv2/image.hpp
+@@ -77,8 +77,8 @@ namespace Exiv2 {
+      */
+     class EXIV2API Image {
+     public:
+-        //! Image auto_ptr type
+-        typedef std::auto_ptr<Image> AutoPtr;
++        //! Image unique_ptr type
++        typedef std::unique_ptr<Image> AutoPtr;
+ 
+         //! @name Creators
+         //@{
+diff --git a/include/exiv2/metadatum.hpp b/include/exiv2/metadatum.hpp
+index 036812ef..9e58cc0a 100644
+--- a/include/exiv2/metadatum.hpp
++++ b/include/exiv2/metadatum.hpp
+@@ -44,7 +44,7 @@ namespace Exiv2 {
+     class EXIV2API Key {
+     public:
+         //! Shortcut for a %Key auto pointer.
+-        typedef std::auto_ptr<Key> AutoPtr;
++        typedef std::unique_ptr<Key> AutoPtr;
+ 
+         //! @name Creators
+         //@{
+diff --git a/include/exiv2/properties.hpp b/include/exiv2/properties.hpp
+index f56b0c28..00573f66 100644
+--- a/include/exiv2/properties.hpp
++++ b/include/exiv2/properties.hpp
+@@ -231,7 +231,7 @@ namespace Exiv2 {
+     {
+     public:
+         //! Shortcut for an %XmpKey auto pointer.
+-        typedef std::auto_ptr<XmpKey> AutoPtr;
++        typedef std::unique_ptr<XmpKey> AutoPtr;
+ 
+         //! @name Creators
+         //@{
+@@ -294,7 +294,7 @@ namespace Exiv2 {
+     private:
+         // Pimpl idiom
+         struct Impl;
+-        std::auto_ptr<Impl> p_;
++        std::unique_ptr<Impl> p_;
+ 
+     };  // class XmpKey
+ 
+diff --git a/include/exiv2/tags.hpp b/include/exiv2/tags.hpp
+index f6a63a3a..2641e60a 100644
+--- a/include/exiv2/tags.hpp
++++ b/include/exiv2/tags.hpp
+@@ -140,7 +140,7 @@ namespace Exiv2 {
+     class EXIV2API ExifKey : public Key {
+     public:
+         //! Shortcut for an %ExifKey auto pointer.
+-        typedef std::auto_ptr<ExifKey> AutoPtr;
++        typedef std::unique_ptr<ExifKey> AutoPtr;
+ 
+         //! @name Creators
+         //@{
+@@ -214,7 +214,7 @@ namespace Exiv2 {
+     private:
+         // Pimpl idiom
+         struct Impl;
+-        std::auto_ptr<Impl> p_;
++        std::unique_ptr<Impl> p_;
+ 
+     }; // class ExifKey
+ 
+diff --git a/include/exiv2/types.hpp b/include/exiv2/types.hpp
+index 11f13c39..1be1f0da 100644
+--- a/include/exiv2/types.hpp
++++ b/include/exiv2/types.hpp
+@@ -174,7 +174,7 @@ namespace Exiv2 {
+ 
+     /*!
+       @brief Auxiliary type to enable copies and assignments, similar to
+-             std::auto_ptr_ref. See http://www.josuttis.com/libbook/auto_ptr.html
++             std::auto_ptr_ref. See http://www.josuttis.com/libbook/unique_ptr.html
+              for a discussion.
+      */
+     struct EXIV2API DataBufRef {
+@@ -202,7 +202,7 @@ namespace Exiv2 {
+         DataBuf(const byte* pData, long size);
+         /*!
+           @brief Copy constructor. Transfers the buffer to the newly created
+-                 object similar to std::auto_ptr, i.e., the original object is
++                 object similar to std::unique_ptr, i.e., the original object is
+                  modified.
+          */
+         DataBuf(DataBuf& rhs);
+@@ -214,7 +214,7 @@ namespace Exiv2 {
+         //@{
+         /*!
+           @brief Assignment operator. Transfers the buffer and releases the
+-                 buffer at the original object similar to std::auto_ptr, i.e.,
++                 buffer at the original object similar to std::unique_ptr, i.e.,
+                  the original object is modified.
+          */
+         DataBuf& operator=(DataBuf& rhs);
+@@ -244,8 +244,8 @@ namespace Exiv2 {
+           @name Conversions
+ 
+           Special conversions with auxiliary type to enable copies
+-          and assignments, similar to those used for std::auto_ptr.
+-          See http://www.josuttis.com/libbook/auto_ptr.html for a discussion.
++          and assignments, similar to those used for std::unique_ptr.
++          See http://www.josuttis.com/libbook/unique_ptr.html for a discussion.
+          */
+         //@{
+         DataBuf(const DataBufRef& rhs);
+diff --git a/include/exiv2/value.hpp b/include/exiv2/value.hpp
+index 3ec1af50..e92581e0 100644
+--- a/include/exiv2/value.hpp
++++ b/include/exiv2/value.hpp
+@@ -51,7 +51,7 @@ namespace Exiv2 {
+     class EXIV2API Value {
+     public:
+         //! Shortcut for a %Value auto pointer.
+-        typedef std::auto_ptr<Value> AutoPtr;
++        typedef std::unique_ptr<Value> AutoPtr;
+ 
+         //! @name Creators
+         //@{
+@@ -253,7 +253,7 @@ namespace Exiv2 {
+     class EXIV2API DataValue : public Value {
+     public:
+         //! Shortcut for a %DataValue auto pointer.
+-        typedef std::auto_ptr<DataValue> AutoPtr;
++        typedef std::unique_ptr<DataValue> AutoPtr;
+ 
+         explicit DataValue(TypeId typeId =undefined);
+ 
+@@ -335,7 +335,7 @@ namespace Exiv2 {
+     class EXIV2API StringValueBase : public Value {
+     public:
+         //! Shortcut for a %StringValueBase auto pointer.
+-        typedef std::auto_ptr<StringValueBase> AutoPtr;
++        typedef std::unique_ptr<StringValueBase> AutoPtr;
+ 
+         //! @name Creators
+         //@{
+@@ -417,7 +417,7 @@ namespace Exiv2 {
+     class EXIV2API StringValue : public StringValueBase {
+     public:
+         //! Shortcut for a %StringValue auto pointer.
+-        typedef std::auto_ptr<StringValue> AutoPtr;
++        typedef std::unique_ptr<StringValue> AutoPtr;
+ 
+         //! @name Creators
+         //@{
+@@ -449,7 +449,7 @@ namespace Exiv2 {
+     class EXIV2API AsciiValue : public StringValueBase {
+     public:
+         //! Shortcut for a %AsciiValue auto pointer.
+-        typedef std::auto_ptr<AsciiValue> AutoPtr;
++        typedef std::unique_ptr<AsciiValue> AutoPtr;
+ 
+         //! @name Creators
+         //@{
+@@ -537,7 +537,7 @@ namespace Exiv2 {
+         }; // class CharsetInfo
+ 
+         //! Shortcut for a %CommentValue auto pointer.
+-        typedef std::auto_ptr<CommentValue> AutoPtr;
++        typedef std::unique_ptr<CommentValue> AutoPtr;
+ 
+         //! @name Creators
+         //@{
+@@ -624,7 +624,7 @@ namespace Exiv2 {
+     class EXIV2API XmpValue : public Value {
+     public:
+         //! Shortcut for a %XmpValue auto pointer.
+-        typedef std::auto_ptr<XmpValue> AutoPtr;
++        typedef std::unique_ptr<XmpValue> AutoPtr;
+ 
+         //! XMP array types.
+         enum XmpArrayType { xaNone, xaAlt, xaBag, xaSeq };
+@@ -715,7 +715,7 @@ namespace Exiv2 {
+     class EXIV2API XmpTextValue : public XmpValue {
+     public:
+         //! Shortcut for a %XmpTextValue auto pointer.
+-        typedef std::auto_ptr<XmpTextValue> AutoPtr;
++        typedef std::unique_ptr<XmpTextValue> AutoPtr;
+ 
+         //! @name Creators
+         //@{
+@@ -797,7 +797,7 @@ namespace Exiv2 {
+     class EXIV2API XmpArrayValue : public XmpValue {
+     public:
+         //! Shortcut for a %XmpArrayValue auto pointer.
+-        typedef std::auto_ptr<XmpArrayValue> AutoPtr;
++        typedef std::unique_ptr<XmpArrayValue> AutoPtr;
+ 
+         //! @name Creators
+         //@{
+@@ -890,7 +890,7 @@ namespace Exiv2 {
+     class EXIV2API LangAltValue : public XmpValue {
+     public:
+         //! Shortcut for a %LangAltValue auto pointer.
+-        typedef std::auto_ptr<LangAltValue> AutoPtr;
++        typedef std::unique_ptr<LangAltValue> AutoPtr;
+ 
+         //! @name Creators
+         //@{
+@@ -978,7 +978,7 @@ namespace Exiv2 {
+     class EXIV2API DateValue : public Value {
+     public:
+         //! Shortcut for a %DateValue auto pointer.
+-        typedef std::auto_ptr<DateValue> AutoPtr;
++        typedef std::unique_ptr<DateValue> AutoPtr;
+ 
+         //! @name Creators
+         //@{
+@@ -1079,7 +1079,7 @@ namespace Exiv2 {
+     class EXIV2API TimeValue : public Value {
+     public:
+         //! Shortcut for a %TimeValue auto pointer.
+-        typedef std::auto_ptr<TimeValue> AutoPtr;
++        typedef std::unique_ptr<TimeValue> AutoPtr;
+ 
+         //! @name Creators
+         //@{
+@@ -1235,7 +1235,7 @@ namespace Exiv2 {
+     class ValueType : public Value {
+     public:
+         //! Shortcut for a %ValueType\<T\> auto pointer.
+-        typedef std::auto_ptr<ValueType<T> > AutoPtr;
++        typedef std::unique_ptr<ValueType<T> > AutoPtr;
+ 
+         //! @name Creators
+         //@{
+diff --git a/include/exiv2/xmp_exiv2.hpp b/include/exiv2/xmp_exiv2.hpp
+index 8934ebe6..42b8b840 100644
+--- a/include/exiv2/xmp_exiv2.hpp
++++ b/include/exiv2/xmp_exiv2.hpp
+@@ -146,7 +146,7 @@ namespace Exiv2 {
+     private:
+         // Pimpl idiom
+         struct Impl;
+-        std::auto_ptr<Impl> p_;
++        std::unique_ptr<Impl> p_;
+ 
+     }; // class Xmpdatum
+ 
+diff --git a/samples/metacopy.cpp b/samples/metacopy.cpp
+index a8402d76..92d3f21f 100644
+--- a/samples/metacopy.cpp
++++ b/samples/metacopy.cpp
+@@ -53,7 +53,7 @@ try {
+     Exiv2::BasicIo::AutoPtr memIo(new Exiv2::MemIo);
+     memIo->transfer(*fileIo);
+ 
+-    Exiv2::Image::AutoPtr readImg = Exiv2::ImageFactory::open(memIo);
++    Exiv2::Image::AutoPtr readImg = Exiv2::ImageFactory::open(std::move(memIo));
+     assert(readImg.get() != 0);
+     readImg->readMetadata();
+ 
+diff --git a/samples/mt-test.cpp b/samples/mt-test.cpp
+index 41c34192..5bf6adb6 100644
+--- a/samples/mt-test.cpp
++++ b/samples/mt-test.cpp
+@@ -33,7 +33,7 @@
+ // Older compilers      #define __cplusplus  199711
+ // Compiler switches:   -std=c++11 (set in samples/Makefile)
+ 
+-// WARNING:             auto_ptr is not supported in C++11 implemented by gcc 4.9/C++11 and later
++// WARNING:             unique_ptr is not supported in C++11 implemented by gcc 4.9/C++11 and later
+ 
+ #include <exiv2/exiv2.hpp>
+ #include <iostream>
+diff --git a/src/actions.hpp b/src/actions.hpp
+index 7bcd8a66..8dd797f8 100644
+--- a/src/actions.hpp
++++ b/src/actions.hpp
+@@ -65,7 +65,7 @@ namespace Action {
+     class Task {
+     public:
+         //! Shortcut for an auto pointer.
+-        typedef std::auto_ptr<Task> AutoPtr;
++        typedef std::unique_ptr<Task> AutoPtr;
+         //! Contructor.
+         Task() : binary_(false) {}
+         //! Virtual destructor.
+@@ -163,7 +163,7 @@ namespace Action {
+     public:
+         virtual ~Print();
+         virtual int run(const std::string& path);
+-        typedef std::auto_ptr<Print> AutoPtr;
++        typedef std::unique_ptr<Print> AutoPtr;
+         AutoPtr clone() const;
+ 
+         //! Print the Jpeg comment
+@@ -219,7 +219,7 @@ namespace Action {
+     public:
+         virtual ~Rename();
+         virtual int run(const std::string& path);
+-        typedef std::auto_ptr<Rename> AutoPtr;
++        typedef std::unique_ptr<Rename> AutoPtr;
+         AutoPtr clone() const;
+ 
+     private:
+@@ -231,7 +231,7 @@ namespace Action {
+     public:
+         virtual ~Adjust();
+         virtual int run(const std::string& path);
+-        typedef std::auto_ptr<Adjust> AutoPtr;
++        typedef std::unique_ptr<Adjust> AutoPtr;
+         AutoPtr clone() const;
+ 
+     private:
+@@ -254,7 +254,7 @@ namespace Action {
+     public:
+         virtual ~Erase();
+         virtual int run(const std::string& path);
+-        typedef std::auto_ptr<Erase> AutoPtr;
++        typedef std::unique_ptr<Erase> AutoPtr;
+         AutoPtr clone() const;
+ 
+         /*!
+@@ -296,7 +296,7 @@ namespace Action {
+     public:
+         virtual ~Extract();
+         virtual int run(const std::string& path);
+-        typedef std::auto_ptr<Extract> AutoPtr;
++        typedef std::unique_ptr<Extract> AutoPtr;
+         AutoPtr clone() const;
+ 
+         /*!
+@@ -335,7 +335,7 @@ namespace Action {
+     public:
+         virtual ~Insert();
+         virtual int run(const std::string& path);
+-        typedef std::auto_ptr<Insert> AutoPtr;
++        typedef std::unique_ptr<Insert> AutoPtr;
+         AutoPtr clone() const;
+ 
+         /*!
+@@ -376,7 +376,7 @@ namespace Action {
+     public:
+         virtual ~Modify();
+         virtual int run(const std::string& path);
+-        typedef std::auto_ptr<Modify> AutoPtr;
++        typedef std::unique_ptr<Modify> AutoPtr;
+         AutoPtr clone() const;
+         Modify() {}
+         //! Apply modification commands to the \em pImage, return 0 if successful.
+@@ -409,7 +409,7 @@ namespace Action {
+     public:
+         virtual ~FixIso();
+         virtual int run(const std::string& path);
+-        typedef std::auto_ptr<FixIso> AutoPtr;
++        typedef std::unique_ptr<FixIso> AutoPtr;
+         AutoPtr clone() const;
+ 
+     private:
+@@ -427,7 +427,7 @@ namespace Action {
+     public:
+         virtual ~FixCom();
+         virtual int run(const std::string& path);
+-        typedef std::auto_ptr<FixCom> AutoPtr;
++        typedef std::unique_ptr<FixCom> AutoPtr;
+         AutoPtr clone() const;
+ 
+     private:
+diff --git a/src/bmpimage.cpp b/src/bmpimage.cpp
+index ef82f57e..cee4eb5e 100644
+--- a/src/bmpimage.cpp
++++ b/src/bmpimage.cpp
+@@ -41,7 +41,7 @@
+ // class member definitions
+ namespace Exiv2
+ {
+-    BmpImage::BmpImage(BasicIo::AutoPtr io) : Image(ImageType::bmp, mdNone, io)
++    BmpImage::BmpImage(BasicIo::AutoPtr io) : Image(ImageType::bmp, mdNone, std::move(io))
+     {
+     }
+ 
+@@ -122,7 +122,7 @@ namespace Exiv2
+     // free functions
+     Image::AutoPtr newBmpInstance(BasicIo::AutoPtr io, bool /*create*/)
+     {
+-        Image::AutoPtr image(new BmpImage(io));
++        Image::AutoPtr image(new BmpImage(std::move(io)));
+         if (!image->good()) {
+             image.reset();
+         }
+diff --git a/src/cr2image.cpp b/src/cr2image.cpp
+index be4568b8..96938023 100644
+--- a/src/cr2image.cpp
++++ b/src/cr2image.cpp
+@@ -47,7 +47,7 @@ namespace Exiv2 {
+     using namespace Internal;
+ 
+     Cr2Image::Cr2Image(BasicIo::AutoPtr io, bool /*create*/)
+-        : Image(ImageType::cr2, mdExif | mdIptc | mdXmp, io)
++        : Image(ImageType::cr2, mdExif | mdIptc | mdXmp, std::move(io))
+     {
+     } // Cr2Image::Cr2Image
+ 
+@@ -183,7 +183,7 @@ namespace Exiv2 {
+                      ed.end());
+         }
+ 
+-        std::auto_ptr<TiffHeaderBase> header(new Cr2Header(byteOrder));
++        std::unique_ptr<TiffHeaderBase> header(new Cr2Header(byteOrder));
+         OffsetWriter offsetWriter;
+         offsetWriter.setOrigin(OffsetWriter::cr2RawIfdOffset, Cr2Header::offset2addr(), byteOrder);
+         return TiffParserWorker::encode(io,
+@@ -202,7 +202,7 @@ namespace Exiv2 {
+     // free functions
+     Image::AutoPtr newCr2Instance(BasicIo::AutoPtr io, bool create)
+     {
+-        Image::AutoPtr image(new Cr2Image(io, create));
++        Image::AutoPtr image(new Cr2Image(std::move(io), create));
+         if (!image->good()) {
+             image.reset();
+         }
+diff --git a/src/crwimage.cpp b/src/crwimage.cpp
+index 4bc5b57b..5560fda6 100644
+--- a/src/crwimage.cpp
++++ b/src/crwimage.cpp
+@@ -53,7 +53,7 @@ namespace Exiv2 {
+     using namespace Internal;
+ 
+     CrwImage::CrwImage(BasicIo::AutoPtr io, bool /*create*/)
+-        : Image(ImageType::crw, mdExif | mdComment, io)
++        : Image(ImageType::crw, mdExif | mdComment, std::move(io))
+     {
+     } // CrwImage::CrwImage
+ 
+@@ -185,7 +185,7 @@ namespace Exiv2 {
+     // free functions
+     Image::AutoPtr newCrwInstance(BasicIo::AutoPtr io, bool create)
+     {
+-        Image::AutoPtr image(new CrwImage(io, create));
++        Image::AutoPtr image(new CrwImage(std::move(io), create));
+         if (!image->good()) {
+             image.reset();
+         }
+diff --git a/src/crwimage_int.cpp b/src/crwimage_int.cpp
+index 26291978..fa942c11 100644
+--- a/src/crwimage_int.cpp
++++ b/src/crwimage_int.cpp
+@@ -201,7 +201,7 @@ namespace Exiv2 {
+ 
+     void CiffComponent::add(AutoPtr component)
+     {
+-        doAdd(component);
++        doAdd(std::move(component));
+     }
+ 
+     void CiffEntry::doAdd(AutoPtr /*component*/)
+@@ -340,7 +340,7 @@ namespace Exiv2 {
+             }
+             m->setDir(this->tag());
+             m->read(pData, size, o, byteOrder);
+-            add(m);
++            add(std::move(m));
+             o += 10;
+         }
+     }  // CiffDirectory::readDirectory
+@@ -712,7 +712,7 @@ namespace Exiv2 {
+                 // Directory doesn't exist yet, add it
+                 m_ = AutoPtr(new CiffDirectory(csd.crwDir_, csd.parent_));
+                 cc_ = m_.get();
+-                add(m_);
++                add(std::move(m_));
+             }
+             // Recursive call to next lower level directory
+             cc_ = cc_->add(crwDirs, crwTagId);
+@@ -729,7 +729,7 @@ namespace Exiv2 {
+                 // Tag doesn't exist yet, add it
+                 m_ = AutoPtr(new CiffEntry(crwTagId, tag()));
+                 cc_ = m_.get();
+-                add(m_);
++                add(std::move(m_));
+             }
+         }
+         return cc_;
+diff --git a/src/crwimage_int.hpp b/src/crwimage_int.hpp
+index 8a8dd57c..d729bb04 100644
+--- a/src/crwimage_int.hpp
++++ b/src/crwimage_int.hpp
+@@ -83,8 +83,8 @@ namespace Exiv2 {
+      */
+     class CiffComponent {
+     public:
+-        //! CiffComponent auto_ptr type
+-        typedef std::auto_ptr<CiffComponent> AutoPtr;
++        //! CiffComponent unique_ptr type
++        typedef std::unique_ptr<CiffComponent> AutoPtr;
+         //! Container type to hold all metadata
+         typedef std::vector<CiffComponent*> Components;
+ 
+@@ -427,8 +427,8 @@ namespace Exiv2 {
+      */
+     class CiffHeader {
+     public:
+-        //! CiffHeader auto_ptr type
+-        typedef std::auto_ptr<CiffHeader> AutoPtr;
++        //! CiffHeader unique_ptr type
++        typedef std::unique_ptr<CiffHeader> AutoPtr;
+ 
+         //! @name Creators
+         //@{
+diff --git a/src/epsimage.cpp b/src/epsimage.cpp
+index 79402e62..7d1df8b9 100644
+--- a/src/epsimage.cpp
++++ b/src/epsimage.cpp
+@@ -1076,7 +1076,7 @@ namespace Exiv2
+ {
+ 
+     EpsImage::EpsImage(BasicIo::AutoPtr io, bool create)
+-            : Image(ImageType::eps, mdXmp, io)
++            : Image(ImageType::eps, mdXmp, std::move(io))
+     {
+         //LogMsg::setLevel(LogMsg::debug);
+         if (create) {
+@@ -1153,7 +1153,7 @@ namespace Exiv2
+     // free functions
+     Image::AutoPtr newEpsInstance(BasicIo::AutoPtr io, bool create)
+     {
+-        Image::AutoPtr image(new EpsImage(io, create));
++        Image::AutoPtr image(new EpsImage(std::move(io), create));
+         if (!image->good()) {
+             image.reset();
+         }
+diff --git a/src/exif.cpp b/src/exif.cpp
+index 47330e1a..59340f1e 100644
+--- a/src/exif.cpp
++++ b/src/exif.cpp
+@@ -80,7 +80,7 @@ namespace {
+     class Thumbnail {
+     public:
+         //! Shortcut for a %Thumbnail auto pointer.
+-        typedef std::auto_ptr<Thumbnail> AutoPtr;
++        typedef std::unique_ptr<Thumbnail> AutoPtr;
+ 
+         //! @name Creators
+         //@{
+@@ -123,7 +123,7 @@ namespace {
+     class TiffThumbnail : public Thumbnail {
+     public:
+         //! Shortcut for a %TiffThumbnail auto pointer.
+-        typedef std::auto_ptr<TiffThumbnail> AutoPtr;
++        typedef std::unique_ptr<TiffThumbnail> AutoPtr;
+ 
+         //! @name Manipulators
+         //@{
+@@ -147,7 +147,7 @@ namespace {
+     class JpegThumbnail : public Thumbnail {
+     public:
+         //! Shortcut for a %JpegThumbnail auto pointer.
+-        typedef std::auto_ptr<JpegThumbnail> AutoPtr;
++        typedef std::unique_ptr<JpegThumbnail> AutoPtr;
+ 
+         //! @name Manipulators
+         //@{
+@@ -192,10 +192,10 @@ namespace Exiv2 {
+     template<typename T>
+     Exiv2::Exifdatum& setValue(Exiv2::Exifdatum& exifDatum, const T& value)
+     {
+-        std::auto_ptr<Exiv2::ValueType<T> > v
+-            = std::auto_ptr<Exiv2::ValueType<T> >(new Exiv2::ValueType<T>);
++        std::unique_ptr<Exiv2::ValueType<T> > v
++            = std::unique_ptr<Exiv2::ValueType<T> >(new Exiv2::ValueType<T>);
+         v->value_.push_back(value);
+-        exifDatum.value_ = v;
++        exifDatum.value_ = std::move(v);
+         return exifDatum;
+     }
+ 
+@@ -433,7 +433,7 @@ namespace Exiv2 {
+ 
+     Value::AutoPtr Exifdatum::getValue() const
+     {
+-        return value_.get() == 0 ? Value::AutoPtr(0) : value_->clone();
++        return value_.get() == 0 ? Value::AutoPtr() : value_->clone();
+     }
+ 
+     long Exifdatum::sizeDataArea() const
+@@ -741,7 +741,7 @@ namespace Exiv2 {
+ 
+         // Encode and check if the result fits into a JPEG Exif APP1 segment
+         MemIo mio1;
+-        std::auto_ptr<TiffHeaderBase> header(new TiffHeader(byteOrder, 0x00000008, false));
++        std::unique_ptr<TiffHeaderBase> header(new TiffHeader(byteOrder, 0x00000008, false));
+         WriteMethod wm = TiffParserWorker::encode(mio1,
+                                                   pData,
+                                                   size,
+diff --git a/src/gifimage.cpp b/src/gifimage.cpp
+index 5f4932be..bc6f779d 100644
+--- a/src/gifimage.cpp
++++ b/src/gifimage.cpp
+@@ -37,7 +37,7 @@
+ namespace Exiv2 {
+ 
+     GifImage::GifImage(BasicIo::AutoPtr io)
+-        : Image(ImageType::gif, mdNone, io)
++        : Image(ImageType::gif, mdNone, std::move(io))
+     {
+     } // GifImage::GifImage
+ 
+@@ -100,7 +100,7 @@ namespace Exiv2 {
+     // free functions
+     Image::AutoPtr newGifInstance(BasicIo::AutoPtr io, bool /*create*/)
+     {
+-        Image::AutoPtr image(new GifImage(io));
++        Image::AutoPtr image(new GifImage(std::move(io)));
+         if (!image->good())
+         {
+             image.reset();
+diff --git a/src/image.cpp b/src/image.cpp
+index fa5b8be3..05bd73e8 100644
+--- a/src/image.cpp
++++ b/src/image.cpp
+@@ -167,7 +167,7 @@ namespace Exiv2 {
+     Image::Image(int              imageType,
+                  uint16_t         supportedMetadata,
+                  BasicIo::AutoPtr io)
+-        : io_(io),
++        : io_(std::move(io)),
+           pixelWidth_(0),
+           pixelHeight_(0),
+           imageType_(imageType),
+@@ -938,7 +938,7 @@ namespace Exiv2 {
+     Image::AutoPtr ImageFactory::open(const byte* data, long size)
+     {
+         BasicIo::AutoPtr io(new MemIo(data, size));
+-        Image::AutoPtr image = open(io); // may throw
++        Image::AutoPtr image = open(std::move(io)); // may throw
+         if (image.get() == 0) throw Error(kerMemoryContainsUnknownImageType);
+         return image;
+     }
+@@ -950,7 +950,7 @@ namespace Exiv2 {
+         }
+         for (unsigned int i = 0; registry[i].imageType_ != ImageType::none; ++i) {
+             if (registry[i].isThisType_(*io, false)) {
+-                return registry[i].newInstance_(io, false);
++                return registry[i].newInstance_(std::move(io), false);
+             }
+         }
+         return Image::AutoPtr();
+@@ -959,14 +959,14 @@ namespace Exiv2 {
+     Image::AutoPtr ImageFactory::create(int type,
+                                         const std::string& path)
+     {
+-        std::auto_ptr<FileIo> fileIo(new FileIo(path));
++        std::unique_ptr<FileIo> fileIo(new FileIo(path));
+         // Create or overwrite the file, then close it
+         if (fileIo->open("w+b") != 0) {
+             throw Error(kerFileOpenFailed, path, "w+b", strError());
+         }
+         fileIo->close();
+-        BasicIo::AutoPtr io(fileIo);
+-        Image::AutoPtr image = create(type, io);
++        BasicIo::AutoPtr io(std::move(fileIo));
++        Image::AutoPtr image = create(type, std::move(io));
+         if (image.get() == 0) throw Error(kerUnsupportedImageType, type);
+         return image;
+     }
+@@ -975,7 +975,7 @@ namespace Exiv2 {
+     Image::AutoPtr ImageFactory::create(int type,
+                                         const std::wstring& wpath)
+     {
+-        std::auto_ptr<FileIo> fileIo(new FileIo(wpath));
++        std::unique_ptr<FileIo> fileIo(new FileIo(wpath));
+         // Create or overwrite the file, then close it
+         if (fileIo->open("w+b") != 0) {
+             throw WError(kerFileOpenFailed, wpath, "w+b", strError().c_str());
+@@ -991,7 +991,7 @@ namespace Exiv2 {
+     Image::AutoPtr ImageFactory::create(int type)
+     {
+         BasicIo::AutoPtr io(new MemIo);
+-        Image::AutoPtr image = create(type, io);
++        Image::AutoPtr image = create(type, std::move(io));
+         if (image.get() == 0) throw Error(kerUnsupportedImageType, type);
+         return image;
+     }
+@@ -1002,7 +1002,7 @@ namespace Exiv2 {
+         // BasicIo instance does not need to be open
+         const Registry* r = find(registry, type);
+         if (0 != r) {
+-            return r->newInstance_(io, true);
++            return r->newInstance_(std::move(io), true);
+         }
+         return Image::AutoPtr();
+     } // ImageFactory::create
+diff --git a/src/iptc.cpp b/src/iptc.cpp
+index 75024f32..87f2f2e8 100644
+--- a/src/iptc.cpp
++++ b/src/iptc.cpp
+@@ -201,7 +201,7 @@ namespace Exiv2 {
+ 
+     Value::AutoPtr Iptcdatum::getValue() const
+     {
+-        return value_.get() == 0 ? Value::AutoPtr(0) : value_->clone();
++        return value_.get() == 0 ? Value::AutoPtr() : value_->clone();
+     }
+ 
+     const Value& Iptcdatum::value() const
+@@ -228,7 +228,7 @@ namespace Exiv2 {
+     {
+         UShortValue::AutoPtr v(new UShortValue);
+         v->value_.push_back(value);
+-        value_ = v;
++        value_ = std::move(v);
+         return *this;
+     }
+ 
+diff --git a/src/jp2image.cpp b/src/jp2image.cpp
+index 9a475371..6aecb3c0 100644
+--- a/src/jp2image.cpp
++++ b/src/jp2image.cpp
+@@ -133,7 +133,7 @@ namespace Exiv2
+ {
+ 
+     Jp2Image::Jp2Image(BasicIo::AutoPtr io, bool create)
+-            : Image(ImageType::jp2, mdExif | mdIptc | mdXmp, io)
++            : Image(ImageType::jp2, mdExif | mdIptc | mdXmp, std::move(io))
+     {
+         if (create)
+         {
+@@ -974,7 +974,7 @@ static void boxes_check(size_t b,size_t m)
+     // free functions
+     Image::AutoPtr newJp2Instance(BasicIo::AutoPtr io, bool create)
+     {
+-        Image::AutoPtr image(new Jp2Image(io, create));
++        Image::AutoPtr image(new Jp2Image(std::move(io), create));
+         if (!image->good())
+         {
+             image.reset();
+diff --git a/src/jpgimage.cpp b/src/jpgimage.cpp
+index e57bffbd..759a1118 100644
+--- a/src/jpgimage.cpp
++++ b/src/jpgimage.cpp
+@@ -314,7 +314,7 @@ namespace Exiv2 {
+ 
+     JpegBase::JpegBase(int type, BasicIo::AutoPtr io, bool create,
+                        const byte initData[], long dataSize)
+-        : Image(type, mdExif | mdIptc | mdXmp | mdComment, io)
++        : Image(type, mdExif | mdIptc | mdXmp | mdComment, std::move(io))
+     {
+         if (create) {
+             initImage(initData, dataSize);
+@@ -1317,7 +1317,7 @@ namespace Exiv2 {
+         0x11,0x03,0x11,0x00,0x3F,0x00,0xA0,0x00,0x0F,0xFF,0xD9 };
+ 
+     JpegImage::JpegImage(BasicIo::AutoPtr io, bool create)
+-        : JpegBase(ImageType::jpeg, io, create, blank_, sizeof(blank_))
++        : JpegBase(ImageType::jpeg, std::move(io), create, blank_, sizeof(blank_))
+     {
+     }
+ 
+@@ -1344,7 +1344,7 @@ namespace Exiv2 {
+ 
+     Image::AutoPtr newJpegInstance(BasicIo::AutoPtr io, bool create)
+     {
+-        Image::AutoPtr image(new JpegImage(io, create));
++        Image::AutoPtr image(new JpegImage(std::move(io), create));
+         if (!image->good()) {
+             image.reset();
+         }
+@@ -1369,7 +1369,7 @@ namespace Exiv2 {
+     const byte ExvImage::blank_[] = { 0xff,0x01,'E','x','i','v','2',0xff,0xd9 };
+ 
+     ExvImage::ExvImage(BasicIo::AutoPtr io, bool create)
+-        : JpegBase(ImageType::exv, io, create, blank_, sizeof(blank_))
++        : JpegBase(ImageType::exv, std::move(io), create, blank_, sizeof(blank_))
+     {
+     }
+ 
+@@ -1398,7 +1398,7 @@ namespace Exiv2 {
+     Image::AutoPtr newExvInstance(BasicIo::AutoPtr io, bool create)
+     {
+         Image::AutoPtr image;
+-        image = Image::AutoPtr(new ExvImage(io, create));
++        image = Image::AutoPtr(new ExvImage(std::move(io), create));
+         if (!image->good()) image.reset();
+         return image;
+     }
+diff --git a/src/mrwimage.cpp b/src/mrwimage.cpp
+index c8378053..ef2b2987 100644
+--- a/src/mrwimage.cpp
++++ b/src/mrwimage.cpp
+@@ -40,7 +40,7 @@
+ namespace Exiv2 {
+ 
+     MrwImage::MrwImage(BasicIo::AutoPtr io, bool /*create*/)
+-        : Image(ImageType::mrw, mdExif | mdIptc | mdXmp, io)
++        : Image(ImageType::mrw, mdExif | mdIptc | mdXmp, std::move(io))
+     {
+     } // MrwImage::MrwImage
+ 
+@@ -155,7 +155,7 @@ namespace Exiv2 {
+     // free functions
+     Image::AutoPtr newMrwInstance(BasicIo::AutoPtr io, bool create)
+     {
+-        Image::AutoPtr image(new MrwImage(io, create));
++        Image::AutoPtr image(new MrwImage(std::move(io), create));
+         if (!image->good()) {
+             image.reset();
+         }
+diff --git a/src/orfimage.cpp b/src/orfimage.cpp
+index 9835af27..6ad6902f 100644
+--- a/src/orfimage.cpp
++++ b/src/orfimage.cpp
+@@ -44,7 +44,7 @@ namespace Exiv2 {
+     using namespace Internal;
+ 
+     OrfImage::OrfImage(BasicIo::AutoPtr io, bool create)
+-        : TiffImage(/*ImageType::orf, mdExif | mdIptc | mdXmp,*/ io,create)
++        : TiffImage(/*ImageType::orf, mdExif | mdIptc | mdXmp,*/ std::move(io),create)
+     {
+         setTypeSupported(ImageType::orf, mdExif | mdIptc | mdXmp);
+     } // OrfImage::OrfImage
+@@ -189,7 +189,7 @@ namespace Exiv2 {
+                      ed.end());
+         }
+ 
+-        std::auto_ptr<TiffHeaderBase> header(new OrfHeader(byteOrder));
++        std::unique_ptr<TiffHeaderBase> header(new OrfHeader(byteOrder));
+         return TiffParserWorker::encode(io,
+                                         pData,
+                                         size,
+@@ -206,7 +206,7 @@ namespace Exiv2 {
+     // free functions
+     Image::AutoPtr newOrfInstance(BasicIo::AutoPtr io, bool create)
+     {
+-        Image::AutoPtr image(new OrfImage(io, create));
++        Image::AutoPtr image(new OrfImage(std::move(io), create));
+         if (!image->good()) {
+             image.reset();
+         }
+diff --git a/src/pgfimage.cpp b/src/pgfimage.cpp
+index 4dfb948c..8ad0fbe9 100644
+--- a/src/pgfimage.cpp
++++ b/src/pgfimage.cpp
+@@ -77,7 +77,7 @@ namespace Exiv2 {
+     }
+ 
+     PgfImage::PgfImage(BasicIo::AutoPtr io, bool create)
+-            : Image(ImageType::pgf, mdExif | mdIptc| mdXmp | mdComment, io)
++            : Image(ImageType::pgf, mdExif | mdIptc| mdXmp | mdComment, std::move(io))
+             , bSwap_(isBigEndianPlatform())
+     {
+         if (create)
+@@ -316,7 +316,7 @@ namespace Exiv2 {
+     // free functions
+     Image::AutoPtr newPgfInstance(BasicIo::AutoPtr io, bool create)
+     {
+-        Image::AutoPtr image(new PgfImage(io, create));
++        Image::AutoPtr image(new PgfImage(std::move(io), create));
+         if (!image->good())
+         {
+             image.reset();
+diff --git a/src/pngimage.cpp b/src/pngimage.cpp
+index 64fce49f..ec8e530a 100644
+--- a/src/pngimage.cpp
++++ b/src/pngimage.cpp
+@@ -74,7 +74,7 @@ namespace Exiv2 {
+     using namespace Internal;
+ 
+     PngImage::PngImage(BasicIo::AutoPtr io, bool create)
+-            : Image(ImageType::png, mdExif | mdIptc | mdXmp | mdComment, io)
++            : Image(ImageType::png, mdExif | mdIptc | mdXmp | mdComment, std::move(io))
+     {
+         if (create)
+         {
+@@ -744,7 +744,7 @@ namespace Exiv2 {
+     // free functions
+     Image::AutoPtr newPngInstance(BasicIo::AutoPtr io, bool create)
+     {
+-        Image::AutoPtr image(new PngImage(io, create));
++        Image::AutoPtr image(new PngImage(std::move(io), create));
+         if (!image->good())
+         {
+             image.reset();
+diff --git a/src/preview.cpp b/src/preview.cpp
+index 8b68a3c4..2eae8e42 100644
+--- a/src/preview.cpp
++++ b/src/preview.cpp
+@@ -88,7 +88,7 @@ namespace {
+         virtual ~Loader() {}
+ 
+         //! Loader auto pointer
+-        typedef std::auto_ptr<Loader> AutoPtr;
++        typedef std::unique_ptr<Loader> AutoPtr;
+ 
+         //! Create a Loader subclass for requested id
+         static AutoPtr create(PreviewId id, const Image &image);
+diff --git a/src/psdimage.cpp b/src/psdimage.cpp
+index 2d1472fc..c8e18194 100644
+--- a/src/psdimage.cpp
++++ b/src/psdimage.cpp
+@@ -118,7 +118,7 @@ enum {
+ namespace Exiv2 {
+ 
+     PsdImage::PsdImage(BasicIo::AutoPtr io)
+-        : Image(ImageType::psd, mdExif | mdIptc | mdXmp, io)
++        : Image(ImageType::psd, mdExif | mdIptc | mdXmp, std::move(io))
+     {
+     } // PsdImage::PsdImage
+ 
+@@ -685,7 +685,7 @@ namespace Exiv2 {
+     // free functions
+     Image::AutoPtr newPsdInstance(BasicIo::AutoPtr io, bool /*create*/)
+     {
+-        Image::AutoPtr image(new PsdImage(io));
++        Image::AutoPtr image(new PsdImage(std::move(io)));
+         if (!image->good())
+         {
+             image.reset();
+diff --git a/src/rafimage.cpp b/src/rafimage.cpp
+index 5cec4b9c..46b948b1 100644
+--- a/src/rafimage.cpp
++++ b/src/rafimage.cpp
+@@ -42,7 +42,7 @@
+ namespace Exiv2 {
+ 
+     RafImage::RafImage(BasicIo::AutoPtr io, bool /*create*/)
+-        : Image(ImageType::raf, mdExif | mdIptc | mdXmp, io)
++        : Image(ImageType::raf, mdExif | mdIptc | mdXmp, std::move(io))
+     {
+     } // RafImage::RafImage
+ 
+@@ -398,7 +398,7 @@ namespace Exiv2 {
+     // free functions
+     Image::AutoPtr newRafInstance(BasicIo::AutoPtr io, bool create)
+     {
+-        Image::AutoPtr image(new RafImage(io, create));
++        Image::AutoPtr image(new RafImage(std::move(io), create));
+         if (!image->good()) {
+             image.reset();
+         }
+diff --git a/src/rw2image.cpp b/src/rw2image.cpp
+index 1fdd72e7..ba8012e2 100644
+--- a/src/rw2image.cpp
++++ b/src/rw2image.cpp
+@@ -42,7 +42,7 @@ namespace Exiv2 {
+     using namespace Internal;
+ 
+     Rw2Image::Rw2Image(BasicIo::AutoPtr io)
+-        : Image(ImageType::rw2, mdExif | mdIptc | mdXmp, io)
++        : Image(ImageType::rw2, mdExif | mdIptc | mdXmp, std::move(io))
+     {
+     } // Rw2Image::Rw2Image
+ 
+@@ -240,7 +240,7 @@ namespace Exiv2 {
+     // free functions
+     Image::AutoPtr newRw2Instance(BasicIo::AutoPtr io, bool /*create*/)
+     {
+-        Image::AutoPtr image(new Rw2Image(io));
++        Image::AutoPtr image(new Rw2Image(std::move(io)));
+         if (!image->good()) {
+             image.reset();
+         }
+diff --git a/src/tgaimage.cpp b/src/tgaimage.cpp
+index 3c012a41..8a9578aa 100644
+--- a/src/tgaimage.cpp
++++ b/src/tgaimage.cpp
+@@ -37,7 +37,7 @@
+ namespace Exiv2 {
+ 
+     TgaImage::TgaImage(BasicIo::AutoPtr io)
+-        : Image(ImageType::tga, mdNone, io)
++        : Image(ImageType::tga, mdNone, std::move(io))
+     {
+     } // TgaImage::TgaImage
+ 
+@@ -122,7 +122,7 @@ namespace Exiv2 {
+     // free functions
+     Image::AutoPtr newTgaInstance(BasicIo::AutoPtr io, bool /*create*/)
+     {
+-        Image::AutoPtr image(new TgaImage(io));
++        Image::AutoPtr image(new TgaImage(std::move(io)));
+         if (!image->good())
+         {
+             image.reset();
+diff --git a/src/tiffcomposite_int.cpp b/src/tiffcomposite_int.cpp
+index 0d98f775..5744bc16 100644
+--- a/src/tiffcomposite_int.cpp
++++ b/src/tiffcomposite_int.cpp
+@@ -381,7 +381,7 @@ namespace Exiv2 {
+         }
+         size_ = value->copy(pData_, byteOrder);
+         assert(size_ == newSize);
+-        setValue(value);
++        setValue(std::move(value));
+     } // TiffEntryBase::updateValue
+ 
+     void TiffEntryBase::setValue(Value::AutoPtr value)
+@@ -620,7 +620,7 @@ namespace Exiv2 {
+         tp->setData(const_cast<byte*>(pData() + idx), sz);
+         tp->setElDef(def);
+         tp->setElByteOrder(cfg()->byteOrder_);
+-        addChild(tc);
++        addChild(std::move(tc));
+         return sz;
+     } // TiffBinaryArray::addElement
+ 
+@@ -629,7 +629,7 @@ namespace Exiv2 {
+                                           TiffComponent* const pRoot,
+                                           TiffComponent::AutoPtr object)
+     {
+-        return doAddPath(tag, tiffPath, pRoot, object);
++        return doAddPath(tag, tiffPath, pRoot, std::move(object));
+     } // TiffComponent::addPath
+ 
+     TiffComponent* TiffComponent::doAddPath(uint16_t  /*tag*/,
+@@ -670,8 +670,8 @@ namespace Exiv2 {
+         }
+         if (tc == 0) {
+             TiffComponent::AutoPtr atc;
+-            if (tiffPath.size() == 1 && object.get() != 0) {
+-                atc = object;
++            if (tiffPath.size() == 1 && object.get() != nullptr) {
++                atc = std::move(object);
+             }
+             else {
+                 atc = TiffCreator::create(tpi.extendedTag(), tpi.group());
+@@ -683,13 +683,13 @@ namespace Exiv2 {
+             if (tiffPath.size() == 1 && dynamic_cast<TiffSubIfd*>(atc.get()) != 0) return 0;
+ 
+             if (tpi.extendedTag() == Tag::next) {
+-                tc = this->addNext(atc);
++                tc = this->addNext(std::move(atc));
+             }
+             else {
+-                tc = this->addChild(atc);
++                tc = this->addChild(std::move(atc));
+             }
+         }
+-        return tc->addPath(tag, tiffPath, pRoot, object);
++        return tc->addPath(tag, tiffPath, pRoot, std::move(object));
+     } // TiffDirectory::doAddPath
+ 
+     TiffComponent* TiffSubIfd::doAddPath(uint16_t tag,
+@@ -716,15 +716,15 @@ namespace Exiv2 {
+         }
+         if (tc == 0) {
+             if (tiffPath.size() == 1 && object.get() != 0) {
+-                tc = addChild(object);
++                tc = addChild(std::move(object));
+             }
+             else {
+                 TiffComponent::AutoPtr atc(new TiffDirectory(tpi1.tag(), tpi2.group()));
+-                tc = addChild(atc);
++                tc = addChild(std::move(atc));
+             }
+             setCount(static_cast<uint32_t>(ifds_.size()));
+         }
+-        return tc->addPath(tag, tiffPath, pRoot, object);
++        return tc->addPath(tag, tiffPath, pRoot, std::move(object));
+     } // TiffSubIfd::doAddPath
+ 
+     TiffComponent* TiffMnEntry::doAddPath(uint16_t tag,
+@@ -746,7 +746,7 @@ namespace Exiv2 {
+             mn_ = TiffMnCreator::create(tpi1.tag(), tpi1.group(), mnGroup_);
+             assert(mn_);
+         }
+-        return mn_->addPath(tag, tiffPath, pRoot, object);
++        return mn_->addPath(tag, tiffPath, pRoot, std::move(object));
+     } // TiffMnEntry::doAddPath
+ 
+     TiffComponent* TiffIfdMakernote::doAddPath(uint16_t tag,
+@@ -754,7 +754,7 @@ namespace Exiv2 {
+                                                TiffComponent* const pRoot,
+                                                TiffComponent::AutoPtr object)
+     {
+-        return ifd_.addPath(tag, tiffPath, pRoot, object);
++        return ifd_.addPath(tag, tiffPath, pRoot, std::move(object));
+     }
+ 
+     TiffComponent* TiffBinaryArray::doAddPath(uint16_t tag,
+@@ -785,23 +785,23 @@ namespace Exiv2 {
+         }
+         if (tc == 0) {
+             TiffComponent::AutoPtr atc;
+-            if (tiffPath.size() == 1 && object.get() != 0) {
+-                atc = object;
++            if (tiffPath.size() == 1 && object.get() != nullptr) {
++                atc = std::move(object);
+             }
+             else {
+                 atc = TiffCreator::create(tpi.extendedTag(), tpi.group());
+             }
+             assert(atc.get() != 0);
+             assert(tpi.extendedTag() != Tag::next);
+-            tc = addChild(atc);
++            tc = addChild(std::move(atc));
+             setCount(static_cast<uint32_t>(elements_.size()));
+         }
+-        return tc->addPath(tag, tiffPath, pRoot, object);
++        return tc->addPath(tag, tiffPath, pRoot, std::move(object));
+     } // TiffBinaryArray::doAddPath
+ 
+     TiffComponent* TiffComponent::addChild(TiffComponent::AutoPtr tiffComponent)
+     {
+-        return doAddChild(tiffComponent);
++        return doAddChild(std::move(tiffComponent));
+     } // TiffComponent::addChild
+ 
+     TiffComponent* TiffComponent::doAddChild(AutoPtr /*tiffComponent*/)
+@@ -828,14 +828,14 @@ namespace Exiv2 {
+     {
+         TiffComponent* tc = 0;
+         if (mn_) {
+-            tc =  mn_->addChild(tiffComponent);
++            tc =  mn_->addChild(std::move(tiffComponent));
+         }
+         return tc;
+     } // TiffMnEntry::doAddChild
+ 
+     TiffComponent* TiffIfdMakernote::doAddChild(TiffComponent::AutoPtr tiffComponent)
+     {
+-        return ifd_.addChild(tiffComponent);
++        return ifd_.addChild(std::move(tiffComponent));
+     }
+ 
+     TiffComponent* TiffBinaryArray::doAddChild(TiffComponent::AutoPtr tiffComponent)
+@@ -848,7 +848,7 @@ namespace Exiv2 {
+ 
+     TiffComponent* TiffComponent::addNext(TiffComponent::AutoPtr tiffComponent)
+     {
+-        return doAddNext(tiffComponent);
++        return doAddNext(std::move(tiffComponent));
+     } // TiffComponent::addNext
+ 
+     TiffComponent* TiffComponent::doAddNext(AutoPtr /*tiffComponent*/)
+@@ -870,14 +870,14 @@ namespace Exiv2 {
+     {
+         TiffComponent* tc = 0;
+         if (mn_) {
+-            tc = mn_->addNext(tiffComponent);
++            tc = mn_->addNext(std::move(tiffComponent));
+         }
+         return tc;
+     } // TiffMnEntry::doAddNext
+ 
+     TiffComponent* TiffIfdMakernote::doAddNext(TiffComponent::AutoPtr tiffComponent)
+     {
+-        return ifd_.addNext(tiffComponent);
++        return ifd_.addNext(std::move(tiffComponent));
+     }
+ 
+     void TiffComponent::accept(TiffVisitor& visitor)
+diff --git a/src/tiffcomposite_int.hpp b/src/tiffcomposite_int.hpp
+index f19026ee..1d3c8fec 100644
+--- a/src/tiffcomposite_int.hpp
++++ b/src/tiffcomposite_int.hpp
+@@ -170,8 +170,8 @@ namespace Exiv2 {
+      */
+     class TiffComponent {
+     public:
+-        //! TiffComponent auto_ptr type
+-        typedef std::auto_ptr<TiffComponent> AutoPtr;
++        //! TiffComponent unique_ptr type
++        typedef std::unique_ptr<TiffComponent> AutoPtr;
+         //! Container type to hold all metadata
+         typedef std::vector<TiffComponent*> Components;
+ 
+@@ -200,7 +200,7 @@ namespace Exiv2 {
+         TiffComponent* addPath(uint16_t tag,
+                                TiffPath& tiffPath,
+                                TiffComponent* const pRoot,
+-                               AutoPtr object =AutoPtr(0));
++                               AutoPtr object =AutoPtr());
+         /*!
+           @brief Add a child to the component. Default is to do nothing.
+           @param tiffComponent Auto pointer to the component to add.
+diff --git a/src/tifffwd_int.hpp b/src/tifffwd_int.hpp
+index 46a390a8..5291efb0 100644
+--- a/src/tifffwd_int.hpp
++++ b/src/tifffwd_int.hpp
+@@ -98,7 +98,7 @@ namespace Exiv2 {
+              Use TiffComponent::AutoPtr, it is not used in this declaration only
+              to reduce dependencies.
+      */
+-    typedef std::auto_ptr<TiffComponent> (*NewTiffCompFct)(uint16_t tag, IfdId group);
++    typedef std::unique_ptr<TiffComponent> (*NewTiffCompFct)(uint16_t tag, IfdId group);
+ 
+     //! Stack to hold a path from the TIFF root element to a TIFF entry
+     typedef std::stack<TiffPathItem> TiffPath;
+diff --git a/src/tiffimage.cpp b/src/tiffimage.cpp
+index 9a56fc4f..08592979 100644
+--- a/src/tiffimage.cpp
++++ b/src/tiffimage.cpp
+@@ -68,7 +68,7 @@ namespace Exiv2 {
+     using namespace Internal;
+ 
+     TiffImage::TiffImage(BasicIo::AutoPtr io, bool /*create*/)
+-        : Image(ImageType::tiff, mdExif | mdIptc | mdXmp, io),
++        : Image(ImageType::tiff, mdExif | mdIptc | mdXmp, std::move(io)),
+           pixelWidth_(0), pixelHeight_(0)
+     {
+     } // TiffImage::TiffImage
+@@ -299,7 +299,7 @@ namespace Exiv2 {
+                      ed.end());
+         }
+ 
+-        std::auto_ptr<TiffHeaderBase> header(new TiffHeader(byteOrder));
++        std::unique_ptr<TiffHeaderBase> header(new TiffHeader(byteOrder));
+         return TiffParserWorker::encode(io,
+                                         pData,
+                                         size,
+@@ -316,7 +316,7 @@ namespace Exiv2 {
+     // free functions
+     Image::AutoPtr newTiffInstance(BasicIo::AutoPtr io, bool create)
+     {
+-        Image::AutoPtr image(new TiffImage(io, create));
++        Image::AutoPtr image(new TiffImage(std::move(io), create));
+         if (!image->good()) {
+             image.reset();
+         }
+diff --git a/src/tiffimage_int.cpp b/src/tiffimage_int.cpp
+index e6f70208..d59eda39 100644
+--- a/src/tiffimage_int.cpp
++++ b/src/tiffimage_int.cpp
+@@ -1675,7 +1675,7 @@ namespace Exiv2 {
+     TiffComponent::AutoPtr TiffCreator::create(uint32_t extendedTag,
+                                                IfdId    group)
+     {
+-        TiffComponent::AutoPtr tc(0);
++        TiffComponent::AutoPtr tc;
+         uint16_t tag = static_cast<uint16_t>(extendedTag & 0xffff);
+         const TiffGroupStruct* ts = find(tiffGroupStruct_,
+                                          TiffGroupStruct::Key(extendedTag, group));
+@@ -1726,9 +1726,9 @@ namespace Exiv2 {
+     )
+     {
+         // Create standard TIFF header if necessary
+-        std::auto_ptr<TiffHeaderBase> ph;
++        std::unique_ptr<TiffHeaderBase> ph;
+         if (!pHeader) {
+-            ph = std::auto_ptr<TiffHeaderBase>(new TiffHeader);
++            ph = std::unique_ptr<TiffHeaderBase>(new TiffHeader);
+             pHeader = ph.get();
+         }
+         TiffComponent::AutoPtr rootDir = parse(pData, size, root, pHeader);
+@@ -1833,7 +1833,7 @@ namespace Exiv2 {
+               TiffHeaderBase*    pHeader
+     )
+     {
+-        if (pData == 0 || size == 0) return TiffComponent::AutoPtr(0);
++        if (pData == 0 || size == 0) return TiffComponent::AutoPtr();
+         if (!pHeader->read(pData, size) || pHeader->offset() >= size) {
+             throw Error(kerNotAnImage, "TIFF");
+         }
+diff --git a/src/tiffimage_int.hpp b/src/tiffimage_int.hpp
+index d564f3a0..327e3acb 100644
+--- a/src/tiffimage_int.hpp
++++ b/src/tiffimage_int.hpp
+@@ -249,7 +249,7 @@ namespace Exiv2 {
+                  component creation function. If the pointer that is returned
+                  is 0, then the TIFF entry should be ignored.
+         */
+-        static std::auto_ptr<TiffComponent> create(uint32_t extendedTag,
++        static std::unique_ptr<TiffComponent> create(uint32_t extendedTag,
+                                                    IfdId    group);
+         /*!
+           @brief Get the path, i.e., a list of extended tag and group pairs, from
+@@ -342,7 +342,7 @@ namespace Exiv2 {
+                            composite structure. If \em pData is 0 or \em size
+                            is 0, the return value is a 0 pointer.
+          */
+-        static std::auto_ptr<TiffComponent> parse(
++        static std::unique_ptr<TiffComponent> parse(
+             const byte*              pData,
+                   uint32_t           size,
+                   uint32_t           root,
+diff --git a/src/tiffvisitor_int.cpp b/src/tiffvisitor_int.cpp
+index 9c472b51..e21314d1 100644
+--- a/src/tiffvisitor_int.cpp
++++ b/src/tiffvisitor_int.cpp
+@@ -214,7 +214,7 @@ namespace Exiv2 {
+             // Assumption is that the corresponding TIFF entry doesn't exist
+             TiffPath tiffPath;
+             TiffCreator::getPath(tiffPath, object->tag(), object->group(), root_);
+-            pRoot_->addPath(object->tag(), tiffPath, pRoot_, clone);
++            pRoot_->addPath(object->tag(), tiffPath, pRoot_, std::move(clone));
+ #ifdef EXIV2_DEBUG_MESSAGES
+             ExifKey key(object->tag(), groupName(object->group()));
+             std::cerr << "Copied " << key << "\n";
+@@ -1371,7 +1371,7 @@ namespace Exiv2 {
+             TiffComponent::AutoPtr tc = TiffCreator::create(tag, object->group());
+             if (tc.get()) {
+                 tc->setStart(p);
+-                object->addChild(tc);
++                object->addChild(std::move(tc));
+             } else {
+                EXV_WARNING << "Unable to handle tag " << tag << ".\n";
+             }
+@@ -1386,7 +1386,7 @@ namespace Exiv2 {
+ #endif
+                 return;
+             }
+-            TiffComponent::AutoPtr tc(0);
++            TiffComponent::AutoPtr tc;
+             uint32_t next = getLong(p, byteOrder());
+             if (next) {
+                 tc = TiffCreator::create(Tag::next, object->group());
+@@ -1406,7 +1406,7 @@ namespace Exiv2 {
+                     return;
+                 }
+                 tc->setStart(pData_ + baseOffset() + next);
+-                object->addNext(tc);
++                object->addNext(std::move(tc));
+             }
+         } // object->hasNext()
+ 
+@@ -1448,7 +1448,7 @@ namespace Exiv2 {
+                 TiffComponent::AutoPtr td(new TiffDirectory(object->tag(),
+                                                             static_cast<IfdId>(object->newGroup_ + i)));
+                 td->setStart(pData_ + baseOffset() + offset);
+-                object->addChild(td);
++                object->addChild(std::move(td));
+             }
+         }
+ #ifndef SUPPRESS_WARNINGS
+@@ -1644,7 +1644,7 @@ namespace Exiv2 {
+             ::free(buffer);
+         }
+ 
+-        object->setValue(v);
++        object->setValue(std::move(v));
+         object->setData(pData, size);
+         object->setOffset(offset);
+         object->setIdx(nextIdx(object->group()));
+@@ -1742,7 +1742,7 @@ namespace Exiv2 {
+         enforce(v.get() != NULL, kerCorruptedMetadata);
+         v->read(pData, size, bo);
+ 
+-        object->setValue(v);
++        object->setValue(std::move(v));
+         object->setOffset(0);
+         object->setIdx(nextIdx(object->group()));
+ 
+diff --git a/src/webpimage.cpp b/src/webpimage.cpp
+index 3eb9dfa7..a7bbe2ec 100644
+--- a/src/webpimage.cpp
++++ b/src/webpimage.cpp
+@@ -69,7 +69,7 @@ namespace Exiv2 {
+     }
+ 
+     WebPImage::WebPImage(BasicIo::AutoPtr io)
+-    : Image(ImageType::webp, mdNone, io)
++    : Image(ImageType::webp, mdNone, std::move(io))
+     {
+     } // WebPImage::WebPImage
+ 
+@@ -733,7 +733,7 @@ namespace Exiv2 {
+ 
+     Image::AutoPtr newWebPInstance(BasicIo::AutoPtr io, bool /*create*/)
+     {
+-        Image::AutoPtr image(new WebPImage(io));
++        Image::AutoPtr image(new WebPImage(std::move(io)));
+         if (!image->good()) {
+             image.reset();
+         }
+diff --git a/src/xmp.cpp b/src/xmp.cpp
+index c074914f..29bdd180 100644
+--- a/src/xmp.cpp
++++ b/src/xmp.cpp
+@@ -421,7 +421,7 @@ namespace Exiv2 {
+ 
+     Value::AutoPtr Xmpdatum::getValue() const
+     {
+-        return p_->value_.get() == 0 ? Value::AutoPtr(0) : p_->value_->clone();
++        return p_->value_.get() == 0 ? Value::AutoPtr() : p_->value_->clone();
+     }
+ 
+     const Value& Xmpdatum::value() const
+diff --git a/src/xmpsidecar.cpp b/src/xmpsidecar.cpp
+index d9d5e090..03b31923 100644
+--- a/src/xmpsidecar.cpp
++++ b/src/xmpsidecar.cpp
+@@ -46,7 +46,7 @@ namespace Exiv2 {
+ 
+ 
+     XmpSidecar::XmpSidecar(BasicIo::AutoPtr io, bool create)
+-        : Image(ImageType::xmp, mdXmp, io)
++        : Image(ImageType::xmp, mdXmp, std::move(io))
+     {
+         if (create) {
+             if (io_->open() == 0) {
+@@ -193,7 +193,7 @@ namespace Exiv2 {
+     // free functions
+     Image::AutoPtr newXmpInstance(BasicIo::AutoPtr io, bool create)
+     {
+-        Image::AutoPtr image(new XmpSidecar(io, create));
++        Image::AutoPtr image(new XmpSidecar(std::move(io), create));
+         if (!image->good()) {
+             image.reset();
+         }
+diff --git a/xmpsdk/src/MD5.cpp b/xmpsdk/src/MD5.cpp
+index f162b728..b040bd2c 100644
+--- a/xmpsdk/src/MD5.cpp
++++ b/xmpsdk/src/MD5.cpp
+@@ -153,7 +153,7 @@ MD5Final(md5byte digest[16], struct MD5_CTX *ctx)
+ void
+ MD5Transform(UWORD32 buf[4], UWORD32 const in[16])
+ {
+-	register UWORD32 a, b, c, d;
++	UWORD32 a, b, c, d;
+ 
+ 	a = buf[0];
+ 	b = buf[1];
