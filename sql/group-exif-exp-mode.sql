@@ -32,4 +32,4 @@ WHERE
 GROUP BY
     ExposureProgram
 ORDER BY
-    count(*)
+    count(*) DESC

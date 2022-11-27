@@ -18,4 +18,4 @@ WHERE
 GROUP BY
     exif.Make COLLATE NOCASE, exif.Model COLLATE NOCASE
 ORDER BY
-    count(*)
+    count(*) DESC
