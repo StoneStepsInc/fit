@@ -2,7 +2,7 @@
 -- sqlite3 -box -cmd ".param set @SCAN_ID N" sqlite.db < sql/group-exif-exp-prog.sql
 --
 -- Groups files with EXIF by ExposureProgram for scans equal to N,
--- which is defaulted to 1, if omitted.
+-- which is defaulted to the last scan ID, if omitted.
 --
 -- See EXIF specification for numeric value descriptions.
 --
@@ -21,15 +21,15 @@ SELECT
         WHEN 8 THEN 'Landscape mode'
         ELSE 'Unknown'
     END,
-    count(*)
+    count(exif_id)
 FROM 
     scansets
     JOIN versions ON version_id = versions.rowid 
     JOIN files ON file_id = files.rowid 
     JOIN exif ON exif_id = exif.rowid
 WHERE
-    scan_id = coalesce(@SCAN_ID, 1)
+    scan_id = coalesce(@SCAN_ID, (select MAX(rowid) FROM scans), 0)
 GROUP BY
     ExposureProgram
 ORDER BY
-    count(*) DESC
+    count(exif_id) DESC

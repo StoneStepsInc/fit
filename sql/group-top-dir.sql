@@ -2,7 +2,7 @@
 -- sqlite3 -box -cmd ".param set @SCAN_ID N" sqlite.db < sql/group-top-dir.sql
 --
 -- Groups files by top directory for the scan equal to N, which
--- is defaulted to 1, if omitted.
+-- is defaulted to the last scan ID, if omitted.
 --
 -- This script works only for scans that have a base path, which
 -- means that their paths are relative and don't start with a
@@ -20,7 +20,7 @@ FROM
     JOIN versions ON version_id = versions.rowid
     JOIN files ON file_id = files.rowid
 WHERE
-    scansets.scan_id = coalesce(@SCAN_ID, 1) AND
+    scansets.scan_id = coalesce(@SCAN_ID, (select MAX(rowid) FROM scans), 0) AND
     ext IS NOT NULL
 GROUP BY
     substring(path, 1, max(instr(path, '\'), instr(path, '/')))

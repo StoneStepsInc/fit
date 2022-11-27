@@ -1,8 +1,8 @@
 --
 -- sqlite3 -line -cmd ".param set @SCAN_ID N" sqlite.db < sql/list-dup-files.sql
 --
--- Lists duplicate files for a scan equal to N, defaulted to 1,
--- if omitted.
+-- Lists duplicate files for a scan equal to N, defaulted to the,
+-- last scan ID, if omitted.
 --
 -- On Windows mod_time may be shown as a date/time value using
 -- this expression:
@@ -23,7 +23,7 @@ FROM
     JOIN versions ON oss.version_id = versions.rowid
     JOIN files ON file_id = files.rowid
 WHERE
-    oss.scan_id = coalesce(@SCAN_ID, 1) AND
+    oss.scan_id = coalesce(@SCAN_ID, (select MAX(rowid) FROM scans), 0) AND
     hash IN (
         SELECT hash
         FROM 
