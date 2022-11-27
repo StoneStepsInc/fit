@@ -3,7 +3,7 @@
 
 #include <string>
 #include <filesystem>
-#include <atomic>
+#include <optional>
 
 #include <cstdlib>
 #include <cstdint>
@@ -34,6 +34,7 @@ struct options_t {
 
    std::string scan_message;
    std::string log_file;
+   std::optional<std::string> EXIF_exts;
 
    size_t thread_count = 4;
    size_t buffer_size = 65536;

@@ -51,9 +51,6 @@ struct less_ci {
 
 static constexpr const size_t SHA256_HEX_SIZE = SHA256_SIZE_BYTES * 2;
 
-// TODO: make configurable
-static const std::initializer_list<std::string> pic_exts = {".jpg", ".jpeg", ".png", ".cr2", ".dng", ".nef", ".tiff", ".tif", ".heif", ".webp"};
-
 file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info, print_stream_t& print_stream) :
       options(options),
       print_stream(print_stream),
@@ -63,11 +60,9 @@ file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::q
       files(files),
       files_mtx(files_mtx),
       progress_info(progress_info),
-      pic_exts(fit::pic_exts)
+      EXIF_exts(parse_EXIF_ects(options))
 {
    int errcode = SQLITE_OK;
-
-   std::sort(pic_exts.begin(), pic_exts.end(), less_ci());
 
    if((errcode = sqlite3_open_v2(options.db_path.u8string().c_str(), &file_scan_db, SQLITE_OPEN_READWRITE, nullptr)) != SQLITE_OK)
       throw std::runtime_error(sqlite3_errstr(errcode));
@@ -186,7 +181,7 @@ file_tracker_t::file_tracker_t(file_tracker_t&& other) :
       stmt_begin_txn(other.stmt_begin_txn),
       stmt_commit_txn(other.stmt_commit_txn),
       stmt_rollback_txn(other.stmt_rollback_txn),
-      pic_exts(std::move(other.pic_exts)),
+      EXIF_exts(std::move(other.EXIF_exts)),
       exif_reader(std::move(other.exif_reader))
 {
    other.file_scan_db = nullptr;
@@ -251,6 +246,33 @@ file_tracker_t::~file_tracker_t(void)
       if((errcode = sqlite3_close(file_scan_db)) != SQLITE_OK)
          print_stream.error("Failed to close the SQLite database (%s)", sqlite3_errstr(errcode));
    }
+}
+
+std::vector<std::string> file_tracker_t::parse_EXIF_ects(const options_t& options)
+{
+   std::vector<std::string> EXIF_exts;
+
+   if(options.EXIF_exts.has_value() && !options.EXIF_exts.value().empty()) {
+      size_t start = 0, pos;
+
+      EXIF_exts.reserve(16);
+
+      // hop dot separators and add each extension to the vector
+      while(start < options.EXIF_exts.value().length()-1 &&
+               *(options.EXIF_exts.value().data()+start) == '.' &&
+               (pos = options.EXIF_exts.value().find_first_of('.', start+1)) != std::string::npos) {
+         EXIF_exts.emplace_back(options.EXIF_exts.value().data()+start, pos-start);
+         start = pos;
+      }
+
+      if(start < options.EXIF_exts.value().length() && *(options.EXIF_exts.value().data()+start) == '.')
+         EXIF_exts.emplace_back(options.EXIF_exts.value().data()+start, options.EXIF_exts.value().length()-start);
+   }
+
+   if(!EXIF_exts.empty())
+      std::sort(EXIF_exts.begin(), EXIF_exts.end(), less_ci());
+
+   return EXIF_exts;
 }
 
 void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& filesize, uint8_t hexhash[])
@@ -621,8 +643,8 @@ void file_tracker_t::run(void)
                   // data. We don't try to figure out if EXIF changed and store an
                   // EXIF record for every version of the picture file.
                   //
-                  if(!dir_entry.path().extension().empty()) {
-                     if(binary_search(pic_exts.begin(), pic_exts.end(), dir_entry.path().extension().u8string(), less_ci())) {
+                  if(!EXIF_exts.empty() && !dir_entry.path().extension().empty()) {
+                     if(binary_search(EXIF_exts.begin(), EXIF_exts.end(), dir_entry.path().extension().u8string(), less_ci())) {
                         // filepath will contain a relative path if base path was specified
                         exif::field_bitset_t field_bitset = exif_reader.read_file_exif(dir_entry.path().u8string(), print_stream);
 

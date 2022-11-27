@@ -103,6 +103,7 @@ void print_usage(void)
    fputs("    -u           - continue last scan (update last scanset)\n", stdout);
    fputs("    -l path      - log file path\n", stdout);
    fputs("    -a           - skip restricted access directories\n", stdout);
+   fputs("    -X           - list of EXIF file extensions (default: .jpg.cr2.dng.nef.tif.heif.webp)\n", stdout);
    fputs("    -?           - this help\n", stdout);
 
    fputc('\n', stdout);
@@ -194,6 +195,13 @@ options_t parse_options(int argc, char *argv[])
             break;
          case 'a':
             options.skip_no_access_paths = true;
+            break;
+         case 'X':
+            // empty string means that EXIF scanning is disabled
+            if(i+1 < argc && *(argv[i+1]) != '-')
+               options.EXIF_exts = argv[++i];
+            else
+               options.EXIF_exts.emplace();
             break;
          case 'h':
          case '?':
@@ -290,6 +298,10 @@ void verify_options(options_t& options)
       if(bpi != options.base_path.end())
          throw std::runtime_error("Scan path must be under the base path");
    }
+
+   // if there are no EXIF extensions, use the default list
+   if(!options.EXIF_exts.has_value())
+      options.EXIF_exts = ".jpg.jpeg.cr2.dng.nef.tiff.tif.heif.webp"sv;
 }
 
 std::string schema_version_string(int schema_version)

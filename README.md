@@ -97,6 +97,12 @@ modes and are as follows:
     directory names, so some other means need to be used to figure
     which specific directories cannot be accessed.
 
+  * `-X`
+
+    This option provides a list of EXIF file extensions or disables
+    EXIF scanning if used without a value. The default list is
+    `.jpg.jpeg.cr2.dng.nef.tiff.tif.heif.webp`.
+
 ## Scanning a File Tree
 
 Scanning a file tree without the `-v` option will record computed
