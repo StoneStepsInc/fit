@@ -21,7 +21,7 @@ endif
 SRCS := fit.cpp file_tree_walker.cpp file_tracker.cpp exif_reader.cpp \
         print_stream.cpp sqlite.cpp sha256/sha256.c
 
-LIBS := sqlite3 pthread stdc++fs z expat exiv2 exiv2-xmp
+LIBS := sqlite3 pthread stdc++fs exiv2 exiv2-xmp expat z
 
 OBJS := $(patsubst %.c,%.o,$(filter %.c,$(SRCS))) \
 	$(patsubst %.cpp,%.o,$(filter %.cpp,$(SRCS)))
