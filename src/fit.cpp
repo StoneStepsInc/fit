@@ -71,6 +71,7 @@ static const char *copyright = "Copyright (c) 2022 Stone Steps Inc.";
 //          Renamed table files to versions
 //          Moved path, name, ext from the versions table to files
 //          Added column options to scans
+//          Added table exif
 //
 static const int DB_SCHEMA_VERSION = 30;
 
