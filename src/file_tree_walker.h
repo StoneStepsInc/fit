@@ -26,7 +26,7 @@ namespace fit {
 //
 class file_tree_walker_t {
    private:
-      static constexpr const size_t MAX_FILE_QUEUE_SIZE = 1000;
+      static constexpr const size_t MAX_FILE_QUEUE_SIZE = 5000;
 
    private:
       const options_t& options;
