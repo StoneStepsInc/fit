@@ -10,6 +10,8 @@ COPY get-exiv2 exiv2-c++17.patch /root/
 
 WORKDIR /root
 
-RUN chmod a+x get-exiv2
+RUN chmod a+x get-sha256 get-exiv2
+
+RUN ./get-sha256
 
 RUN ./get-exiv2
