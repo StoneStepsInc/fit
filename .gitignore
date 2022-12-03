@@ -1,18 +1,21 @@
 
 # Visual Studio files
-/.vs/
+.vs/
 
 # user-specific project settings
-/fit.vcxproj.user
+fit.vcxproj.user
 
 # Visual Studio build directory
-/x64/
+x64/
+
+# VTune project directory
+vtune/
 
 # default Makefile build directory
-/build/
+build/
 
 # Nuget packages
-/packages/
+packages/
 
-# SHA256 source (see get-sha256.bat)
-/src/sha256/
+# SHA256 source (see devops/get-sha256)
+src/sha256/
