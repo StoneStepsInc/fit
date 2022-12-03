@@ -87,11 +87,15 @@ jobs:
 
     runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/stonestepsinc/fit/${{ matrix.linux-flavor }}:20221203
+      image: ghcr.io/stonestepsinc/fit/${{ matrix.linux-flavor }}:20221126
 
     steps:
     - name: Checkout source
       uses: actions/checkout@v3
+
+    - name: Set up SHA-256
+      run: |
+        devops/get-sha256
 
     - name: Build binaries
       run: |
