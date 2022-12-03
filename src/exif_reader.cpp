@@ -126,7 +126,7 @@ void exif_reader_t::fmt_exif_byte(const Exiv2::DataValue& exif_value, const char
    // append additional bytes until we run out of values or buffer is full
    for(size_t i = 1; i < exif_value.count() && slen < sizeof(buf)-1; i++) {
       *(buf+slen++) = ' ';
-      slen += snprintf(buf+slen, sizeof(buf)-slen, format, static_cast<T>(exif_value.toLong(i)));
+      slen += snprintf(buf+slen, sizeof(buf)-slen, format, static_cast<T>(exif_value.toLong(static_cast<long>(i))));
    }
 
    // if snprintf indicated truncation, replace last 3 characters with `...` (there's a null character from snprintf)
@@ -192,8 +192,6 @@ bool exif_reader_t::fmt_exif_rational(const Exiv2::ValueType<T>& exif_value, fie
    char buf[128];
 
    for(size_t i = 0; i < exif_value.count(); i++) {
-      int64_t numerator, denominator;
-
       if(i) {
          if(sizeof(buf) - slen == 0)
             return false;
@@ -203,8 +201,8 @@ bool exif_reader_t::fmt_exif_rational(const Exiv2::ValueType<T>& exif_value, fie
 
       T rational = *(exif_value.value_.begin() + i);
 
-      numerator = static_cast<int64_t>(rational.first);
-      denominator = static_cast<int64_t>(rational.second);
+      int64_t numerator = static_cast<int64_t>(rational.first);
+      int64_t denominator = static_cast<int64_t>(rational.second);
 
       if(!denominator)
          return false;
