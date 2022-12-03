@@ -173,28 +173,37 @@ speed will depend much on the type of disks being scanned and
 may be controlled to some degree with the `-t` option, which
 specifies how many threads should be used for scanning.
 
+However, as more `fit` features are added, the database schema
+is becoming more complex, which requires more elaborate database
+operations and results is slower performance, regardless of the
+number of threads used. The numbers below show typical scan
+speed for SSD and magnetic drives in relation to the number of
+threads.
+
 For disks that allow fast random access, such as SSD drives,
 more threads, to a limit, will result in better performance.
 For example, scanning an internal SSD drive yields these scan
 times, depending on the number of threads used.
 
-  * `-t 2` scans at `200.7` MB/sec
-  * `-t 16` scans at `246.9` MB/sec
-  * `-t 32` scans at `240.4` MB/sec
+  * `-t 2` scans at `51.1` MB/sec
+  * `-t 4` scans at `58.6` MB/sec
+  * `-t 16` scans at `65.9` MB/sec
+  * `-t 32` scans at `62.8` MB/sec
 
 For magnetic disks, more threads reading the disk results in
 more contention and using fewer threads results in better scan
-speed. The numbers below are captured against a dual-drive
-Storage Space attached via USB 3.0 connected to a Thunderbolt
-port.
+speed. The numbers below are captured against a 4-drive Storage
+Space attached via USB 3.0 connected to a Thunderbolt docking
+station.
 
-  * `-t 1` scans at `76.9` MB/sec
-  * `-t 2` scans at `95.2` MB/sec
-  * `-t 16` scans at `58.7` MB/sec
-  * `-t 32` scans at `51.8` MB/sec
+  * `-t 1` scans at `30.1` MB/sec
+  * `-t 2` scans at `33.7` MB/sec
+  * `-t 4` scans at `35.9` MB/sec
+  * `-t 16` scans at `35.1` MB/sec
+  * `-t 32` scans at `33.9` MB/sec
 
-When scanning large files on magnetic drives, larger buffer
-sizes, specified via `-s`, may improve scanning speed.
+When scanning magnetic drives, keeping the SQLite database on
+a different drive will improve scanning speed.
 
 ## SQLite Database
 
