@@ -168,8 +168,7 @@ contents of files with greater versions were changed.
 
 ## Scan Performance
 
-`fit` scans file trees using multiple threads, but actual scan
-speed will depend much on the type of disks being scanned and
+Scan speed will depend on the type of disks being scanned and
 may be controlled to some degree with the `-t` option, which
 specifies how many threads should be used for scanning.
 
