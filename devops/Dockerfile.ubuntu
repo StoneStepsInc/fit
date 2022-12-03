@@ -6,7 +6,7 @@ RUN apt-get update -y
 
 RUN apt-get install -y cmake patch curl unzip make g++ libsqlite3-dev libexpat1-dev zlib1g-dev
 
-COPY get-exiv2 exiv2-c++17.patch /root/
+COPY get-sha256 get-exiv2 exiv2-c++17.patch /root/
 
 WORKDIR /root
 
