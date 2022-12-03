@@ -69,6 +69,9 @@ file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::q
    if((errcode = sqlite3_open_v2(options.db_path.u8string().c_str(), &file_scan_db, SQLITE_OPEN_READWRITE, nullptr)) != SQLITE_OK)
       throw std::runtime_error(sqlite3_errstr(errcode));
 
+   if(!set_sqlite_journal_mode(file_scan_db, print_stream))
+      print_stream.warning("Cannot set SQlite journal mode to WAL (will run slower)");
+
    //
    // SQLite keeps calling sqlite_busy_handler_cb for this amount
    // of time while record storage is locked and after SQLITE_BUSY
@@ -79,7 +82,7 @@ file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::q
 
    if((errcode = sqlite3_busy_handler(file_scan_db, sqlite_busy_handler_cb, nullptr)) != SQLITE_OK)
       throw std::runtime_error(sqlite3_errstr(errcode));
-   
+
    //
    // insert statement for new file records                  1    2     3
    //
@@ -275,6 +278,32 @@ std::vector<std::string> file_tracker_t::parse_EXIF_exts(const options_t& option
       std::sort(EXIF_exts.begin(), EXIF_exts.end(), less_ci());
 
    return EXIF_exts;
+}
+
+bool file_tracker_t::set_sqlite_journal_mode(sqlite3 *file_scan_db, print_stream_t& print_stream)
+{
+   int errcode = SQLITE_OK;
+
+   sqlite_stmt_t journal_mode_stmt("PRAGMA journal_mode=WAL"sv);
+
+   if((errcode = journal_mode_stmt.prepare(file_scan_db, "PRAGMA journal_mode=WAL;"sv)) != SQLITE_OK) {
+      print_stream.warning("Cannot prepare a SQLite statement for setting journal mode to WAL (%s)", sqlite3_errstr(errcode));
+      return false;
+   }
+      
+   errcode = sqlite3_step(journal_mode_stmt);
+
+   const char *journal_mode = nullptr;
+
+   if(errcode == SQLITE_ROW)
+      journal_mode = reinterpret_cast<const char*>(sqlite3_column_text(journal_mode_stmt, 0));
+
+   bool have_wal = journal_mode && !strcmp(journal_mode, "wal");
+
+   if((errcode = journal_mode_stmt.finalize()) != SQLITE_OK)
+      print_stream.warning("Cannot finalize SQLite statment for setting journal mode to WAL (%s)", sqlite3_errstr(errcode));
+
+   return have_wal;
 }
 
 void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& filesize, uint8_t hexhash[])
