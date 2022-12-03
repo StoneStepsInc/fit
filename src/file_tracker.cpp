@@ -500,11 +500,11 @@ void file_tracker_t::run(void)
    uint8_t hexhash_file[SHA256_HEX_SIZE + 1] = {};       // file hash; should not be accessed if filesize == 0
    uint8_t hexhash_field[SHA256_HEX_SIZE + 1] = {};      // database hash; should no be accessed if hash_field_is_null is false
 
-   std::unique_lock<std::mutex> lock(files_mtx);
+   std::unique_lock<std::mutex> files_lock(files_mtx);
 
    while(!stop_request) {
       if(files.empty()) {
-         lock.unlock();
+         files_lock.unlock();
 
          //
          // We don't expect this thread to idle much and don't need
@@ -515,14 +515,14 @@ void file_tracker_t::run(void)
          //
          std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-         lock.lock();
+         files_lock.lock();
          continue;
       }
 
       std::filesystem::directory_entry dir_entry = std::move(files.front());
       files.pop();
 
-      lock.unlock();
+      files_lock.unlock();
 
       try {
          uint64_t filesize = 0;
@@ -731,7 +731,7 @@ void file_tracker_t::run(void)
       }
 
       // need to lock to access the queue
-      lock.lock();
+      files_lock.lock();
    }
 }
 

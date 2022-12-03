@@ -87,7 +87,7 @@ void file_tree_walker_t::walk_tree(void)
          // directory in a non-recursive scan).
          //
          if(!dir_entry.is_symlink() && dir_entry.is_regular_file()) {
-            std::unique_lock<std::mutex> lock(files_mtx);
+            std::unique_lock<std::mutex> files_lock(files_mtx);
 
             files.push(dir_entry);
 
@@ -99,7 +99,7 @@ void file_tree_walker_t::walk_tree(void)
             //
             if(files.size() > MAX_FILE_QUEUE_SIZE) {
                while(!abort_scan && files.size() > (MAX_FILE_QUEUE_SIZE*3)/4) {
-                  lock.unlock();
+                  files_lock.unlock();
 
                   std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
@@ -109,7 +109,7 @@ void file_tree_walker_t::walk_tree(void)
                      report_time = std::chrono::steady_clock::now() + std::chrono::seconds(options.progress_interval);
                   }
 
-                  lock.lock();
+                  files_lock.lock();
                }
             }
 
