@@ -62,7 +62,7 @@ file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::q
       files(files),
       files_mtx(files_mtx),
       progress_info(progress_info),
-      EXIF_exts(parse_EXIF_ects(options))
+      EXIF_exts(parse_EXIF_exts(options))
 {
    int errcode = SQLITE_OK;
 
@@ -250,7 +250,7 @@ file_tracker_t::~file_tracker_t(void)
    }
 }
 
-std::vector<std::string> file_tracker_t::parse_EXIF_ects(const options_t& options)
+std::vector<std::string> file_tracker_t::parse_EXIF_exts(const options_t& options)
 {
    std::vector<std::string> EXIF_exts;
 

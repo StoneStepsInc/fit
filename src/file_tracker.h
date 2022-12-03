@@ -104,7 +104,7 @@ class file_tracker_t {
       
       static int sqlite_busy_handler_cb(void*, int count);
 
-      static std::vector<std::string> parse_EXIF_ects(const options_t& options);
+      static std::vector<std::string> parse_EXIF_exts(const options_t& options);
 
    public:
       file_tracker_t(const options_t& options, int64_t scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info, print_stream_t& print_stream);
