@@ -3,7 +3,9 @@
 
 #include "fit.h"
 
+extern "C" {
 #include "sha256/sha256.h"
+}
 
 #ifdef _WIN32
 #include <cwchar>    // for _wfopen
@@ -49,7 +51,7 @@ struct less_ci {
    }
 };
 
-static constexpr const size_t SHA256_HEX_SIZE = SHA256_SIZE_BYTES * 2;
+static constexpr const size_t SHA256_HEX_SIZE = SHA256_DIGEST_SIZE * 2;
 
 file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info, print_stream_t& print_stream) :
       options(options),
@@ -292,7 +294,7 @@ void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& 
    if(!file)
       throw std::runtime_error("Cannot open file " + filepath.u8string());
 
-   sha256_context ctx;
+   sha256_t ctx;
    sha256_init(&ctx);
 
    size_t lastread = 0;
@@ -300,7 +302,7 @@ void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& 
    filesize = 0;
 
    while((lastread = std::fread(file_buffer.get(), 1, options.buffer_size, file.get())) != 0) {
-      sha256_hash(&ctx, file_buffer.get(), lastread);
+      sha256_update(&ctx, file_buffer.get(), lastread);
 
       filesize += lastread;
    }
@@ -310,13 +312,13 @@ void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& 
 
    // hash for zero-length files should not be evaluated
    if(filesize) {
-      uint8_t filehash[SHA256_SIZE_BYTES];
+      uint8_t filehash[SHA256_DIGEST_SIZE];
 
-      sha256_done(&ctx, filehash);
+      sha256_final(&ctx, filehash);
 
       static const char hex[] = "0123456789abcdef";
 
-      for(size_t i = 0; i < SHA256_SIZE_BYTES; i++) {
+      for(size_t i = 0; i < SHA256_DIGEST_SIZE; i++) {
          hexhash[i*2] = hex[(*(filehash+i) & 0xF0) >> 4];
          hexhash[i*2+1] = hex[*(filehash+i) & 0x0F];
       }

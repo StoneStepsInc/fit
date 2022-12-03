@@ -517,5 +517,4 @@ LICENSE: [GPL-2.0](https://github.com/Exiv2/exiv2/blob/0.27-maintenance/COPYING)
 
 An implementation of the SHA-256 secure hash algorithm
 
-LICENSE: [MIT](https://github.com/ilvn/SHA256/blob/main/LICENSE)
-
+LICENSE: [Public Domain](https://github.com/jb55/sha256.c/blob/master/LICENSE)

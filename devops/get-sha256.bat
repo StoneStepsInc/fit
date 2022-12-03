@@ -4,27 +4,22 @@ setlocal
 
 if EXIST src\sha256 goto :haveit
 
-set GIT_COMMIT=28c561fa25b62dc9fce075c1af21ee2579cf1d59
+set GIT_COMMIT=5e637272c13f200872d55ff579f7e2ab6c3f252f
 
-rem
-rem This library is not versioned, so get the source at
-rem the commit where it was tested with this project.
-rem
-curl -L -o sha256.zip https://github.com/ilvn/SHA256/archive/%GIT_COMMIT%.zip
+curl --location --output sha256.zip https://github.com/jb55/sha256.c/archive/%GIT_COMMIT%.zip
 
 call 7z x sha256.zip
 del /Q sha256.zip
 
-move SHA256-%GIT_COMMIT% src\sha256
+move sha256.c-%GIT_COMMIT% src\sha256
 cd src\sha256
 
-rem
-rem Patch the SHA256 source to compile in VC++
-rem
-echo.
-"%ProgramFiles%\Git\usr\bin\patch" -i ..\..\devops\sha256.patch
+move deps\rotate-bits .
 
-cd ..\..
+rmdir /S /Q deps
+del /S /Q package.json
+del .gitignore .travis.yml Makefile
+del test.c
 
 goto :EOF
 

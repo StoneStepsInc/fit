@@ -1,27 +1,25 @@
 #!/bin/bash
 
-GIT_COMMIT=28c561fa25b62dc9fce075c1af21ee2579cf1d59
+GIT_COMMIT=5e637272c13f200872d55ff579f7e2ab6c3f252f
 
 if [ -d src/sha256 ]
 then
   echo Directory sha256 already exists
   exit
 else 
-  # 
-  #  This library is not versioned, so get the source at
-  #  the commit where it was tested with this project.
-  # 
-  curl -L -o sha256.zip https://github.com/ilvn/SHA256/archive/$GIT_COMMIT.zip
+  curl --location --output sha256.zip https://github.com/jb55/sha256.c/archive/$GIT_COMMIT.zip
 
   unzip sha256.zip
   rm -f sha256.zip
 
-  mv SHA256-$GIT_COMMIT src/sha256
+  mv sha256.c-$GIT_COMMIT src/sha256
   cd src/sha256
 
-  # patch the SHA256 source to compile in a C++ project
-  patch -i ../../devops/sha256.patch
+  mv deps/rotate-bits .
+
+  rm -rf deps
+  rm -f package.json rotate-bits/package.json
+  rm -f .gitignore .travis.yml Makefile test.c
 
   cd ../..
 fi
-
