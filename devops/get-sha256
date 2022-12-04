@@ -1,6 +1,7 @@
 #!/bin/bash
 
 GIT_COMMIT=5e637272c13f200872d55ff579f7e2ab6c3f252f
+SIG_SHA256=4269c41e5ccbfdb108cc8bba03a95456c36555213cc10965a70e33af0e08292a
 
 if [ -d src/sha256 ]
 then
@@ -8,6 +9,14 @@ then
   exit
 else 
   curl --location --output sha256.zip https://github.com/jb55/sha256.c/archive/$GIT_COMMIT.zip
+
+  echo "$SIG_SHA256  sha256.zip" | sha256sum --check
+
+  if [ $? -ne 0 ]
+  then
+    echo "Bad checksum: sha256.zip"
+    exit 1
+  fi
 
   unzip sha256.zip
   rm -f sha256.zip
