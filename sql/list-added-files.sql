@@ -1,5 +1,5 @@
 --
--- sqlite3 -line -cmd ".param set @SCAN_ID N" -cmd ".param set @BASE_SCAN_ID B" sqlite.db < sql/list-new-files.sql
+-- sqlite3 -line -cmd ".param set @SCAN_ID N" -cmd ".param set @BASE_SCAN_ID B" sqlite.db < sql/list-added-files.sql
 --
 -- Lists files added between scans B and N. If BASE_SCAN_ID is omitted,
 -- N-1 is used. If both are omitted, the last two scans are used.
