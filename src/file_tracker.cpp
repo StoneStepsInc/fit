@@ -85,7 +85,7 @@ file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::q
    //
    // insert statement for new file records                  1    2     3
    //
-   std::string_view sql_insert_file = "insert into files (name, ext, path) values (?, ?, ?)"sv;
+   std::string_view sql_insert_file = "INSERT INTO files (name, ext, path) VALUES (?, ?, ?)"sv;
 
    if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_file.data(), (int) sql_insert_file.length()+1, &stmt_insert_file, nullptr)) != SQLITE_OK)
       print_stream.error("Cannot prepare a SQLite statement to insert a file (%s)", sqlite3_errstr(errcode));
@@ -93,7 +93,7 @@ file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::q
    //
    // insert statement for new file version records                   1        2         3           4          5          6     7        8
    //
-   std::string_view sql_insert_version = "insert into versions (file_id, version, mod_time, entry_size, read_size, hash_type, hash, exif_id) values (?, ?, ?, ?, ?, ?, ?, ?)"sv;
+   std::string_view sql_insert_version = "INSERT INTO versions (file_id, version, mod_time, entry_size, read_size, hash_type, hash, exif_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"sv;
 
    if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_version.data(), (int) sql_insert_version.length()+1, &stmt_insert_version, nullptr)) != SQLITE_OK)
       print_stream.error("Cannot prepare a SQLite statement to insert a file version (%s)", sqlite3_errstr(errcode));
@@ -113,7 +113,7 @@ file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::q
    //
    // insert statement for scanset file records                            1           2
    //
-   std::string_view sql_insert_scanset_file = "insert into scansets (scan_id, version_id) values (?, ?)"sv;
+   std::string_view sql_insert_scanset_file = "INSERT INTO scansets (scan_id, version_id) VALUES (?, ?)"sv;
 
    if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_scanset_file.data(), (int) sql_insert_scanset_file.length()+1, &stmt_insert_scanset_file, nullptr)) != SQLITE_OK)
       print_stream.error("Cannot prepare a SQLite statement to insert a scanset file (%s)", sqlite3_errstr(errcode));
