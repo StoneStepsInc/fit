@@ -72,8 +72,10 @@ static const char *copyright = "Copyright (c) 2022 Stone Steps Inc.";
 //          Moved path, name, ext from the versions table to files
 //          Added column options to scans
 //          Added table exif
+// 
+//   v4.0   Reworked ix_scansets_scan_version
 //
-static const int DB_SCHEMA_VERSION = 30;
+static const int DB_SCHEMA_VERSION = 40;
 
 std::atomic<bool> abort_scan = false;
 
@@ -426,7 +428,7 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
                                           "version_id INTEGER NOT NULL);", nullptr, nullptr, &errmsg) != SQLITE_OK)
             throw std::runtime_error("Cannot create table 'scansets' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
-         if(sqlite3_exec(file_scan_db, "CREATE UNIQUE INDEX ix_scansets_scan_file ON scansets (scan_id, version_id);", nullptr, nullptr, &errmsg) != SQLITE_OK)
+         if(sqlite3_exec(file_scan_db, "CREATE UNIQUE INDEX ix_scansets_version_scan ON scansets (version_id, scan_id);", nullptr, nullptr, &errmsg) != SQLITE_OK)
             throw std::runtime_error("Cannot create file/scan ID index for 'scansets' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
          // set the current database schema version

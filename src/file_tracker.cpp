@@ -103,9 +103,18 @@ file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::q
 
    //
    // select statement to look-up files by their path
+   // 
+   // The results are sorted by version and then by scan_id to take
+   // advantage of the (version_id, scan_id) index, which offers
+   // better performance than (scan_id, version_id). Versions may
+   // stay the same between subsequent scans, but a version cannot
+   // increase without scan_id increasing as well (i.e. different
+   // versions cannot have the same scan_id), so we always end up
+   // with the latest version and scan_id at the top.
+   // 
    // parameters:                                                                                                                                                                                                            1
    // columns:                                    0         1          2     3               4        5        6
-   std::string_view sql_find_file = "SELECT version, mod_time, hash_type, hash, versions.rowid, file_id, scan_id FROM versions JOIN files ON file_id = files.rowid JOIN scansets ON version_id = versions.rowid WHERE path = ? ORDER BY scan_id DESC, version DESC LIMIT 1"sv;
+   std::string_view sql_find_file = "SELECT version, mod_time, hash_type, hash, versions.rowid, file_id, scan_id FROM versions JOIN files ON file_id = files.rowid JOIN scansets ON version_id = versions.rowid WHERE path = ? ORDER BY version DESC, scan_id DESC LIMIT 1"sv;
 
    if((errcode = sqlite3_prepare_v2(file_scan_db, sql_find_file.data(), (int) sql_find_file.length()+1, &stmt_find_file, nullptr)) != SQLITE_OK)
       print_stream.error("Cannot prepare a SQLite statement to find a file version (%s)", sqlite3_errstr(errcode));

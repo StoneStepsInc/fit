@@ -1,5 +1,5 @@
-#ifndef FIT_FILE_HASHER_H
-#define FIT_FILE_HASHER_H
+#ifndef FIT_FILE_TRACKER_H
+#define FIT_FILE_TRACKER_H
 
 #include "print_stream.h"
 #include "exif_reader.h"
@@ -128,4 +128,4 @@ class file_tracker_t {
 
 }
 
-#endif // FIT_FILE_HASHER_H
+#endif // FIT_FILE_TRACKER_H
