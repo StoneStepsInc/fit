@@ -628,7 +628,6 @@ void file_tracker_t::run(void)
                   && mod_time == std::chrono::duration_cast<std::chrono::seconds>(dir_entry.last_write_time().time_since_epoch()).count())
                hash_match = true;
             else {
-               // hash the file if we didn't find its version record or the last-modified time changed
                hash_file(dir_entry.path(), filesize, hexhash_file);
 
                // consider a NULL hash field as a match for zero-length files
