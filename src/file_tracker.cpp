@@ -683,7 +683,7 @@ void file_tracker_t::run(void)
                   // EXIF record for every version of the picture file.
                   //
                   if(!EXIF_exts.empty() && !dir_entry.path().extension().empty()) {
-                     if(binary_search(EXIF_exts.begin(), EXIF_exts.end(), dir_entry.path().extension().u8string(), less_ci())) {
+                     if(std::binary_search(EXIF_exts.begin(), EXIF_exts.end(), dir_entry.path().extension().u8string(), less_ci())) {
                         // filepath will contain a relative path if base path was specified
                         exif::field_bitset_t field_bitset = exif_reader.read_file_exif(dir_entry.path(), print_stream);
 
