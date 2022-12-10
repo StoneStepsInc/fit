@@ -560,17 +560,19 @@ void file_tracker_t::run(void)
 
          find_file_stmt.bind_param(filepath);
 
-         // these variables should be evaluated only if version_id has value
+         // a non-optional to allow version+1 whether version_id has a value or not
          int64_t version = 0;
+
+         // these variables should be evaluated only if version_id has a value
          int64_t mod_time = 0;
          int64_t scanset_scan_id = 0;           
          bool hash_field_is_null = false;
 
-         bool hash_match = false;
+         bool hash_match = false;                  // if true, the file didn't change; if false, a new version will be created
 
-         std::optional<int64_t> version_id;
-         std::optional<int64_t> file_id;
-         std::optional<int64_t> exif_id;
+         std::optional<int64_t> version_id;        // version record identifier, if one is found in the database
+         std::optional<int64_t> file_id;           // new file_id, if version_id has no value, existing one otherwise
+         std::optional<int64_t> exif_id;           // new exif_id, if no EXIF is found
 
          errcode = sqlite3_step(stmt_find_file);
 
@@ -660,7 +662,7 @@ void file_tracker_t::run(void)
                // handle the mismatched hash based on whether we are verifying or scanning
                if(options.verify_files) {
                   // differentiate between new, modified and changed files
-                  if(!mod_time) {
+                  if(!version_id.has_value()) {
                      progress_info.new_files++;
                      print_stream.info(   "new file: %s", filepath.c_str());
                   }
