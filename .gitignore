@@ -11,6 +11,9 @@ x64/
 # VTune project directory
 vtune/
 
+# test data directory
+test/
+
 # default Makefile build directory
 build/
 
