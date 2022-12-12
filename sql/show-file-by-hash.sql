@@ -16,7 +16,7 @@ SELECT
     version,
     path,
     mod_time,
-    round(entry_size/1000., 3) AS entry_size_kb,
+    round(entry_size/1000000., 3) AS entry_size_mb,
     message
 FROM
     scansets

@@ -21,7 +21,7 @@ SELECT
         WHEN 8 THEN 'Landscape mode'
         ELSE 'Unknown'
     END,
-    count(exif_id)
+    COUNT(exif_id)
 FROM 
     scansets
     JOIN versions ON version_id = versions.rowid 
@@ -32,4 +32,4 @@ WHERE
 GROUP BY
     ExposureProgram
 ORDER BY
-    count(exif_id) DESC
+    COUNT(exif_id) DESC

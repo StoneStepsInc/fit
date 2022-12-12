@@ -9,9 +9,9 @@ SELECT
   MAX(app_version) AS app_version,
   COUNT(version_id) AS file_count,
   COUNT(exif_id) AS EXIF_count,
-  round(SUM(entry_size) / 1000., 3) AS entry_size_kb,
-  round(AVG(entry_size) / 1000., 3) AS avg_entry_size_kb,
-  round(MAX(entry_size) / 1000., 3) AS max_entry_size_kb,
+  round(SUM(entry_size) / 1000000., 3) AS sum_entry_size_mb,
+  round(AVG(entry_size) / 1000000., 3) AS avg_entry_size_mb,
+  round(MAX(entry_size) / 1000000., 3) AS max_entry_size_mb,
   MAX(base_path) AS base_path,
   MAX(options) as options,
   MAX(message) AS message

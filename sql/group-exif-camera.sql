@@ -7,7 +7,7 @@
 SELECT
     Make,
     Model,
-    count(exif_id)
+    COUNT(exif_id)
 FROM 
     scansets
     JOIN versions ON version_id = versions.rowid 
@@ -18,4 +18,4 @@ WHERE
 GROUP BY
     exif.Make COLLATE NOCASE, exif.Model COLLATE NOCASE
 ORDER BY
-    count(exif_id) DESC
+    COUNT(exif_id) DESC

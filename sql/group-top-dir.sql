@@ -9,12 +9,12 @@
 -- directory separator or with a drive letter.
 --
 SELECT
-    substring(path, 1, max(instr(path, '\'), instr(path, '/'))) as top_dir,
-    count(ext) as file_count,
-    count(exif_id) as EXIF_count,
-    round(sum(entry_size) / 1000., 3) as sum_entry_size_kb,
-    round(avg(entry_size) / 1000., 3) as avg_entry_size_kb,
-    round(max(entry_size) / 1000., 3) as max_entry_size_kb
+    substring(path, 1, MAX(instr(path, '\'), instr(path, '/'))) AS top_dir,
+    COUNT(ext) AS file_count,
+    COUNT(exif_id) AS EXIF_count,
+    round(SUM(entry_size) / 1000000., 3) AS sum_entry_size_mb,
+    round(AVG(entry_size) / 1000000., 3) AS avg_entry_size_mb,
+    round(MAX(entry_size) / 1000000., 3) AS max_entry_size_mb
 FROM
     scansets
     JOIN versions ON version_id = versions.rowid
@@ -23,6 +23,6 @@ WHERE
     scansets.scan_id = coalesce(@SCAN_ID, (select MAX(rowid) FROM scans), 0) AND
     ext IS NOT NULL
 GROUP BY
-    substring(path, 1, max(instr(path, '\'), instr(path, '/')))
+    substring(path, 1, MAX(instr(path, '\'), instr(path, '/')))
 ORDER BY
     scansets.scan_id, 5 DESC

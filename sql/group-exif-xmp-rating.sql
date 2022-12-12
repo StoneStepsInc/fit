@@ -6,11 +6,10 @@
 --
 SELECT
     XMPxmpRating,
-    COUNT(version_id) AS file_count,
-    COUNT(exif_id) AS EXIF_count,
-    round(SUM(entry_size) / 1000., 3) AS entry_size_kb,
-    round(AVG(entry_size) / 1000., 3) AS avg_entry_size_kb,
-    round(MAX(entry_size) / 1000., 3) AS max_entry_size_kb
+    COUNT(exif_id),
+    round(SUM(entry_size) / 1000000., 3) AS sum_entry_size_mb,
+    round(AVG(entry_size) / 1000000., 3) AS avg_entry_size_mb,
+    round(MAX(entry_size) / 1000000., 3) AS max_entry_size_mb
 FROM 
     scansets
     JOIN versions ON version_id = versions.rowid 

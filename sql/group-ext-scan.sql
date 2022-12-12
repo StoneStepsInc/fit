@@ -6,11 +6,11 @@
 --
 SELECT
     ext,
-    count(ext) as file_count,
-    count(exif_id) as EXIF_count,
-    round(sum(entry_size) / 1000., 3) as sum_entry_size_kb,
-    round(avg(entry_size) / 1000., 3) as avg_entry_size_kb,
-    round(max(entry_size) / 1000., 3) as max_entry_size_kb
+    COUNT(ext) as file_count,
+    COUNT(exif_id) as EXIF_count,
+    round(SUM(entry_size) / 1000000., 3) AS sum_entry_size_mb,
+    round(AVG(entry_size) / 1000000., 3) AS avg_entry_size_mb,
+    round(MAX(entry_size) / 1000000., 3) AS max_entry_size_mb
 FROM
     scansets
     JOIN versions ON version_id = versions.rowid
