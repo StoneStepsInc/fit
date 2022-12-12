@@ -94,11 +94,11 @@ class file_tracker_t {
 
       int64_t insert_exif_record(const std::string& filepath, const std::vector<exif::field_value_t>& exif_fields, const exif::field_bitset_t& field_bitset);
 
-      int64_t insert_version_record(const std::string& filepath, int64_t file_id, int64_t version, int64_t filesize, const std::filesystem::directory_entry& dir_entry, uint8_t hexhash_file[], std::optional<int64_t> exif_id);
+      int64_t insert_version_record(const std::string& filepath, int64_t file_id, int64_t version, int64_t filesize, const std::filesystem::directory_entry& dir_entry, unsigned char hexhash_file[], std::optional<int64_t> exif_id);
 
       void insert_scanset_record(const std::string& filepath, int64_t version_id);
 
-      void hash_file(const std::filesystem::path& filepath, uint64_t& filesize, uint8_t hexhash[]);
+      void hash_file(const std::filesystem::path& filepath, uint64_t& filesize, unsigned char hexhash[]);
 
       void run(void);
       

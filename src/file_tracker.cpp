@@ -314,7 +314,7 @@ bool file_tracker_t::set_sqlite_journal_mode(sqlite3 *file_scan_db, print_stream
    return have_wal;
 }
 
-void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& filesize, uint8_t hexhash[])
+void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& filesize, unsigned char hexhash[])
 {
    //
    // The narrow character version of fopen will fail to open files
@@ -349,7 +349,7 @@ void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& 
 
    // hash for zero-length files should not be evaluated
    if(filesize) {
-      uint8_t filehash[SHA256_DIGEST_SIZE];
+      unsigned char filehash[SHA256_DIGEST_SIZE];
 
       sha256_final(&ctx, filehash);
 
@@ -420,7 +420,7 @@ int64_t file_tracker_t::insert_exif_record(const std::string& filepath, const st
    return exif_id;
 }
 
-int64_t file_tracker_t::insert_version_record(const std::string& filepath, int64_t file_id, int64_t version, int64_t filesize, const std::filesystem::directory_entry& dir_entry, uint8_t hexhash_file[SHA256_HEX_SIZE], std::optional<int64_t> exif_id)
+int64_t file_tracker_t::insert_version_record(const std::string& filepath, int64_t file_id, int64_t version, int64_t filesize, const std::filesystem::directory_entry& dir_entry, unsigned char hexhash_file[SHA256_HEX_SIZE], std::optional<int64_t> exif_id)
 {
    int64_t version_id = 0;
 
@@ -505,8 +505,8 @@ void file_tracker_t::run(void)
 
    filepath.reserve(1024);
                
-   uint8_t hexhash_file[SHA256_HEX_SIZE + 1] = {};       // file hash; should not be accessed if filesize == 0
-   uint8_t hexhash_field[SHA256_HEX_SIZE + 1] = {};      // database hash; should no be accessed if hash_field_is_null is false
+   unsigned char hexhash_file[SHA256_HEX_SIZE + 1] = {};       // file hash; should not be accessed if filesize == 0
+   unsigned char hexhash_field[SHA256_HEX_SIZE + 1] = {};      // database hash; should no be accessed if hash_field_is_null is false
 
    std::unique_lock<std::mutex> files_lock(files_mtx);
 
