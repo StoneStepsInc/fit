@@ -98,6 +98,12 @@ class file_tracker_t {
 
       void insert_scanset_record(const std::string& filepath, int64_t version_id);
 
+      void begin_transaction(const std::string& filepath);
+
+      void commit_transaction(const std::string& filepath);
+
+      void rollback_transaction(const std::string& filepath);
+
       void hash_file(const std::filesystem::path& filepath, uint64_t& filesize, unsigned char hexhash[]);
 
       void run(void);

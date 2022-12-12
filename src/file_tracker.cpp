@@ -496,6 +496,30 @@ void file_tracker_t::insert_scanset_record(const std::string& filepath, int64_t 
    insert_scanset_file_stmt.reset();
 }
 
+void file_tracker_t::begin_transaction(const std::string& filepath)
+{
+   int errcode = sqlite3_step(stmt_begin_txn);
+
+   if(errcode != SQLITE_DONE)
+      throw std::runtime_error("Cannot start a SQLite transaction for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
+}
+
+void file_tracker_t::commit_transaction(const std::string& filepath)
+{
+   int errcode = sqlite3_step(stmt_commit_txn);
+
+   if(errcode != SQLITE_DONE)
+      throw std::runtime_error("Cannot commit a SQLite transaction for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
+}
+
+void file_tracker_t::rollback_transaction(const std::string& filepath)
+{
+   int errcode = sqlite3_step(stmt_rollback_txn);
+
+   if(errcode != SQLITE_DONE)
+      print_stream.error("Cannot rollback a SQLite transaction for %s (%s)", filepath.c_str(), sqlite3_errstr(errcode));
+}
+
 void file_tracker_t::run(void)
 {
    int errcode = SQLITE_OK;
@@ -647,10 +671,7 @@ void file_tracker_t::run(void)
             // the database.
             //
             if(!options.verify_files) {
-               errcode = sqlite3_step(stmt_begin_txn);
-
-               if(errcode != SQLITE_DONE)
-                  throw std::runtime_error("Cannot start a SQLite transaction for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
+               begin_transaction(filepath);
             }
 
             // if there is no file record for this path, insert one to get a file ID
@@ -712,10 +733,7 @@ void file_tracker_t::run(void)
                // insert a scanset record with the new or existing version ID
                insert_scanset_record(filepath, version_id.value());
 
-               errcode = sqlite3_step(stmt_commit_txn);
-
-               if(errcode != SQLITE_DONE)
-                  throw std::runtime_error("Cannot commit a SQLite transaction for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
+               commit_transaction(filepath);
             }
          }
 
@@ -732,10 +750,7 @@ void file_tracker_t::run(void)
 
          // if we started a transaction, roll it back
          if(!sqlite3_get_autocommit(file_scan_db)) {
-            errcode = sqlite3_step(stmt_rollback_txn);
-
-            if(errcode != SQLITE_DONE)
-               print_stream.error("Cannot rollback a SQLite transaction for %s (%s)", filepath.c_str(), sqlite3_errstr(errcode));
+            rollback_transaction(filepath);
          }
       }
 
