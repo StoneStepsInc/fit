@@ -116,6 +116,10 @@ class exif_reader_t {
       template <typename T>
       static bool fmt_exif_rational(const Exiv2::ValueType<T>& exif_value, field_value_t& field_value);
 
+      static std::string_view trim_whitespace(const std::string& value);
+
+      static std::string_view trim_whitespace(const char *value, size_t length);
+
    public:
       exif_reader_t(void);
 

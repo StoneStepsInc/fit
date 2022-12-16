@@ -224,6 +224,31 @@ bool exif_reader_t::fmt_exif_rational(const Exiv2::ValueType<T>& exif_value, fie
    return true;
 }
 
+std::string_view exif_reader_t::trim_whitespace(const std::string& value)
+{
+   return trim_whitespace(value.data(), value.size());
+}
+
+std::string_view exif_reader_t::trim_whitespace(const char *value, size_t length)
+{
+   std::string_view trimmed_value(value, length);
+
+   size_t char_pos;
+
+   // start from the end, so we don't have to adjust the offset (5 includes the explicit null terminator, used for visibility)
+   if((char_pos = trimmed_value.find_last_not_of(" \t\r\n\x0", std::string_view::npos, 5)) == std::string_view::npos)
+      trimmed_value.remove_suffix(length);
+   else
+      trimmed_value.remove_suffix(length-char_pos-1);
+
+   if(!trimmed_value.empty()) {
+      if((char_pos = trimmed_value.find_first_not_of(" \t\r\n")) != std::string_view::npos && char_pos > 0)
+         trimmed_value.remove_prefix(char_pos);
+   }
+
+   return trimmed_value;
+}
+
 void exif_reader_t::initialize(print_stream_t& print_stream)
 {
    if(!Exiv2::XmpParser::initialize())
@@ -428,15 +453,18 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                         //   * \x20\x0 editor copyright \x0
                         //
                         if(exif_value.size() > 1) {
-                           // assign a C-string to avoid picking up padding, if there is any
-                           std::string& copyright = std::get<std::string>(exif_fields[EXIF_FIELD_Copyright] = static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str());
+                           std::string_view copyright_value = trim_whitespace(static_cast<const Exiv2::AsciiValue&>(exif_value).value_);
 
-                           // search for the editor copyright separator and replace it with a semicolon
-                           size_t editor_sep = copyright.find_first_of('\x0');
-                           if(editor_sep != std::string::npos)
-                              *(copyright.begin() + editor_sep) = ';';
+                           if(!copyright_value.empty()) {
+                              std::string& copyright = exif_fields[EXIF_FIELD_Copyright].emplace<std::string>(copyright_value);
 
-                           field_bitset.set(EXIF_FIELD_Copyright);
+                              // search for the editor copyright separator and replace it with a semicolon
+                              size_t editor_sep = copyright.find_first_of('\x0');
+                              if(editor_sep != std::string::npos)
+                                 *(copyright.begin() + editor_sep) = ';';
+
+                              field_bitset.set(EXIF_FIELD_Copyright);
+                           }
                         }
                      }
                      break;
@@ -580,10 +608,21 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                            //
                            size_t padding_pos = comment->value_.find_first_of('\x0', 8);
 
-                           // some files identify as ASCII, but store UCS-2, which would put an empty string into the database
+                           //
+                           // Some files identify as ASCII, but store UCS-2, which would
+                           // put an empty string into the database. Some images contain
+                           // only spaces or line feed characters. Trim all whitespace
+                           // from both ends and if anything is left, store it in the
+                           // field.
+                           //
                            if(*(comment->value_.begin()+8) && (padding_pos == std::string::npos || padding_pos > 8)) {
-                              exif_fields[EXIF_FIELD_UserComment].emplace<std::string>(comment->value_.data()+8, padding_pos == std::string::npos ? comment->value_.length()-8 : padding_pos-8);
-                              field_bitset.set(EXIF_FIELD_UserComment);
+                              std::string_view comment_value = trim_whitespace(comment->value_.data()+8, padding_pos == std::string::npos ? comment->value_.length()-8 : padding_pos-8);
+
+                              // skip anything less than two characters (big endian UCS-2 will be interepted as a single character)
+                              if(comment_value.length() > 1) {
+                                 exif_fields[EXIF_FIELD_UserComment].emplace<std::string>(comment_value);
+                                 field_bitset.set(EXIF_FIELD_UserComment);
+                              }
                            }
                         }
                      }
@@ -679,8 +718,12 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                   case Exiv2::TypeId::asciiString:
                      // ASCII entries are always null-terminated (some may have null character embedded in the string - e.g. Copyright)
                      if(exif_value.size() > 1) {
-                        exif_fields[field_index.value()] = static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str();
-                        field_bitset.set(field_index.value());
+                        std::string_view ascii_value = trim_whitespace(static_cast<const Exiv2::AsciiValue&>(exif_value).value_);
+
+                        if(!ascii_value.empty()) {
+                           exif_fields[field_index.value()].emplace<std::string>(ascii_value);
+                           field_bitset.set(field_index.value());
+                        }
                      }
                      break;
                   case Exiv2::TypeId::unsignedShort:
