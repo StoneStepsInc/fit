@@ -138,14 +138,14 @@ void file_tree_walker_t::walk_tree(void)
       // called - all we get back is the end iterator).
       //
       if(error.path1().empty() && error.path2().empty())
-         print_stream.error("%s (%s)", enum_files_error_msg, error.code().message().c_str());
+         print_stream.error("Cannot queue a file, %s (%s)", enum_files_error_msg, error.code().message().c_str());
       else if(!error.path1().empty())
-         print_stream.error("%s (%s) for %s", enum_files_error_msg, error.code().message().c_str(), error.path1().u8string().c_str());
+         print_stream.error("Cannot queue a file, %s (%s) for %s", enum_files_error_msg, error.code().message().c_str(), error.path1().u8string().c_str());
       else
-         print_stream.error("%s (%s) for %s", enum_files_error_msg, error.code().message().c_str(), error.path2().u8string().c_str());
+         print_stream.error("Cannot queue a file, %s (%s) for %s", enum_files_error_msg, error.code().message().c_str(), error.path2().u8string().c_str());
    }
    catch (const std::exception& error) {
-      print_stream.error("%s (%s)\n", enum_files_error_msg, error.what());
+      print_stream.error("Cannot queue a file, %s (%s)\n", enum_files_error_msg, error.what());
    }
 
    // wait for all file hasher threads to process all queued files

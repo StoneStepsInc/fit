@@ -263,7 +263,7 @@ void exif_reader_t::cleanup(print_stream_t& print_stream) noexcept
       Exiv2::XmpParser::terminate();
    }
    catch (const std::exception& error) {
-      print_stream.error("ERROR: Cannot clean up XMP parser (%s)\n", error.what());
+      print_stream.error("Cannot clean up XMP parser (%s)\n", error.what());
    }
 }
 
@@ -823,13 +823,13 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
       return field_bitset;
    }
    catch (const Exiv2::AnyError& error) {
-      print_stream.error("ERROR: Cannot read EXIF for %s (Exiv2: %d, %s)\n", filepath.c_str(), error.code(), error.what());
+      print_stream.error("Cannot read EXIF for %s (Exiv2: %d, %s)\n", filepath.c_str(), error.code(), error.what());
    }
    catch (const std::exception& error) {
-      print_stream.error("ERROR: Cannot read EXIF for %s (%s)\n", filepath.c_str(), error.what());
+      print_stream.error("Cannot read EXIF for %s (%s)\n", filepath.c_str(), error.what());
    }
    catch (...) {
-      print_stream.error("ERROR: Cannot read EXIF for %s\n", filepath.c_str());
+      print_stream.error("Cannot read EXIF for %s\n", filepath.c_str());
    }
 
    // return an empty bitset and discard a partially filled one

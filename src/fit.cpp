@@ -709,7 +709,7 @@ int main(int argc, char *argv[])
       return EXIT_SUCCESS;
    }
    catch (const std::exception& error) {
-      fprintf(stderr, "%s\n", error.what());
+      fprintf(stderr, "ERROR: %s\n", error.what());
    }
 
    return EXIT_FAILURE;

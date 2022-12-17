@@ -746,7 +746,7 @@ void file_tracker_t::run(void)
       catch (const std::exception& error) {
          progress_info.failed_files++;
 
-         print_stream.error("%s", error.what());
+         print_stream.error("Cannot process a file %s (%s)", filepath.c_str(), error.what());
 
          // if we started a transaction, roll it back
          if(!sqlite3_get_autocommit(file_scan_db)) {
