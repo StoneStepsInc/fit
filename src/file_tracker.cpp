@@ -570,10 +570,26 @@ void file_tracker_t::run(void)
          // characters reach this point, `C:\Users\X` and `C:\Users\x`
          // will be tracked as two different paths.
          //
+         try {
          if(options.base_path.empty())
             filepath = dir_entry.path().u8string();
          else
             filepath = dir_entry.path().lexically_relative(options.base_path).u8string();
+         }
+         catch (const std::exception& error) {
+            //
+            // Windows may store file paths with invalid UCS-2 characters,
+            // which fail to convert to UTF-8 paths. For example, a file
+            // path may have a code point `\x1F7FB` in it, which doesn't
+            // have any Unicode character assigned and cannot be converted
+            // to a UTF-8 string.
+            // 
+            // Clear the file name to indicate this condition and mangle
+            // the file name for reporting purposes in the exception handler.
+            //
+            filepath.clear();
+            throw;
+         }
 
          //
          // Attempt to find the file by its relative path first. For
@@ -746,7 +762,20 @@ void file_tracker_t::run(void)
       catch (const std::exception& error) {
          progress_info.failed_files++;
 
-         print_stream.error("Cannot process a file %s (%s)", filepath.c_str(), error.what());
+         //
+         // filepath is empty when the directory entry has a path that
+         // cannot be converted to UTF-8. Use a crude ASCII conversion
+         // and replace all non-ASCII characters with `?`, just to
+         // identify which file we couldn't process.
+         //
+         if(filepath.empty()) {
+            std::u16string filepath_u16 = dir_entry.path().u16string();
+            std::transform(filepath_u16.begin(), filepath_u16.end(),
+                              std::back_inserter(filepath),
+                              [] (char16_t chr) -> char {return (chr >= ' ' && chr < '\x7f' ? static_cast<char>(chr) : '?');});
+         }
+
+         print_stream.error("Cannot process file %s (%s)", filepath.c_str(), error.what());
 
          // if we started a transaction, roll it back
          if(!sqlite3_get_autocommit(file_scan_db)) {
