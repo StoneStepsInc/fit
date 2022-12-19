@@ -4,6 +4,7 @@
 #include <string>
 #include <filesystem>
 #include <optional>
+#include <vector>
 
 #include <cstdlib>
 #include <cstdint>
@@ -23,7 +24,8 @@ struct file_handle_deleter_t {
 struct options_t {
    std::filesystem::path base_path;
    std::filesystem::path db_path;
-   std::filesystem::path scan_path;
+
+   std::vector<std::filesystem::path> scan_paths;
 
    bool recursive_scan = false;
    bool verify_files = false;

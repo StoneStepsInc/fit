@@ -76,46 +76,50 @@ void file_tree_walker_t::walk_tree(void)
    try {
       std::filesystem::directory_options dir_it_opts = options.skip_no_access_paths ? std::filesystem::directory_options::skip_permission_denied : std::filesystem::directory_options::none;
 
-      for(const std::filesystem::directory_entry& dir_entry : dir_iter_t(options.scan_path, dir_it_opts)) {
-         //
-         // A symlink is also presented as a regular file and we want to
-         // skip symbolic links because if their targets are under the
-         // same base path, we will pick them up in the appropriate
-         // file type and if they are outside of the base path, then
-         // they should not be included at all (e.g. if a target is
-         // on a different volume in a recursive scan or in a different
-         // directory in a non-recursive scan).
-         //
-         if(!dir_entry.is_symlink() && dir_entry.is_regular_file()) {
-            std::unique_lock<std::mutex> files_lock(files_mtx);
+      for(const std::filesystem::path& scan_path : options.scan_paths) {
+         print_stream.info("%s \"%s\"", options.verify_files ? "Verifying" : "Scanning", scan_path.u8string().c_str());
 
-            files.push(dir_entry);
-
-            queued_files++;
-
+         for(const std::filesystem::directory_entry& dir_entry : dir_iter_t(scan_path, dir_it_opts)) {
             //
-            // If we reached the maximum queue size, let it process some of
-            // the queue before piling up more files.
+            // A symlink is also presented as a regular file and we want to
+            // skip symbolic links because if their targets are under the
+            // same base path, we will pick them up in the appropriate
+            // file type and if they are outside of the base path, then
+            // they should not be included at all (e.g. if a target is
+            // on a different volume in a recursive scan or in a different
+            // directory in a non-recursive scan).
             //
-            if(files.size() > MAX_FILE_QUEUE_SIZE) {
-               while(!abort_scan && files.size() > (MAX_FILE_QUEUE_SIZE*3)/4) {
-                  files_lock.unlock();
+            if(!dir_entry.is_symlink() && dir_entry.is_regular_file()) {
+               std::unique_lock<std::mutex> files_lock(files_mtx);
 
-                  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+               files.push(dir_entry);
 
-                  // if we are past the report time, print current stats and compute the next report time
-                  if(options.progress_interval && std::chrono::steady_clock::now() > report_time) {
-                     report_progress();
-                     report_time = std::chrono::steady_clock::now() + std::chrono::seconds(options.progress_interval);
+               queued_files++;
+
+               //
+               // If we reached the maximum queue size, let it process some of
+               // the queue before piling up more files.
+               //
+               if(files.size() > MAX_FILE_QUEUE_SIZE) {
+                  while(!abort_scan && files.size() > (MAX_FILE_QUEUE_SIZE*3)/4) {
+                     files_lock.unlock();
+
+                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+                     // if we are past the report time, print current stats and compute the next report time
+                     if(options.progress_interval && std::chrono::steady_clock::now() > report_time) {
+                        report_progress();
+                        report_time = std::chrono::steady_clock::now() + std::chrono::seconds(options.progress_interval);
+                     }
+
+                     files_lock.lock();
                   }
-
-                  files_lock.lock();
                }
-            }
 
-            if(abort_scan) {
-               print_stream.info(abort_message);
-               break;
+               if(abort_scan) {
+                  print_stream.info(abort_message);
+                  break;
+               }
             }
          }
       }

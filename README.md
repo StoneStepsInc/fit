@@ -17,7 +17,8 @@ modes and are as follows:
   * `-d c:\path\to\target`
 
     Points to a directory to scan. If omitted, current directory
-    is scanned.
+    is scanned. May be used multiple times to scan more than one
+    directory under the same base path.
 
   * `-p c:\path\to`
 

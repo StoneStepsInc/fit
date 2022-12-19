@@ -95,7 +95,7 @@ void print_usage(void)
 
    fputs("    -b path      - scan database\n", stdout);
    fputs("    -p path      - base path\n", stdout);
-   fputs("    -d path      - directory to scan\n", stdout);
+   fputs("    -d path      - directory to scan (may be used multiple times)\n", stdout);
    fputs("    -m message   - optional scan description\n", stdout);
    fputs("    -r           - recursive scan\n", stdout);
    fputs("    -v           - verify scanned files against database entries\n", stdout);
@@ -152,7 +152,7 @@ options_t parse_options(int argc, char *argv[])
             if(i+1 == argc || *(argv[i+1]) == '-')
                throw std::runtime_error("Missing directory to scan value");
 
-            options.scan_path = argv[++i];
+            options.scan_paths.emplace_back(argv[++i]);
             break;
          case 'm':
             if(i+1 == argc || *(argv[i+1]) == '-')
@@ -262,14 +262,18 @@ void verify_options(options_t& options)
       throw std::runtime_error(std::filesystem::absolute(options.db_path).remove_filename().u8string() + " must be an existing directory");
 
    // scan_path
-   if(options.scan_path.empty())
-      options.scan_path = std::filesystem::current_path();
+   if(options.scan_paths.empty())
+      options.scan_paths.emplace_back(std::filesystem::current_path());
 
-   if(!std::filesystem::exists(options.scan_path))
-      throw std::runtime_error(options.scan_path.u8string() + " does not exist");
+   for(const std::filesystem::path& scan_path : options.scan_paths) {
+      if(!std::filesystem::exists(scan_path))
+         throw std::runtime_error(scan_path.u8string() + " does not exist");
+   }
 
-   if(!std::filesystem::is_directory(options.scan_path))
-      throw std::runtime_error(options.scan_path.u8string() + " is not a directory");
+   for(const std::filesystem::path& scan_path : options.scan_paths) {
+      if(!std::filesystem::is_directory(scan_path))
+         throw std::runtime_error(scan_path.u8string() + " is not a directory");
+   }
 
    //
    // Windows file paths are case-insensitive, but character case is
@@ -281,7 +285,8 @@ void verify_options(options_t& options)
    // `C:\Temp`. Transform each path into canonical form, which makes
    // it absolute and uses actual characters for each path element.
    //
-   options.scan_path = std::filesystem::canonical(options.scan_path);
+   for(std::filesystem::path& scan_path : options.scan_paths)
+      scan_path = std::filesystem::canonical(scan_path);
 
    if(!options.base_path.empty()) {
       if(!std::filesystem::is_directory(options.base_path))
@@ -292,9 +297,11 @@ void verify_options(options_t& options)
       // make sure that the scan path is under the base path
       std::filesystem::path::iterator bpi = options.base_path.begin();
 
-      for(std::filesystem::path::iterator spi = options.scan_path.begin(); bpi != options.base_path.end() && spi != options.scan_path.end(); ++bpi, ++spi) {
-         if(*bpi != *spi)
-            throw std::runtime_error("Scan path must be under the base path");
+      for(const std::filesystem::path& scan_path : options.scan_paths) {
+         for(std::filesystem::path::iterator spi = scan_path.begin(); bpi != options.base_path.end() && spi != scan_path.end(); ++bpi, ++spi) {
+            if(*bpi != *spi)
+               throw std::runtime_error("Scan path must be under the base path");
+         }
       }
 
       // check if the loop ended because the scan path was shorter
@@ -654,9 +661,9 @@ int main(int argc, char *argv[])
       // Walk the file tree
       //
       if(!options.scan_message.empty())
-         print_stream.info("%s \"%s\" (%s) with options %s", options.verify_files ? "Verifying" : "Scanning", options.scan_path.u8string().c_str(), options.scan_message.c_str(), options.all.c_str());
+         print_stream.info("%s (%s) with options %s", options.verify_files ? "Verifying" : "Scanning", options.scan_message.c_str(), options.all.c_str());
       else
-         print_stream.info("%s \"%s\" with options %s", options.verify_files ? "Verifying" : "Scanning", options.scan_path.u8string().c_str(), options.all.c_str());
+         print_stream.info("%s with options %s", options.verify_files ? "Verifying" : "Scanning", options.all.c_str());
 
       //
       // Initialize underlying libraries before any of the components
