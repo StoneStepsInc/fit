@@ -105,6 +105,11 @@ modes and are as follows:
     
     When used without a value, disables EXIF processing altogether.
 
+  * `-J`
+
+    This option instructs `fit` to store EXIF values obtained from
+    the Exiv2 library as JSON in the database.
+
 ## Scanning a File Tree
 
 Scanning a file tree without the `-v` option will record computed
@@ -419,6 +424,88 @@ can be used to compute FNumber as `2 ^ (2.97/2) = f/2.8`.
 
 EXIF values are experimental at this point and their format may
 change in the future.
+
+### Exiv2Json
+
+If `-J` option was used, additional EXIF values obtained from
+the Exiv2 library are stored as JSON in the `Exiv2Json` column
+of the `exif` table.
+
+JSON values in this table may be different from text values
+described on the Exiv2 page above.
+
+For example, `Exif.GPSInfo.GPSLongitude` is described as a
+sequence of 3 rational values formatted as `ddd/1,mm/1,ss/1`,
+by Exiv2. This value is stored in the `exif.GPSLongitude`
+column as a text value similar to `53 23 6.387` and translates
+into the longitude value of `53°23'06.4"`. The same value is
+stored in JSON as a sequence of numerator/denominator pairs,
+similar to this:
+
+    [[53,1],[23,1],[6387,1000]]
+
+Inividual JSON values may be obtained from the `Exiv2Json` column
+using JSON functions in SQLite, which are described on this page.
+
+https://www.sqlite.org/json1.html
+
+For example, in order to obtain camera make and model, following
+JSON functions can be used in the SQL selection list.
+
+    json_extract(Exiv2Json, '$.Exif.Image.Make'),
+    json_extract(Exiv2Json, '$.Exif.Image.Model')
+
+Names of the JSON fields are obtained from Exiv2 and will not
+correspond to field names obtained from different tools. For
+example, `exiftool` may show `TimeZone` in `MakeNotes` group
+or under `MakerNoteCanon/TimeInfo/TimeZone` in verbose mode,
+while Exiv2 will report it as `Exif.CanonTi.TimeZone`.
+
+Exiv2 website is a good source of information about JSON schema,
+but a quick exploratory way to list keys in the `Exiv2Json`
+column is to use `json_each()` function. For example, this
+SQL will return names of all keys under the JSON root, which
+is identified as the `$` character, for the image identified
+by name as `_MG_2280.CR2`.
+
+    SELECT x.key
+    FROM json_each(Exiv2Json, '$') AS x,
+        exif JOIN versions ON exif_id = exif.rowid
+            JOIN files ON file_id = files.rowid
+        WHERE name = '_MG_2280.CR2';
+
+This SQL will typically return rows `Exif`, `_fit` and `Xmp`.
+Adding field names after `$` will list fields for that level,
+such as `$.Exif` may list fields `Image`, `Photo`, `CanonCs`,
+`Canon`, `CanonSi`, `CanonTi` and a few others.
+
+Values from the `Exiv2Json` column can be used in SQL just
+like any other values. For example, in order to obtain count
+of images grouped by lens model recorded in Canon maker notes,
+this SQL can be used.
+
+    SELECT
+        count(*), json_extract(Exiv2Json, '$.Exif.Canon.LensModel')
+    FROM exif
+        JOIN versions ON exif_id = exif.rowid
+        JOIN files ON file_id = files.rowid
+        JOIN scansets ON version_id = versions.rowid
+    WHERE scan_id = 2
+    GROUP by json_extract(Exiv2Json, '$.Exif.Canon.LensModel')
+    ORDER by 1 DESC;
+
+EXIF entries are limited to 12 elements in `Exiv2Json` to keep
+the size of this column manageable. Fields with more than 12 
+elements are discarded, which typically would affect entries
+such as `Exif.Canon.DustRemovalData`. Names of discarded entries
+are captured in the `$._fit.DroppedFields` array.
+
+Most of the values in `Exiv2Json` will be obtained from Exiv2
+and may be different from the same values in the corresponding
+columns of the `exif` table. For example, `$.Exif.Photo.DateTimeOriginal`
+will contain an actual EXIF value, such as `2017:01:01 15:23:49`,
+compared to `2017-01-01 15:23:49` stored in the `DateTimeOriginal`
+column. 
 
 ### Useful SQL
 

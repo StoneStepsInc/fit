@@ -3,16 +3,24 @@
 
 #include "print_stream.h"
 
+#include "fit.h"
+
+#include <rapidjson/allocators.h>
+#include <rapidjson/pointer.h>
+#include <rapidjson/document.h>
+
 #include <vector>
 #include <variant>
 #include <string>
 #include <bitset>
 #include <filesystem>
+#include <optional>
 
 #include <cstddef>
 
 namespace Exiv2 {
 class DataValue;
+class Value;
 template <typename T> class ValueType;
 }
 
@@ -91,6 +99,7 @@ enum field_index_t {
    EXIF_FIELD_GPSSpeed,
    EXIF_FIELD_GPSDateStamp,
    EXIF_FIELD_XMPxmpRating,
+   EXIF_FIELD_Exiv2Json,
    EXIF_FIELD_FieldCount
 };
 
@@ -104,7 +113,20 @@ typedef std::bitset<EXIF_FIELD_FieldCount> field_bitset_t;
 //
 class exif_reader_t {
    private:
+      static constexpr long MAX_JSON_ARRAY_SIZE = 12l;
+
+      const options_t& options;
+
       std::vector<field_value_t> exif_fields;
+
+      rapidjson::MemoryPoolAllocator<> rapidjson_mem_pool;
+
+      const rapidjson::Value rapidjson_empty_array;
+
+      const rapidjson::Pointer dropped_fields_pointer;
+      const rapidjson::Pointer dropped_fields_back_pointer;
+
+      std::string exiv2_json_path;     // reusable storage for rapidjson::Pointer path 
 
    private:
       template <typename T>
@@ -120,8 +142,17 @@ class exif_reader_t {
 
       static std::string_view trim_whitespace(const char *value, size_t length);
 
+      static std::string_view trim_whitespace(const char *value);
+
+      const std::string& get_exiv2_json_path(const char *family_name, const std::string& group_name, const std::string& tag_name);
+
+      template <typename T>
+      rapidjson::Value get_rational_array(const Exiv2::ValueType<T>& exif_value, size_t index);
+
+      void update_exiv2_json(rapidjson::Document& exiv2_json, std::optional<int> ifdId, std::optional<uint16_t> tagId, const char *family_name, const std::string& group_name, const std::string& tag_name, const Exiv2::Value& exif_value, const field_bitset_t& field_bitset);
+
    public:
-      exif_reader_t(void);
+      exif_reader_t(const options_t& options);
 
       exif_reader_t(exif_reader_t&& other);
 

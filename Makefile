@@ -40,7 +40,11 @@ CFLAGS := -std=gnu99 \
 
 CXXFLAGS := -std=c++17 \
 	$(CCFLAGS_COMMON) \
-	-fexceptions
+	-fexceptions \
+	-DRAPIDJSON_HAS_STDSTRING \
+	-DRAPIDJSON_HAS_CXX11_RVALUE_REFS \
+	-DRAPIDJSON_HAS_CXX11_NOEXCEPT \
+	-DRAPIDJSON_HAS_CXX11_RANGE_FOR
 
 
 ifeq ($(findstring -g,$(CXXFLAGS)),)

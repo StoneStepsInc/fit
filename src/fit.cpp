@@ -74,8 +74,10 @@ static const char *copyright = "Copyright (c) 2022 Stone Steps Inc.";
 //          Added table exif
 // 
 //   v4.0   Reworked ix_scansets_scan_version
+// 
+//   v5.0   Added Exiv2Json to exif
 //
-static const int DB_SCHEMA_VERSION = 40;
+static const int DB_SCHEMA_VERSION = 50;
 
 std::atomic<bool> abort_scan = false;
 
@@ -107,6 +109,7 @@ void print_usage(void)
    fputs("    -l path      - log file path\n", stdout);
    fputs("    -a           - skip restricted access directories\n", stdout);
    fputs("    -X           - list of EXIF file extensions (default: .jpg.cr2.dng.nef.tif.heif.webp)\n", stdout);
+   fputs("    -J           - store EXIF obtained from Exiv2 as JSON\n", stdout);
    fputs("    -?           - this help\n", stdout);
 
    fputc('\n', stdout);
@@ -205,6 +208,9 @@ options_t parse_options(int argc, char *argv[])
                options.EXIF_exts = argv[++i];
             else
                options.EXIF_exts.emplace();
+            break;
+         case 'J':
+            options.exiv2_json = true;
             break;
          case 'h':
          case '?':
@@ -414,7 +420,7 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
                                           "BodySerialNumber TEXT NULL,LensSpecification TEXT NULL,LensMake TEXT NULL,LensModel TEXT NULL,"
                                           "LensSerialNumber TEXT NULL,GPSLatitudeRef TEXT NULL,GPSLatitude TEXT NULL,GPSLongitudeRef TEXT NULL,"
                                           "GPSLongitude TEXT NULL,GPSAltitudeRef TEXT NULL,GPSAltitude TEXT NULL,GPSTimeStamp TEXT NULL,"
-                                          "GPSSpeedRef TEXT NULL,GPSSpeed TEXT NULL,GPSDateStamp TEXT NULL, XMPxmpRating TEXT NULL);",nullptr,nullptr,&errmsg) != SQLITE_OK)
+                                          "GPSSpeedRef TEXT NULL,GPSSpeed TEXT NULL,GPSDateStamp TEXT NULL, XMPxmpRating TEXT NULL, Exiv2Json TEXT NULL);",nullptr,nullptr,&errmsg) != SQLITE_OK)
             throw std::runtime_error("Cannot create table 'exif' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
          // scans table

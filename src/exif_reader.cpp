@@ -1,10 +1,19 @@
+#define NOMINMAX
+
 #include "exif_reader.h"
+
+#include <rapidjson/rapidjson.h>
+#include <rapidjson/document.h>
+#include <rapidjson/pointer.h>
+#include <rapidjson/writer.h>
+#include <rapidjson/stringbuffer.h>
 
 #include <cinttypes>
 #include <optional>
 #include <string_view>
 #include <cstring>
 #include <cmath>
+#include <algorithm>
 
 #include <memory.h>
 
@@ -59,6 +68,7 @@ constexpr unsigned int EXIF_TAG_LIGHT_SOURCE          = 0x9208;
 constexpr unsigned int EXIF_TAG_FLASH                 = 0x9209;
 constexpr unsigned int EXIF_TAG_FOCAL_LENGTH          = 0x920a;
 constexpr unsigned int EXIF_TAG_USER_COMMENT          = 0x9286;
+constexpr unsigned int EXIF_TAG_MAKER_NOTE            = 0x927c;
 constexpr unsigned int EXIF_TAG_SUB_SEC_TIME          = 0x9290;
 constexpr unsigned int EXIF_TAG_SUB_SEC_TIME_ORIGINAL = 0x9291;
 constexpr unsigned int EXIF_TAG_SUB_SEC_TIME_DIGITIZED = 0x9292;
@@ -98,13 +108,21 @@ constexpr unsigned int EXIF_TAG_GPS_SPEED             = 0x000d;
 constexpr unsigned int EXIF_TAG_GPS_DATE_STAMP        = 0x001d;
 
 
-exif_reader_t::exif_reader_t(void) :
-      exif_fields(EXIF_FIELD_FieldCount)
+exif_reader_t::exif_reader_t(const options_t& options) :
+      options(options),
+      exif_fields(EXIF_FIELD_FieldCount),
+      rapidjson_empty_array(rapidjson::kArrayType),
+      dropped_fields_pointer("/_fit/DroppedFields"),
+      dropped_fields_back_pointer("/-")
 {
 }
 
 exif_reader_t::exif_reader_t(exif_reader_t&& other) :
-      exif_fields(std::move(other.exif_fields))
+      options(other.options),
+      exif_fields(std::move(other.exif_fields)),
+      rapidjson_empty_array(rapidjson::kArrayType),
+      dropped_fields_pointer("/_fit/DroppedFields"),
+      dropped_fields_back_pointer("/-")
 {
 }
 
@@ -229,6 +247,13 @@ std::string_view exif_reader_t::trim_whitespace(const std::string& value)
    return trim_whitespace(value.data(), value.size());
 }
 
+//
+// This method is intended for entries typed as UNDEFINED and described
+// as text entries, such as UserComment. Such entries are not required
+// to be null-terminated, but may be padded heavily with null characters
+// or whitespace. This method will trim whitespace and padding from both
+// ends of the value.
+//
 std::string_view exif_reader_t::trim_whitespace(const char *value, size_t length)
 {
    std::string_view trimmed_value(value, length);
@@ -242,11 +267,33 @@ std::string_view exif_reader_t::trim_whitespace(const char *value, size_t length
       trimmed_value.remove_suffix(length-char_pos-1);
 
    if(!trimmed_value.empty()) {
-      if((char_pos = trimmed_value.find_first_not_of(" \t\r\n")) != std::string_view::npos && char_pos > 0)
+      if((char_pos = trimmed_value.find_first_not_of("\n \t\r")) != std::string_view::npos && char_pos > 0)
          trimmed_value.remove_prefix(char_pos);
    }
 
    return trimmed_value;
+}
+
+//
+// This method is intended for ASCII entries, which are null-terminated,
+// but may have garbage following the null terminator. A good example
+// of this is the LensModel in Canon's maker note block, which may have
+// a value, such as "18-250mm", followed by a few dozen null characters
+// and then a few non-null characters, all included into the entry size
+// value.
+//
+std::string_view exif_reader_t::trim_whitespace(const char *value)
+{
+   // we don't ever expect a null pointer in this call
+   if(!value)
+      throw std::runtime_error("Cannot trim whitespace against a null pointer");
+
+   const char *cp = value;
+
+   while (*cp && strchr("\n \t\r", *cp))
+      cp++;
+
+   return std::string_view(cp);
 }
 
 void exif_reader_t::initialize(print_stream_t& print_stream)
@@ -267,10 +314,199 @@ void exif_reader_t::cleanup(print_stream_t& print_stream) noexcept
    }
 }
 
+const std::string& exif_reader_t::get_exiv2_json_path(const char *family_name, const std::string& group_name, const std::string& tag_name)
+{
+   exiv2_json_path = "/";
+   exiv2_json_path += family_name;
+   exiv2_json_path += '/';
+   exiv2_json_path += group_name;
+   exiv2_json_path += '/';
+   exiv2_json_path += tag_name;
+
+   return exiv2_json_path;
+}
+
+template <typename T>
+rapidjson::Value exif_reader_t::get_rational_array(const Exiv2::ValueType<T>& exif_value, size_t index)
+{
+   rapidjson::Value rational_parts(rapidjson::kArrayType);
+
+   // [numerator, denominator]
+   rational_parts.PushBack(exif_value.value_.at(index).first, rapidjson_mem_pool);
+   rational_parts.PushBack(exif_value.value_.at(index).second, rapidjson_mem_pool);
+
+   return rational_parts;
+}
+
+void exif_reader_t::update_exiv2_json(rapidjson::Document& exiv2_json, std::optional<int> ifdId, std::optional<uint16_t> tagId, const char *family_name, const std::string& group_name, const std::string& tag_name, const Exiv2::Value& exif_value, const field_bitset_t& field_bitset)
+{
+   if(ifdId == 1 /* Image */) {
+      // skip original uninterpreted XML packet with XMP values
+      if(tagId == EXIF_TAG_XML_PACKET)
+         return;
+   }
+
+   if(ifdId == 5 /* EXIF */) {
+      // original uninterpreted maker notes block
+      if(tagId == EXIF_TAG_MAKER_NOTE)
+         return;
+   }
+
+   if(exif_value.size() > 0) {
+      rapidjson::Pointer json_pointer(get_exiv2_json_path(family_name, group_name, tag_name));
+
+      // process specific fields that require special handling
+      if(ifdId == 5 /* EXIF */) {
+         //
+         // Exiv2 uses expensive methods to extract user comments (e.g.
+         // a couple of substr, find(0)) and won't trim the whitespace,
+         // so if we have a user comment in a field, use the field value.
+         // If the field value is empty, it may be because the original
+         // value contained only whitespace, so for ASCII values always
+         // rely on the field value and otherwise allow Exiv2 to perform
+         // the conversion. This may create very large entries if a
+         // wide-character value is padded with K's of spaces.
+         //
+         if(tagId == EXIF_TAG_USER_COMMENT) {
+            if(field_bitset.test(EXIF_FIELD_UserComment))
+               json_pointer.Set(exiv2_json, rapidjson::Value(std::get<2>(exif_fields[EXIF_FIELD_UserComment]).c_str(), static_cast<rapidjson::SizeType>(std::get<2>(exif_fields[EXIF_FIELD_UserComment]).length()), rapidjson_mem_pool), rapidjson_mem_pool);
+            else {
+               const Exiv2::CommentValue *comment_value = dynamic_cast<const Exiv2::CommentValue*>(&exif_value);
+
+               //
+               // We may skip storing a comment value in exif_feilds if it
+               // contains only whitespace, but Exiv2 won't, so if it's an
+               // ASCII value, assume we got it right when the field wasn't
+               // set. Otherwise, allow Exiv2 to convert comment value to
+               // UTF-8.
+               //
+               if(comment_value && comment_value->charsetId() != Exiv2::CommentValue::CharsetId::ascii) {
+                  std::string comment = comment_value->comment();
+                  if(!comment.empty())
+                     json_pointer.Set(exiv2_json, rapidjson::Value(comment.c_str(), static_cast<rapidjson::SizeType>(comment.length()), rapidjson_mem_pool), rapidjson_mem_pool);
+               }
+            }
+            return;
+         }
+      }
+
+      //
+      // ASCII and XMP values are counted in bytes, not in values, so
+      // we need to process them explicitly.
+      //
+      if(exif_value.typeId() == Exiv2::TypeId::asciiString) {
+         std::string_view ascii_value = trim_whitespace(static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str());
+         if(!ascii_value.empty())
+            json_pointer.Set(exiv2_json, rapidjson::Value(ascii_value.data(), static_cast<rapidjson::SizeType>(ascii_value.length()), rapidjson_mem_pool));
+         return;
+      }
+
+      if(exif_value.typeId() == Exiv2::TypeId::xmpText) {
+         const Exiv2::XmpTextValue& xmp_text = static_cast<const Exiv2::XmpTextValue&>(exif_value);
+         if(!xmp_text.value_.empty())
+            json_pointer.Set(exiv2_json, rapidjson::Value(xmp_text.value_.data(), static_cast<rapidjson::SizeType>(xmp_text.value_.length()), rapidjson_mem_pool));
+         return;
+      }
+
+      if(exif_value.count() == 1) {
+         // output a single component value as a JSON value
+         switch (exif_value.typeId()) {
+            case Exiv2::TypeId::unsignedByte:
+               [[ fallthrough ]];
+            case Exiv2::TypeId::unsignedShort:
+               [[ fallthrough ]];
+            case Exiv2::TypeId::unsignedLong:
+               json_pointer.Set(exiv2_json, static_cast<uint64_t>(exif_value.toLong(static_cast<long>(0))));
+               break;
+            case Exiv2::TypeId::signedByte:
+               [[ fallthrough ]];
+            case Exiv2::TypeId::signedShort:
+               [[ fallthrough ]];
+            case Exiv2::TypeId::signedLong:
+               json_pointer.Set(exiv2_json, static_cast<int64_t>(exif_value.toLong(static_cast<long>(0))));
+               break;
+            case Exiv2::TypeId::signedRational:
+               json_pointer.Set(exiv2_json, get_rational_array(static_cast<const Exiv2::ValueType<Exiv2::Rational>&>(exif_value), 0));
+               break;
+            case Exiv2::TypeId::unsignedRational:
+               json_pointer.Set(exiv2_json, get_rational_array(static_cast<const Exiv2::ValueType<Exiv2::URational>&>(exif_value), 0));
+               break;
+            default:
+               json_pointer.Set(exiv2_json, exif_value.toString(static_cast<long>(0)));
+               break;
+         }
+      }
+      else {
+         //
+         // Drop fields that have too many values, which typically will be
+         // numeric arrays that are not easy to analyze and in most cases
+         // will only take up space in the database. Keep track of the
+         // fields we dropped.
+         //
+         if(exif_value.count() > MAX_JSON_ARRAY_SIZE) {
+            // get the value of the dropped fields array (insert if if doesn't exist)
+            rapidjson::Value& dropped_fields = dropped_fields_pointer.GetWithDefault(exiv2_json, rapidjson_empty_array, rapidjson_mem_pool);
+
+            // add the JSON pointer path to /_fit/DroppedFields
+            dropped_fields_back_pointer.Set(dropped_fields, exiv2_json_path, rapidjson_mem_pool);
+         }
+         else {
+            // output multiple component values as JSON arrays
+            rapidjson::Value value_array(rapidjson::kArrayType);
+
+            for(size_t i = 0; i < exif_value.count(); i++) {
+               switch (exif_value.typeId()) {
+                  case Exiv2::TypeId::undefined:
+                     [[ fallthrough ]];
+                  case Exiv2::TypeId::unsignedByte:
+                     [[ fallthrough ]];
+                  case Exiv2::TypeId::unsignedShort:
+                     [[ fallthrough ]];
+                  case Exiv2::TypeId::unsignedLong:
+                     // EXIF's unsigned long is 32 bits and JSON numbers are 53 bits
+                     value_array.PushBack(static_cast<uint64_t>(exif_value.toLong(static_cast<long>(i))), rapidjson_mem_pool);
+                     break;
+                  case Exiv2::TypeId::signedByte:
+                     [[ fallthrough ]];
+                  case Exiv2::TypeId::signedShort:
+                     [[ fallthrough ]];
+                  case Exiv2::TypeId::signedLong:
+                     // EXIF's long is 32 bits and JSON numbers are 53 bits
+                     value_array.PushBack(static_cast<int64_t>(exif_value.toLong(static_cast<long>(i))), rapidjson_mem_pool);
+                     break;
+                  case Exiv2::TypeId::signedRational:
+                     value_array.PushBack(get_rational_array(static_cast<const Exiv2::ValueType<Exiv2::Rational>&>(exif_value), i), rapidjson_mem_pool);
+                     break;
+                  case Exiv2::TypeId::unsignedRational:
+                     value_array.PushBack(get_rational_array(static_cast<const Exiv2::ValueType<Exiv2::URational>&>(exif_value), i), rapidjson_mem_pool);
+                     break;
+                  default:
+                     //
+                     // PushBack allocates a local variable for the value and uses
+                     // a constructor without the allocator, which won't match the
+                     // constructor taking std::string, so we construct our own
+                     // value instead and move into the array.
+                     //
+                     value_array.PushBack(rapidjson::Value(exif_value.toString(static_cast<long>(i)), rapidjson_mem_pool), rapidjson_mem_pool);
+                     break;
+               }
+            }
+
+            json_pointer.Set(exiv2_json, value_array);
+         }
+      }
+   }
+}
+
 field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepath, print_stream_t& print_stream)
 {
    try {
       field_bitset_t field_bitset;
+
+      std::optional<rapidjson::Document> exiv2_json;
+
+      if(options.exiv2_json)
+         exiv2_json.emplace(&rapidjson_mem_pool);
 
       //
       // Exiv2 handles wide characters in a way that may fail valid paths.
@@ -325,15 +561,19 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
       // storage in case if Exiv2 formatting changes in the future.
       // 
       for(Exiv2::ExifData::const_iterator i = exif_data.begin(); i != exif_data.end(); ++i) {
+
          //
-         // Ignore all IFDs except main image (1), EXIF (5) and GPS (6).
+         // Ignore all IFDs except main image (1), EXIF (5) and GPS (6)
+         // if we are not collecting JSON metadata.
          // 
          // We cannot use enum names here because Exiv2 hides them in the
          // Exiv2::Internal namespace. See Exiv2::Internal::groupInfo in
          // tags_int.cpp for IFD numbers and their names.
          //
-         if(i->ifdId() != 1 && i->ifdId() != 5 && i->ifdId() != 6)
-            continue;
+         if(!options.exiv2_json) {
+            if(i->ifdId() != 1 && i->ifdId() != 5 && i->ifdId() != 6)
+               continue;
+         }
 
          //
          // Exiv2 doesn't provide a check for a null value and just throws
@@ -699,26 +939,24 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
             }
 
             if(field_index.has_value() && exif_value.size()) {
-               //
-               // Some of the text values may be padded with zeros, and if we just
-               // assign std::string, that padding will be stored in the database.
-               // This may produce unexpected results, such as camera make stored
-               // as "Samsung\x0\x0" being different from "Samsung\x0". In order
-               // to avoid this, many assignments are done using c_str(), which
-               // is slower, but yields meaningful results. Counting from the other
-               // end of each string may yield better results for shorter strings,
-               // but some values would be 4K in size and have only a few characters
-               // in front.
-               //
                switch(exif_value.typeId()) {
                   case Exiv2::TypeId::unsignedByte:
                      fmt_exif_byte<unsigned char>(static_cast<const Exiv2::DataValue&>(exif_value), "%02hhx", exif_fields[field_index.value()]);
                      field_bitset.set(field_index.value());
                      break;
                   case Exiv2::TypeId::asciiString:
+                     //
+                     // Some of the ASCII entries have padding included in the entry
+                     // size, so if we just assign std::string, that padding will be
+                     // stored in the database and may produce unexpected results,
+                     // such as camera make stored as "Samsung\x0\x0" being different
+                     // from "Samsung\x0". Use c_str() to avoid this, which is slower,
+                     // because we need to scan each string for a null character, but
+                     // yields meaningful results.
+                     //
                      // ASCII entries are always null-terminated (some may have null character embedded in the string - e.g. Copyright)
                      if(exif_value.size() > 1) {
-                        std::string_view ascii_value = trim_whitespace(static_cast<const Exiv2::AsciiValue&>(exif_value).value_);
+                        std::string_view ascii_value = trim_whitespace(static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str());
 
                         if(!ascii_value.empty()) {
                            exif_fields[field_index.value()].emplace<std::string>(ascii_value);
@@ -778,6 +1016,9 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                }
             }
          }
+
+         if(exiv2_json.has_value())
+            update_exiv2_json(exiv2_json.value(), i->ifdId(), i->tag(), i->familyName(), i->groupName(), i->tagName(), i->value(), field_bitset);
       }
 
       if(!image->xmpData().empty()) {
@@ -802,6 +1043,7 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
          // out as soon as it is found to avoid unnecessary iterations.
          //
          for(Exiv2::XmpData::const_iterator i = image->xmpData().begin(); i != image->xmpData().end(); ++i) {
+
             if(i->key() == "Xmp.xmp.Rating"sv) {
                //
                // According to this ExifTool page, xmp.Rating is supposed to
@@ -810,13 +1052,28 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                // 
                // https://exiftool.org/TagNames/XMP.html#xmp
                //
-               if(i->typeName() == "XmpText"sv) {
+               if(i->typeId() == Exiv2::TypeId::xmpText) {
                   const Exiv2::XmpTextValue& xmp_text = static_cast<const Exiv2::XmpTextValue&>(i->value());
                   exif_fields[EXIF_FIELD_XMPxmpRating] = xmp_text.value_;
                   field_bitset.set(EXIF_FIELD_XMPxmpRating);
                }
-               break;
             }
+
+         if(exiv2_json.has_value())
+            update_exiv2_json(exiv2_json.value(), std::nullopt, std::nullopt, i->familyName(), i->groupName(), i->tagName(), i->value(), field_bitset);
+         }
+      }
+
+      if(exiv2_json.has_value()) {
+         // check against an empty document if we added any fields
+         if(exiv2_json != rapidjson::Document(&rapidjson_mem_pool)) {
+            rapidjson::StringBuffer strbuf;
+            rapidjson::Writer<rapidjson::StringBuffer> writer(strbuf);
+
+            exiv2_json.value().Accept(writer);
+
+            exif_fields[EXIF_FIELD_Exiv2Json] = strbuf.GetString();
+            field_bitset.set(EXIF_FIELD_Exiv2Json);
          }
       }
 

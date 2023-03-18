@@ -61,7 +61,8 @@ file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::q
       files(files),
       files_mtx(files_mtx),
       progress_info(progress_info),
-      EXIF_exts(parse_EXIF_exts(options))
+      EXIF_exts(parse_EXIF_exts(options)),
+      exif_reader(options)
 {
    int errcode = SQLITE_OK;
 
@@ -142,7 +143,7 @@ file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::q
                                       "SubjectLocation,ExposureIndex,SensingMethod,SceneType,ExposureMode,WhiteBalance,DigitalZoomRatio,FocalLengthIn35mmFilm,"
                                       "SceneCaptureType,SubjectDistanceRange,ImageUniqueID,CameraOwnerName,BodySerialNumber,LensSpecification,LensMake,LensModel,"
                                       "LensSerialNumber,GPSLatitudeRef,GPSLatitude,GPSLongitudeRef,GPSLongitude,GPSAltitudeRef,GPSAltitude,GPSTimeStamp,"
-                                      "GPSSpeedRef,GPSSpeed,GPSDateStamp,XMPxmpRating) "
+                                      "GPSSpeedRef,GPSSpeed,GPSDateStamp,XMPxmpRating,Exiv2Json) "
                                  "VALUES (?, ?, ?, ?, ?, ?, ?, ?, "
                                          "?, ?, ?, ?, ?, ?, ?, ?, "
                                          "?, ?, ?, ?, ?, ?, ?, ?, "
@@ -151,7 +152,7 @@ file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::q
                                          "?, ?, ?, ?, ?, ?, ?, ?, "
                                          "?, ?, ?, ?, ?, ?, ?, ?, "
                                          "?, ?, ?, ?, ?, ?, ?, ?, "
-                                         "?, ?, ?, ?)";
+                                         "?, ?, ?, ?, ?)";
 
    if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_exif.c_str(), (int) sql_insert_exif.length()+1, &stmt_insert_exif, nullptr)) != SQLITE_OK)
       print_stream.error("Cannot prepare a SQLite statement to insert an EXIF record (%s)", sqlite3_errstr(errcode));
@@ -576,7 +577,7 @@ void file_tracker_t::run(void)
          else
             filepath = dir_entry.path().lexically_relative(options.base_path).u8string();
          }
-         catch (const std::exception& error) {
+         catch (const std::exception&) {
             //
             // Windows may store file paths with invalid UCS-2 characters,
             // which fail to convert to UTF-8 paths. For example, a file
