@@ -107,13 +107,16 @@ constexpr unsigned int EXIF_TAG_GPS_SPEED_REF         = 0x000c;
 constexpr unsigned int EXIF_TAG_GPS_SPEED             = 0x000d;
 constexpr unsigned int EXIF_TAG_GPS_DATE_STAMP        = 0x001d;
 
+const char *exif_reader_t::oversized_fields_expr = "/_fit/oversized";
+
+const char *exif_reader_t::oversized_fields_back_expr = "/-";
 
 exif_reader_t::exif_reader_t(const options_t& options) :
       options(options),
       exif_fields(EXIF_FIELD_FieldCount),
       rapidjson_empty_array(rapidjson::kArrayType),
-      dropped_fields_pointer("/_fit/DroppedFields"),
-      dropped_fields_back_pointer("/-")
+      oversized_fields_pointer(oversized_fields_expr),
+      oversized_fields_back_pointer(oversized_fields_back_expr)
 {
 }
 
@@ -121,8 +124,8 @@ exif_reader_t::exif_reader_t(exif_reader_t&& other) :
       options(other.options),
       exif_fields(std::move(other.exif_fields)),
       rapidjson_empty_array(rapidjson::kArrayType),
-      dropped_fields_pointer("/_fit/DroppedFields"),
-      dropped_fields_back_pointer("/-")
+      oversized_fields_pointer(oversized_fields_expr),
+      oversized_fields_back_pointer(oversized_fields_back_expr)
 {
 }
 
@@ -445,10 +448,10 @@ void exif_reader_t::update_exiv2_json(rapidjson::Document& exiv2_json, std::opti
          //
          if(exif_value.count() > MAX_JSON_ARRAY_SIZE) {
             // get the value of the dropped fields array (insert if if doesn't exist)
-            rapidjson::Value& dropped_fields = dropped_fields_pointer.GetWithDefault(exiv2_json, rapidjson_empty_array, rapidjson_mem_pool);
+            rapidjson::Value& dropped_fields = oversized_fields_pointer.GetWithDefault(exiv2_json, rapidjson_empty_array, rapidjson_mem_pool);
 
-            // add the JSON pointer path to /_fit/DroppedFields
-            dropped_fields_back_pointer.Set(dropped_fields, exiv2_json_path, rapidjson_mem_pool);
+            // add the JSON pointer expression of the oversized field to /_fit/overiszed
+            oversized_fields_back_pointer.Set(dropped_fields, exiv2_json_path, rapidjson_mem_pool);
          }
          else {
             // output multiple component values as JSON arrays

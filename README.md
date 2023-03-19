@@ -498,7 +498,7 @@ EXIF entries are limited to 12 elements in `Exiv2Json` to keep
 the size of this column manageable. Fields with more than 12 
 elements are discarded, which typically would affect entries
 such as `Exif.Canon.DustRemovalData`. Names of discarded entries
-are captured in the `$._fit.DroppedFields` array.
+are captured in the `$._fit.oversized` array.
 
 Most of the values in `Exiv2Json` will be obtained from Exiv2
 and may be different from the same values in the corresponding
