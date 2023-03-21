@@ -374,7 +374,7 @@ void exif_reader_t::update_exiv2_json(rapidjson::Document& exiv2_json, std::opti
             if(field_bitset.test(EXIF_FIELD_UserComment))
                json_pointer.Set(exiv2_json, rapidjson::Value(std::get<2>(exif_fields[EXIF_FIELD_UserComment]).c_str(), static_cast<rapidjson::SizeType>(std::get<2>(exif_fields[EXIF_FIELD_UserComment]).length()), rapidjson_mem_pool), rapidjson_mem_pool);
             else {
-               const Exiv2::CommentValue *comment_value = dynamic_cast<const Exiv2::CommentValue*>(&exif_value);
+               const Exiv2::CommentValue *comment = dynamic_cast<const Exiv2::CommentValue*>(&exif_value);
 
                //
                // We may skip storing a comment value in exif_feilds if it
@@ -383,10 +383,11 @@ void exif_reader_t::update_exiv2_json(rapidjson::Document& exiv2_json, std::opti
                // set. Otherwise, allow Exiv2 to convert comment value to
                // UTF-8.
                //
-               if(comment_value && comment_value->charsetId() != Exiv2::CommentValue::CharsetId::ascii) {
-                  std::string comment = comment_value->comment();
-                  if(!comment.empty())
-                     json_pointer.Set(exiv2_json, rapidjson::Value(comment.c_str(), static_cast<rapidjson::SizeType>(comment.length()), rapidjson_mem_pool), rapidjson_mem_pool);
+               if(comment && memcmp(comment->value_.data(), "ASCII\x0\x0\x0", 8)) {
+                  const std::string& comment_ref = comment->comment();
+                  std::string_view comment_value = trim_whitespace(comment_ref);
+                  if(!comment_value.empty())
+                     json_pointer.Set(exiv2_json, rapidjson::Value(comment_value.data(), static_cast<rapidjson::SizeType>(comment_value.length()), rapidjson_mem_pool), rapidjson_mem_pool);
                }
             }
             return;
@@ -841,7 +842,14 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                      // 
                      if(exif_value.size() > 8) { 
                         const Exiv2::CommentValue *comment = dynamic_cast<const Exiv2::CommentValue*>(&i->value());
-                        if(comment && comment->charsetId() == Exiv2::CommentValue::CharsetId::ascii) {
+
+                        //
+                        // Avoid Exiv2::CommentValue::charsetId(), which is unnessesarily
+                        // expensive because it is calling substr() and creating string
+                        // temporaries, and check the underlying EXIF data formatted as
+                        // a user comment field.
+                        //
+                        if(comment && !memcmp(comment->value_.data(), "ASCII\x0\x0\x0", 8)) {
                            //
                            // This field is typed as undefined, but must be padded with
                            // zeros, so it may appear as if it's null-terminated, but
