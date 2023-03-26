@@ -111,6 +111,9 @@ const char *exif_reader_t::oversized_fields_expr = "/_fit/oversized";
 
 const char *exif_reader_t::oversized_fields_back_expr = "/-";
 
+// C++17 implies that the null character is preserved by "its length excluding the terminating null character"
+const std::string_view exif_reader_t::whitespace = "\n \t\r"sv;
+
 exif_reader_t::exif_reader_t(const options_t& options) :
       options(options),
       exif_fields(EXIF_FIELD_FieldCount),
@@ -254,27 +257,25 @@ std::string_view exif_reader_t::trim_whitespace(const std::string& value)
 // This method is intended for entries typed as UNDEFINED and described
 // as text entries, such as UserComment. Such entries are not required
 // to be null-terminated, but may be padded heavily with null characters
-// or whitespace. This method will trim whitespace and padding from both
-// ends of the value.
+// or whitespace. This method will trim whitespace from the beginning
+// of the value and any padding from the end.
 //
 std::string_view exif_reader_t::trim_whitespace(const char *value, size_t length)
 {
-   std::string_view trimmed_value(value, length);
+   // we don't ever expect a null pointer in this call
+   if(!value)
+      throw std::runtime_error("Cannot trim whitespace against a null pointer");
 
-   size_t char_pos;
+   const char *bp = value, *ep = bp + length;
 
-   // start from the end, so we don't have to adjust the offset (5 includes the explicit null terminator, used for visibility)
-   if((char_pos = trimmed_value.find_last_not_of(" \t\r\n\x0", std::string_view::npos, 5)) == std::string_view::npos)
-      trimmed_value.remove_suffix(length);
-   else
-      trimmed_value.remove_suffix(length-char_pos-1);
+   while (bp < ep && memchr(whitespace.data(), *bp, whitespace.length()))
+      bp++;
 
-   if(!trimmed_value.empty()) {
-      if((char_pos = trimmed_value.find_first_not_of("\n \t\r")) != std::string_view::npos && char_pos > 0)
-         trimmed_value.remove_prefix(char_pos);
-   }
+   // include the null character in the set of whitespace characters (+1)
+   while(ep > bp && memchr(whitespace.data(), *(ep-1), whitespace.length()+1))
+      ep--;
 
-   return trimmed_value;
+   return std::string_view(bp, ep - bp);
 }
 
 //
@@ -291,12 +292,12 @@ std::string_view exif_reader_t::trim_whitespace(const char *value)
    if(!value)
       throw std::runtime_error("Cannot trim whitespace against a null pointer");
 
-   const char *cp = value;
+   const char *bp = value;
 
-   while (*cp && strchr("\n \t\r", *cp))
-      cp++;
+   while (*bp && memchr(whitespace.data(), *bp, whitespace.length()))
+      bp++;
 
-   return std::string_view(cp);
+   return std::string_view(bp);
 }
 
 void exif_reader_t::initialize(print_stream_t& print_stream)

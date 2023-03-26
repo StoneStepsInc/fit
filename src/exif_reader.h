@@ -118,6 +118,8 @@ class exif_reader_t {
       static const char *oversized_fields_expr;                // JSON pointer expression to $._fit.oversized
       static const char *oversized_fields_back_expr;           // relative JSON pointer expression to past last element of $._fit.oversized
 
+      static const std::string_view whitespace;
+
       const options_t& options;
 
       std::vector<field_value_t> exif_fields;
