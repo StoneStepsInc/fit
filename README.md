@@ -463,21 +463,11 @@ while Exiv2 will report it as `Exif.CanonTi.TimeZone`.
 
 Exiv2 website is a good source of information about JSON schema,
 but a quick exploratory way to list keys in the `Exiv2Json`
-column is to use `json_each()` function. For example, this
-SQL will return names of all keys under the JSON root, which
-is identified as the `$` character, for the image identified
-by name as `_MG_2280.CR2`.
+column for some file name is to run the `list-exiv2json-fields.sql`
+script, as shown below.
 
-    SELECT x.key
-    FROM json_each(Exiv2Json, '$') AS x,
-        exif JOIN versions ON exif_id = exif.rowid
-            JOIN files ON file_id = files.rowid
-        WHERE name = '_MG_2280.CR2';
-
-This SQL will typically return rows `Exif`, `_fit` and `Xmp`.
-Adding field names after `$` will list fields for that level,
-such as `$.Exif` may list fields `Image`, `Photo`, `CanonCs`,
-`Canon`, `CanonSi`, `CanonTi` and a few others.
+    sqlite3 -box -cmd ".param set @FILENAME _MG_2280.CR2" \
+        sqlite.db < sql\list-exiv2json-fields.sql
 
 Values from the `Exiv2Json` column can be used in SQL just
 like any other values. For example, in order to obtain count
@@ -505,7 +495,12 @@ and may be different from the same values in the corresponding
 columns of the `exif` table. For example, `$.Exif.Photo.DateTimeOriginal`
 will contain an actual EXIF value, such as `2017:01:01 15:23:49`,
 compared to `2017-01-01 15:23:49` stored in the `DateTimeOriginal`
-column. 
+column.
+
+EXIF fields that are supposed to contain ASCII values are validated
+as UTF-8 fields, which includes ASCII. Fields containing invalid
+UTF-8 sequences will are discarded and their names are captured
+in the `$._fit.bad_utf8` array.
 
 ### Useful SQL
 
