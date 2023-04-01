@@ -115,8 +115,9 @@ class exif_reader_t {
    private:
       static constexpr long MAX_JSON_ARRAY_SIZE = 12l;
 
-      static const char *oversized_fields_expr;                // JSON pointer expression to $._fit.oversized
-      static const char *oversized_fields_back_expr;           // relative JSON pointer expression to past last element of $._fit.oversized
+      static const char *jsonptr_oversized_expr;            // JSON pointer for $._fit.oversized
+      static const char *jsonptr_bad_utf8_expr;             // JSON pointer for $._fit.bad_utf8
+      static const char *jsonptr_push_back_expr;            // relative JSON pointer past last element of an array
 
       static const std::string_view whitespace;
 
@@ -128,8 +129,9 @@ class exif_reader_t {
 
       const rapidjson::Value rapidjson_empty_array;
 
-      const rapidjson::Pointer oversized_fields_pointer;
-      const rapidjson::Pointer oversized_fields_back_pointer;
+      const rapidjson::Pointer jsonptr_oversized;
+      const rapidjson::Pointer jsonptr_bad_utf8;
+      const rapidjson::Pointer jsonptr_push_back;
 
       std::string exiv2_json_path;                             // reusable storage for rapidjson::Pointer path 
 

@@ -22,6 +22,9 @@
     <ClCompile Include="src\exif_reader.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\unicode.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\file_tracker.h">
@@ -43,6 +46,9 @@
       <Filter>sha256</Filter>
     </ClInclude>
     <ClInclude Include="src\exif_reader.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\unicode.h">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>

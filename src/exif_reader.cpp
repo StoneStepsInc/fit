@@ -2,6 +2,8 @@
 
 #include "exif_reader.h"
 
+#include "unicode.h"
+
 #include <rapidjson/rapidjson.h>
 #include <rapidjson/document.h>
 #include <rapidjson/pointer.h>
@@ -107,9 +109,10 @@ constexpr unsigned int EXIF_TAG_GPS_SPEED_REF         = 0x000c;
 constexpr unsigned int EXIF_TAG_GPS_SPEED             = 0x000d;
 constexpr unsigned int EXIF_TAG_GPS_DATE_STAMP        = 0x001d;
 
-const char *exif_reader_t::oversized_fields_expr = "/_fit/oversized";
+const char *exif_reader_t::jsonptr_oversized_expr = "/_fit/oversized";
+const char *exif_reader_t::jsonptr_bad_utf8_expr = "/_fit/bad_utf8";
 
-const char *exif_reader_t::oversized_fields_back_expr = "/-";
+const char *exif_reader_t::jsonptr_push_back_expr = "/-";
 
 // C++17 implies that the null character is preserved by "its length excluding the terminating null character"
 const std::string_view exif_reader_t::whitespace = "\n \t\r"sv;
@@ -118,8 +121,9 @@ exif_reader_t::exif_reader_t(const options_t& options) :
       options(options),
       exif_fields(EXIF_FIELD_FieldCount),
       rapidjson_empty_array(rapidjson::kArrayType),
-      oversized_fields_pointer(oversized_fields_expr),
-      oversized_fields_back_pointer(oversized_fields_back_expr)
+      jsonptr_oversized(jsonptr_oversized_expr),
+      jsonptr_bad_utf8(jsonptr_bad_utf8_expr),
+      jsonptr_push_back(jsonptr_push_back_expr)
 {
 }
 
@@ -127,8 +131,9 @@ exif_reader_t::exif_reader_t(exif_reader_t&& other) :
       options(other.options),
       exif_fields(std::move(other.exif_fields)),
       rapidjson_empty_array(rapidjson::kArrayType),
-      oversized_fields_pointer(oversized_fields_expr),
-      oversized_fields_back_pointer(oversized_fields_back_expr)
+      jsonptr_oversized(jsonptr_oversized_expr),
+      jsonptr_bad_utf8(jsonptr_bad_utf8_expr),
+      jsonptr_push_back(jsonptr_push_back_expr)
 {
 }
 
@@ -366,10 +371,9 @@ void exif_reader_t::update_exiv2_json(rapidjson::Document& exiv2_json, std::opti
          // a couple of substr, find(0)) and won't trim the whitespace,
          // so if we have a user comment in a field, use the field value.
          // If the field value is empty, it may be because the original
-         // value contained only whitespace, so for ASCII values always
-         // rely on the field value and otherwise allow Exiv2 to perform
-         // the conversion. This may create very large entries if a
-         // wide-character value is padded with K's of spaces.
+         // value contained only whitespace or invalid UTF-8 characters,
+         // so for ASCII values always rely on the field value and
+         // otherwise allow Exiv2 to perform the conversion.
          //
          if(tagId == EXIF_TAG_USER_COMMENT) {
             if(field_bitset.test(EXIF_FIELD_UserComment))
@@ -377,37 +381,59 @@ void exif_reader_t::update_exiv2_json(rapidjson::Document& exiv2_json, std::opti
             else {
                const Exiv2::CommentValue *comment = dynamic_cast<const Exiv2::CommentValue*>(&exif_value);
 
-               //
-               // We may skip storing a comment value in exif_feilds if it
-               // contains only whitespace, but Exiv2 won't, so if it's an
-               // ASCII value, assume we got it right when the field wasn't
-               // set. Otherwise, allow Exiv2 to convert comment value to
-               // UTF-8.
-               //
-               if(comment && memcmp(comment->value_.data(), "ASCII\x0\x0\x0", 8)) {
-                  const std::string& comment_ref = comment->comment();
-                  std::string_view comment_value = trim_whitespace(comment_ref);
-                  if(!comment_value.empty())
-                     json_pointer.Set(exiv2_json, rapidjson::Value(comment_value.data(), static_cast<rapidjson::SizeType>(comment_value.length()), rapidjson_mem_pool), rapidjson_mem_pool);
+               if(comment) {
+                  if(!memcmp(comment->value_.data(), "ASCII\x0\x0\x0", 8)) {
+                     //
+                     // We may skip storing a comment value in exif_feilds if
+                     // it contains only whitespace or at least one invalid UTF-8
+                     // character. In order to detect the latter, we need to scan
+                     // it one more time, which is simpler than tracking which of
+                     // these cases we have with some state flag.
+                     //
+                     if(!unicode::is_valid_utf8(comment->value_.c_str()+8)) {
+                        rapidjson::Value& bad_utf8_fields = jsonptr_bad_utf8.GetWithDefault(exiv2_json, rapidjson_empty_array, rapidjson_mem_pool);
+                        jsonptr_push_back.Set(bad_utf8_fields, exiv2_json_path, rapidjson_mem_pool);
+                     }
+                  }
+                  else {
+                     // otherwise, allow Exiv2 to convert comment value to UTF-8
+                     const std::string& comment_ref = comment->comment();
+
+                     // need a reference to keep the string view valid against the temporary returned above
+                     std::string_view comment_value = trim_whitespace(comment_ref);
+                     if(!comment_value.empty())
+                        json_pointer.Set(exiv2_json, rapidjson::Value(comment_value.data(), static_cast<rapidjson::SizeType>(comment_value.length()), rapidjson_mem_pool), rapidjson_mem_pool);
+                  }
                }
             }
             return;
          }
+         else if(tagId == EXIF_TAG_COPYRIGHT) {
+            // keep the copyright field formatting consistent with the column value
+            if(field_bitset.test(EXIF_FIELD_Copyright))
+               json_pointer.Set(exiv2_json, rapidjson::Value(std::get<2>(exif_fields[EXIF_FIELD_Copyright]).c_str(), static_cast<rapidjson::SizeType>(std::get<2>(exif_fields[EXIF_FIELD_Copyright]).length()), rapidjson_mem_pool), rapidjson_mem_pool);
+            return;
+         }
       }
 
-      //
-      // ASCII and XMP values are counted in bytes, not in values, so
-      // we need to process them explicitly.
-      //
+      // ASCII values are counted in bytes, not in values, so we need to process them explicitly
       if(exif_value.typeId() == Exiv2::TypeId::asciiString) {
-         std::string_view ascii_value = trim_whitespace(static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str());
-         if(!ascii_value.empty())
-            json_pointer.Set(exiv2_json, rapidjson::Value(ascii_value.data(), static_cast<rapidjson::SizeType>(ascii_value.length()), rapidjson_mem_pool));
+         if(!unicode::is_valid_utf8(static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str())) {
+            rapidjson::Value& bad_utf8_fields = jsonptr_bad_utf8.GetWithDefault(exiv2_json, rapidjson_empty_array, rapidjson_mem_pool);
+            jsonptr_push_back.Set(bad_utf8_fields, exiv2_json_path, rapidjson_mem_pool);
+         }
+         else {
+            std::string_view ascii_value = trim_whitespace(static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str());
+            if(!ascii_value.empty())
+               json_pointer.Set(exiv2_json, rapidjson::Value(ascii_value.data(), static_cast<rapidjson::SizeType>(ascii_value.length()), rapidjson_mem_pool));
+         }
          return;
       }
 
+      // same as ASCII values above
       if(exif_value.typeId() == Exiv2::TypeId::xmpText) {
          const Exiv2::XmpTextValue& xmp_text = static_cast<const Exiv2::XmpTextValue&>(exif_value);
+         // we trust that the underlying XML contained valid UTF-8 sequences
          if(!xmp_text.value_.empty())
             json_pointer.Set(exiv2_json, rapidjson::Value(xmp_text.value_.data(), static_cast<rapidjson::SizeType>(xmp_text.value_.length()), rapidjson_mem_pool));
          return;
@@ -450,10 +476,10 @@ void exif_reader_t::update_exiv2_json(rapidjson::Document& exiv2_json, std::opti
          //
          if(exif_value.count() > MAX_JSON_ARRAY_SIZE) {
             // get the value of the dropped fields array (insert if if doesn't exist)
-            rapidjson::Value& dropped_fields = oversized_fields_pointer.GetWithDefault(exiv2_json, rapidjson_empty_array, rapidjson_mem_pool);
+            rapidjson::Value& oversized_fields = jsonptr_oversized.GetWithDefault(exiv2_json, rapidjson_empty_array, rapidjson_mem_pool);
 
             // add the JSON pointer expression of the oversized field to /_fit/overiszed
-            oversized_fields_back_pointer.Set(dropped_fields, exiv2_json_path, rapidjson_mem_pool);
+            jsonptr_push_back.Set(oversized_fields, exiv2_json_path, rapidjson_mem_pool);
          }
          else {
             // output multiple component values as JSON arrays
@@ -697,8 +723,13 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                         //   * photographer copyright \x0
                         //   * \x20\x0 editor copyright \x0
                         //
-                        if(exif_value.size() > 1) {
-                           std::string_view copyright_value = trim_whitespace(static_cast<const Exiv2::AsciiValue&>(exif_value).value_);
+                        // Note that the entire value is validated using field length,
+                        // including a possible null character in the middle, which
+                        // does not invalidate the string.
+                        //
+                        if(exif_value.size() > 1 && unicode::is_valid_utf8(static_cast<const Exiv2::AsciiValue&>(exif_value).value_)) {
+                           // do not trim the whitespace because the space in front is significant
+                           std::string_view copyright_value = static_cast<const Exiv2::AsciiValue&>(exif_value).value_;
 
                            if(!copyright_value.empty()) {
                               std::string& copyright = exif_fields[EXIF_FIELD_Copyright].emplace<std::string>(copyright_value);
@@ -868,12 +899,14 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                            // field.
                            //
                            if(*(comment->value_.begin()+8) && (padding_pos == std::string::npos || padding_pos > 8)) {
-                              std::string_view comment_value = trim_whitespace(comment->value_.data()+8, padding_pos == std::string::npos ? comment->value_.length()-8 : padding_pos-8);
+                              if(unicode::is_valid_utf8(comment->value_.data()+8, padding_pos == std::string::npos ? comment->value_.length()-8 : padding_pos-8)) {
+                                 std::string_view comment_value = trim_whitespace(comment->value_.data()+8, padding_pos == std::string::npos ? comment->value_.length()-8 : padding_pos-8);
 
-                              // skip anything less than two characters (big endian UCS-2 will be interepted as a single character)
-                              if(comment_value.length() > 1) {
-                                 exif_fields[EXIF_FIELD_UserComment].emplace<std::string>(comment_value);
-                                 field_bitset.set(EXIF_FIELD_UserComment);
+                                 // skip anything less than two characters (big endian UCS-2 will be interepted as a single character)
+                                 if(comment_value.length() > 1) {
+                                    exif_fields[EXIF_FIELD_UserComment].emplace<std::string>(comment_value);
+                                    field_bitset.set(EXIF_FIELD_UserComment);
+                                 }
                               }
                            }
                         }
@@ -967,7 +1000,7 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                      // yields meaningful results.
                      //
                      // ASCII entries are always null-terminated (some may have null character embedded in the string - e.g. Copyright)
-                     if(exif_value.size() > 1) {
+                     if(exif_value.size() > 1 && unicode::is_valid_utf8(static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str())) {
                         std::string_view ascii_value = trim_whitespace(static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str());
 
                         if(!ascii_value.empty()) {

@@ -103,6 +103,7 @@ copy /Y $(LibExpatDir)lib\$(Platform)\$(Configuration)\*.pdb $(OutDir)</Command>
     <ClCompile Include="src\print_stream.cpp" />
     <ClCompile Include="src\sha256\sha256.c" />
     <ClCompile Include="src\sqlite.cpp" />
+    <ClCompile Include="src\unicode.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\exif_reader.h" />
@@ -112,6 +113,7 @@ copy /Y $(LibExpatDir)lib\$(Platform)\$(Configuration)\*.pdb $(OutDir)</Command>
     <ClInclude Include="src\print_stream.h" />
     <ClInclude Include="src\sha256\sha256.h" />
     <ClInclude Include="src\sqlite.h" />
+    <ClInclude Include="src\unicode.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitignore" />
