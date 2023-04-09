@@ -6,29 +6,30 @@ SIG_SHA256=4269c41e5ccbfdb108cc8bba03a95456c36555213cc10965a70e33af0e08292a
 if [ -d src/sha256 ]
 then
   echo Directory sha256 already exists
-  exit
-else 
-  curl --location --output sha256.zip https://github.com/jb55/sha256.c/archive/$GIT_COMMIT.zip
-
-  echo "$SIG_SHA256  sha256.zip" | sha256sum --check
-
-  if [ $? -ne 0 ]
-  then
-    echo "Bad checksum: sha256.zip"
-    exit 1
-  fi
-
-  unzip sha256.zip
-  rm -f sha256.zip
-
-  mv sha256.c-$GIT_COMMIT src/sha256
-  cd src/sha256
-
-  mv deps/rotate-bits .
-
-  rm -rf deps
-  rm -f package.json rotate-bits/package.json
-  rm -f .gitignore .travis.yml Makefile test.c
-
-  cd ../..
+  exit 1
 fi
+
+curl --location --output sha256.zip https://github.com/jb55/sha256.c/archive/$GIT_COMMIT.zip
+
+# two spaces after the signature are required for sha256sum
+echo "$SIG_SHA256  sha256.zip" | sha256sum --check
+
+if [ $? -ne 0 ]
+then
+  echo "Bad checksum: sha256.zip"
+  exit 1
+fi
+
+unzip sha256.zip
+rm -f sha256.zip
+
+mv sha256.c-$GIT_COMMIT src/sha256
+cd src/sha256
+
+mv deps/rotate-bits .
+
+rm -rf deps
+rm -f package.json rotate-bits/package.json
+rm -f .gitignore .travis.yml Makefile test.c
+
+cd ../..

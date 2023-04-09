@@ -1,7 +1,7 @@
 #
 # File Integrity Tracker (fit)
 # 
-# Copyright (c) 2022, Stone Steps Inc.
+# Copyright (c) 2023, Stone Steps Inc.
 #
 
 SHELL := /bin/bash
@@ -19,9 +19,15 @@ BLDDIR := build
 endif
 
 SRCS := fit.cpp file_tree_walker.cpp file_tracker.cpp exif_reader.cpp \
-        print_stream.cpp sqlite.cpp sha256/sha256.c unicode.cpp
+        print_stream.cpp sqlite.cpp unicode.cpp
 
 LIBS := sqlite3 pthread stdc++fs exiv2 exiv2-xmp expat z
+
+ifdef NO_SSE_AVX
+SRCS += sha256/sha256.c
+else
+LIBS += isa-l_crypto
+endif
 
 OBJS := $(patsubst %.c,%.o,$(filter %.c,$(SRCS))) \
 	$(patsubst %.cpp,%.o,$(filter %.cpp,$(SRCS)))
@@ -31,8 +37,12 @@ DEPS := $(OBJS:.o=.d)
 # compiler options shared between C and C++ source
 CCFLAGS_COMMON := -Werror -pedantic
 
-ifdef $(DEBUG)
+ifdef DEBUG
 CCFLAGS_COMMON += -g
+endif
+
+ifdef NO_SSE_AVX
+CCFLAGS_COMMON += -DNO_SSE_AVX
 endif
 
 CFLAGS := -std=gnu99 \

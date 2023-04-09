@@ -9,12 +9,14 @@
 #include "sqlite.h"
 
 #include <string>
+#include <string_view>
 #include <mutex>
 #include <atomic>
 #include <thread>
 #include <queue>
 #include <vector>
 #include <optional>
+#include <filesystem>
 
 #include <cstdlib>
 #include <cstdint>
@@ -107,7 +109,11 @@ class file_tracker_t {
       void hash_file(const std::filesystem::path& filepath, uint64_t& filesize, unsigned char hexhash[]);
 
       void run(void);
-      
+
+#ifndef NO_SSE_AVX
+      static void isa_mb_hash_to_hex(uint32_t hash[], unsigned char hexhash[]);
+#endif
+
       static int sqlite_busy_handler_cb(void*, int count);
 
       static std::vector<std::string> parse_EXIF_exts(const options_t& options);

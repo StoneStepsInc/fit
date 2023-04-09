@@ -2,25 +2,22 @@
 
 #include "fit.h"
 
+#ifdef NO_SSE_AVX
+// this is intended for older Linux machines, but if used on Windows, add sha256/sha256.c into fit.vcxproj
 extern "C" {
 #include "sha256/sha256.h"
 }
+#else
+#include <sha256_mb.h>
+#endif
 
 #ifdef _WIN32
 #include <cwchar>    // for _wfopen
 #endif
 
-#include <string>
 #include <stdexcept>
-#include <filesystem>
-#include <mutex>
-#include <atomic>
-#include <thread>
-#include <vector>
-#include <queue>
 #include <chrono>
 #include <algorithm>
-#include <optional>
 
 #include <cstring>
 
@@ -50,7 +47,13 @@ struct less_ci {
    }
 };
 
-static constexpr const size_t SHA256_HEX_SIZE = SHA256_DIGEST_SIZE * 2;
+#ifdef NO_SSE_AVX
+static constexpr const size_t SHA256_BIN_SIZE = SHA256_DIGEST_SIZE;
+#else
+static constexpr const size_t SHA256_BIN_SIZE = SHA256_DIGEST_NWORDS * sizeof(uint32_t);
+#endif
+
+static constexpr const size_t SHA256_HEX_SIZE = SHA256_BIN_SIZE * 2;
 
 file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info, print_stream_t& print_stream) :
       options(options),
@@ -315,6 +318,23 @@ bool file_tracker_t::set_sqlite_journal_mode(sqlite3 *file_scan_db, print_stream
    return have_wal;
 }
 
+#ifndef NO_SSE_AVX
+//
+// Converts a hash returned from isa-l_cypto into a hex hash string.
+//
+void file_tracker_t::isa_mb_hash_to_hex(uint32_t hash[], unsigned char hexhash[])
+{
+   static const char hex[] = "0123456789abcdef";
+
+   // hash bytes are packed as little endian uint32_t elements
+   for(size_t i = 0; i < SHA256_DIGEST_NWORDS * sizeof(uint32_t); i++) {
+      // reposition little endian uint32_t bytes into a byte sequence (i.e. 0th -> 3rd, 1st -> 2nd, etc) and convert to hex
+      hexhash[((i - i % sizeof(uint32_t)) + (sizeof(uint32_t) - i % sizeof(uint32_t) - 1)) * 2] = hex[(*(reinterpret_cast<unsigned char*>(hash)+i) & 0xF0) >> 4];
+      hexhash[(((i - i % sizeof(uint32_t)) + (sizeof(uint32_t) - i % sizeof(uint32_t) - 1)) * 2) + 1] = hex[*(reinterpret_cast<unsigned char*>(hash)+i) & 0x0F];
+   }
+}
+#endif
+
 void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& filesize, unsigned char hexhash[])
 {
    //
@@ -332,15 +352,46 @@ void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& 
    if(!file)
       throw std::runtime_error("Cannot open file " + filepath.u8string());
 
+#ifdef NO_SSE_AVX
    sha256_t ctx;
    sha256_init(&ctx);
+#else
+   SHA256_HASH_CTX mb_ctx, *mb_ctx_ptr = nullptr;
+   SHA256_HASH_CTX_MGR ctx_mgr;
 
+   sha256_ctx_mgr_init(&ctx_mgr);
+   hash_ctx_init(&mb_ctx);
+
+   // user data is unintialized in the macro above
+   mb_ctx.user_data = nullptr;
+#endif
    size_t lastread = 0;
 
    filesize = 0;
 
+   //
+   // A single hashing context doesn't add much parallelism, so any
+   // potential speed improvements over a generic hashing library
+   // come from a more optimal implementation of the isa-l_crypto
+   // library. In order to take advantage of multi-buffer hashing,
+   // this code will need to be reworked to hash multiple files in
+   // parallel.
+   //
    while((lastread = std::fread(file_buffer.get(), 1, options.buffer_size, file.get())) != 0) {
+#ifdef NO_SSE_AVX
       sha256_update(&ctx, file_buffer.get(), lastread);
+#else
+      mb_ctx_ptr = sha256_ctx_mgr_submit(&ctx_mgr, filesize ? mb_ctx_ptr : &mb_ctx, file_buffer.get(), static_cast<uint32_t>(lastread), filesize ? HASH_UPDATE : HASH_FIRST);
+
+      if(!mb_ctx_ptr) {
+         // cannot add to the current context and need to hash all pending data
+         if((mb_ctx_ptr = sha256_ctx_mgr_flush(&ctx_mgr)) == nullptr)
+            throw std::runtime_error("sha256_ctx_mgr_flush failed");
+      }
+
+      if(mb_ctx_ptr && mb_ctx_ptr->error != HASH_CTX_ERROR_NONE)
+         throw std::runtime_error(std::to_string(mb_ctx_ptr->error) + ": got a context with an error");
+#endif
 
       filesize += lastread;
    }
@@ -350,7 +401,8 @@ void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& 
 
    // hash for zero-length files should not be evaluated
    if(filesize) {
-      unsigned char filehash[SHA256_DIGEST_SIZE];
+#ifdef NO_SSE_AVX
+      unsigned char filehash[SHA256_BIN_SIZE];
 
       sha256_final(&ctx, filehash);
 
@@ -360,6 +412,28 @@ void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& 
          hexhash[i*2] = hex[(*(filehash+i) & 0xF0) >> 4];
          hexhash[i*2+1] = hex[*(filehash+i) & 0x0F];
       }
+#else
+      if(mb_ctx_ptr) {
+         mb_ctx_ptr = sha256_ctx_mgr_submit(&ctx_mgr, mb_ctx_ptr, nullptr, 0, HASH_LAST);
+
+         if(mb_ctx_ptr && mb_ctx_ptr->status == HASH_CTX_STS_COMPLETE)
+            isa_mb_hash_to_hex(mb_ctx_ptr->job.result_digest, hexhash);
+      }
+
+      while((mb_ctx_ptr = sha256_ctx_mgr_flush(&ctx_mgr)) != nullptr) {
+         if(mb_ctx_ptr->error != HASH_CTX_ERROR_NONE)
+            throw std::runtime_error(std::to_string(mb_ctx_ptr->error) + ": sha256_ctx_mgr_flush failed");
+
+         if(mb_ctx_ptr->status == HASH_CTX_STS_COMPLETE)
+            isa_mb_hash_to_hex(mb_ctx_ptr->job.result_digest, hexhash);
+         else {
+            mb_ctx_ptr = sha256_ctx_mgr_submit(&ctx_mgr, mb_ctx_ptr, nullptr, 0, HASH_LAST);
+
+            if(mb_ctx_ptr && mb_ctx_ptr->status == HASH_CTX_STS_COMPLETE)
+               isa_mb_hash_to_hex(mb_ctx_ptr->job.result_digest, hexhash);
+         }
+      }
+#endif      
    }
 }
 
@@ -421,7 +495,7 @@ int64_t file_tracker_t::insert_exif_record(const std::string& filepath, const st
    return exif_id;
 }
 
-int64_t file_tracker_t::insert_version_record(const std::string& filepath, int64_t file_id, int64_t version, int64_t filesize, const std::filesystem::directory_entry& dir_entry, unsigned char hexhash_file[SHA256_HEX_SIZE], std::optional<int64_t> exif_id)
+int64_t file_tracker_t::insert_version_record(const std::string& filepath, int64_t file_id, int64_t version, int64_t filesize, const std::filesystem::directory_entry& dir_entry, unsigned char hexhash_file[], std::optional<int64_t> exif_id)
 {
    int64_t version_id = 0;
 

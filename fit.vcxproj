@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="packages\StoneSteps.IsaLibCrypto.VS2022.Static.2.24.0.1\build\native\StoneSteps.IsaLibCrypto.VS2022.Static.props" Condition="Exists('packages\StoneSteps.IsaLibCrypto.VS2022.Static.2.24.0.1\build\native\StoneSteps.IsaLibCrypto.VS2022.Static.props')" />
   <Import Project="packages\StoneSteps.RapidJSON.VS2022.Static.1.1.0.1\build\native\StoneSteps.RapidJSON.VS2022.Static.props" Condition="Exists('packages\StoneSteps.RapidJSON.VS2022.Static.1.1.0.1\build\native\StoneSteps.RapidJSON.VS2022.Static.props')" />
   <Import Project="packages\StoneSteps.Exiv2.VS2022.Static.0.27.6.2\build\native\StoneSteps.Exiv2.VS2022.Static.props" Condition="Exists('packages\StoneSteps.Exiv2.VS2022.Static.0.27.6.2\build\native\StoneSteps.Exiv2.VS2022.Static.props')" />
   <Import Project="packages\StoneSteps.zLib.VS2022.Static.1.2.13.1\build\native\StoneSteps.zLib.VS2022.Static.props" Condition="Exists('packages\StoneSteps.zLib.VS2022.Static.1.2.13.1\build\native\StoneSteps.zLib.VS2022.Static.props')" />
@@ -101,7 +102,6 @@ copy /Y $(LibExpatDir)lib\$(Platform)\$(Configuration)\*.pdb $(OutDir)</Command>
     <ClCompile Include="src\file_tree_walker.cpp" />
     <ClCompile Include="src\fit.cpp" />
     <ClCompile Include="src\print_stream.cpp" />
-    <ClCompile Include="src\sha256\sha256.c" />
     <ClCompile Include="src\sqlite.cpp" />
     <ClCompile Include="src\unicode.cpp" />
   </ItemGroup>
@@ -111,7 +111,6 @@ copy /Y $(LibExpatDir)lib\$(Platform)\$(Configuration)\*.pdb $(OutDir)</Command>
     <ClInclude Include="src\file_tree_walker.h" />
     <ClInclude Include="src\fit.h" />
     <ClInclude Include="src\print_stream.h" />
-    <ClInclude Include="src\sha256\sha256.h" />
     <ClInclude Include="src\sqlite.h" />
     <ClInclude Include="src\unicode.h" />
   </ItemGroup>
@@ -129,6 +128,7 @@ copy /Y $(LibExpatDir)lib\$(Platform)\$(Configuration)\*.pdb $(OutDir)</Command>
     <Import Project="packages\StoneSteps.zLib.VS2022.Static.1.2.13.1\build\native\StoneSteps.zLib.VS2022.Static.targets" Condition="Exists('packages\StoneSteps.zLib.VS2022.Static.1.2.13.1\build\native\StoneSteps.zLib.VS2022.Static.targets')" />
     <Import Project="packages\StoneSteps.Exiv2.VS2022.Static.0.27.6.2\build\native\StoneSteps.Exiv2.VS2022.Static.targets" Condition="Exists('packages\StoneSteps.Exiv2.VS2022.Static.0.27.6.2\build\native\StoneSteps.Exiv2.VS2022.Static.targets')" />
     <Import Project="packages\StoneSteps.RapidJSON.VS2022.Static.1.1.0.1\build\native\StoneSteps.RapidJSON.VS2022.Static.targets" Condition="Exists('packages\StoneSteps.RapidJSON.VS2022.Static.1.1.0.1\build\native\StoneSteps.RapidJSON.VS2022.Static.targets')" />
+    <Import Project="packages\StoneSteps.IsaLibCrypto.VS2022.Static.2.24.0.1\build\native\StoneSteps.IsaLibCrypto.VS2022.Static.targets" Condition="Exists('packages\StoneSteps.IsaLibCrypto.VS2022.Static.2.24.0.1\build\native\StoneSteps.IsaLibCrypto.VS2022.Static.targets')" />
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
@@ -144,5 +144,7 @@ copy /Y $(LibExpatDir)lib\$(Platform)\$(Configuration)\*.pdb $(OutDir)</Command>
     <Error Condition="!Exists('packages\StoneSteps.Exiv2.VS2022.Static.0.27.6.2\build\native\StoneSteps.Exiv2.VS2022.Static.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\StoneSteps.Exiv2.VS2022.Static.0.27.6.2\build\native\StoneSteps.Exiv2.VS2022.Static.targets'))" />
     <Error Condition="!Exists('packages\StoneSteps.RapidJSON.VS2022.Static.1.1.0.1\build\native\StoneSteps.RapidJSON.VS2022.Static.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\StoneSteps.RapidJSON.VS2022.Static.1.1.0.1\build\native\StoneSteps.RapidJSON.VS2022.Static.props'))" />
     <Error Condition="!Exists('packages\StoneSteps.RapidJSON.VS2022.Static.1.1.0.1\build\native\StoneSteps.RapidJSON.VS2022.Static.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\StoneSteps.RapidJSON.VS2022.Static.1.1.0.1\build\native\StoneSteps.RapidJSON.VS2022.Static.targets'))" />
+    <Error Condition="!Exists('packages\StoneSteps.IsaLibCrypto.VS2022.Static.2.24.0.1\build\native\StoneSteps.IsaLibCrypto.VS2022.Static.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\StoneSteps.IsaLibCrypto.VS2022.Static.2.24.0.1\build\native\StoneSteps.IsaLibCrypto.VS2022.Static.props'))" />
+    <Error Condition="!Exists('packages\StoneSteps.IsaLibCrypto.VS2022.Static.2.24.0.1\build\native\StoneSteps.IsaLibCrypto.VS2022.Static.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\StoneSteps.IsaLibCrypto.VS2022.Static.2.24.0.1\build\native\StoneSteps.IsaLibCrypto.VS2022.Static.targets'))" />
   </Target>
 </Project>

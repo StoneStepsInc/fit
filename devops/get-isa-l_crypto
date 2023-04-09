@@ -1,0 +1,35 @@
+#!/bin/bash
+
+GIT_TAG=2.24.0
+SIG_SHA256=1b2d5623f75c94562222a00187c7a9de010266ab7f76e86b553b68bb654d39be
+
+if [ -d isa-l_crypto-${GIT_TAG} ]
+then
+  echo Directory isa-l_crypto-${GIT_TAG} already exists
+  exit 1
+fi
+
+curl --location --output isa-l_crypto-${GIT_TAG}.tar.gz https://github.com/intel/isa-l_crypto/archive/refs/tags/v${GIT_TAG}.tar.gz
+
+# two spaces after the signature are required for sha256sum
+echo "$SIG_SHA256  isa-l_crypto-${GIT_TAG}.tar.gz" | sha256sum --check
+
+if [ $? -ne 0 ]
+then
+  echo "Bad checksum: isa-l_crypto-${GIT_TAG}.tar.gz"
+  exit 1
+fi
+
+tar -xzf isa-l_crypto-${GIT_TAG}.tar.gz
+rm -f isa-l_crypto-${GIT_TAG}.tar.gz
+
+cd isa-l_crypto-${GIT_TAG}
+
+./autogen.sh
+./configure
+exit 1
+make
+#sudo make install
+
+cd ..
+rm -rf isa-l_crypto-${GIT_TAG}

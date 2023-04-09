@@ -16,9 +16,6 @@
     <ClCompile Include="src\sqlite.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\sha256\sha256.c">
-      <Filter>sha256</Filter>
-    </ClCompile>
     <ClCompile Include="src\exif_reader.cpp">
       <Filter>src</Filter>
     </ClCompile>
@@ -42,9 +39,6 @@
     <ClInclude Include="src\sqlite.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="src\sha256\sha256.h">
-      <Filter>sha256</Filter>
-    </ClInclude>
     <ClInclude Include="src\exif_reader.h">
       <Filter>src</Filter>
     </ClInclude>
@@ -60,9 +54,6 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <Filter Include="sha256">
-      <UniqueIdentifier>{f0cfd38e-9ea3-4e67-8ff1-9054758aa532}</UniqueIdentifier>
-    </Filter>
     <Filter Include="lib">
       <UniqueIdentifier>{c7770fb5-fa31-48f7-9aea-190976cb1f8f}</UniqueIdentifier>
     </Filter>
@@ -86,5 +77,6 @@
     <Library Include="$(LibExpatDir)lib\$(Platform)\$(Configuration)\$(LibExpatName).lib">
       <Filter>lib</Filter>
     </Library>
+    <Library Include="$(IsaLibCryptoDir)lib\$(Platform)\$(Configuration)\$(IsaLibCryptoName).lib" />
   </ItemGroup>
 </Project>
