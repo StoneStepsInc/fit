@@ -615,3 +615,9 @@ LICENSE: [Public Domain](https://github.com/jb55/sha256.c/blob/master/LICENSE)
 A library to generate JSON.
 
 LICENSE: [MIT](https://github.com/Tencent/rapidjson/blob/master/license.txt)
+
+#### isa-l_crypto
+
+Intel's (R) Intelligent Storage Acceleration Library Crypto Version.
+
+LICENSE: [BSD 3-Clause License](https://github.com/intel/isa-l_crypto/blob/master/LICENSE)
