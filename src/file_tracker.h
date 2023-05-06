@@ -21,6 +21,11 @@
 #include <cstdlib>
 #include <cstdint>
 
+#ifndef NO_SSE_AVX
+#include "mb_hasher.h"
+#include "mb_sha256_traits.h"
+#endif
+
 namespace fit {
 
 //
@@ -52,6 +57,15 @@ struct progress_info_t {
 //
 class file_tracker_t {
    private:
+#ifndef NO_SSE_AVX
+      typedef mb_hasher_t<mb_sha256_traits, std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t&> mb_file_hasher_t;
+
+      static constexpr const size_t HASH_BIN_SIZE = mb_file_hasher_t::traits::HASH_SIZE;
+      static constexpr const size_t HASH_HEX_SIZE = HASH_BIN_SIZE * 2;
+
+      static constexpr const std::string_view HASH_TYPE = mb_file_hasher_t::traits::HASH_TYPE;
+#endif
+
       static constexpr const int DB_BUSY_TIMEOUT = 1000;
 
    private:
@@ -78,6 +92,9 @@ class file_tracker_t {
 
       exif::exif_reader_t exif_reader;
 
+#ifndef NO_SSE_AVX
+      mb_file_hasher_t mb_hasher;
+#endif
       sqlite3 *file_scan_db = nullptr;
 
       sqlite3_stmt *stmt_insert_file = nullptr;
@@ -111,7 +128,8 @@ class file_tracker_t {
       void run(void);
 
 #ifndef NO_SSE_AVX
-      static void isa_mb_hash_to_hex(uint32_t hash[], unsigned char hexhash[]);
+      static std::tuple<std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t&> open_file(const std::filesystem::path& filepath, uint64_t& filesize);
+      static bool read_file(unsigned char *file_buffer, size_t buf_size, size_t& data_size, std::tuple<std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t&>& args);
 #endif
 
       static int sqlite_busy_handler_cb(void*, int count);

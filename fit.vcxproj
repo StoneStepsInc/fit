@@ -101,6 +101,10 @@ copy /Y $(LibExpatDir)lib\$(Platform)\$(Configuration)\*.pdb $(OutDir)</Command>
     <ClCompile Include="src\file_tracker.cpp" />
     <ClCompile Include="src\file_tree_walker.cpp" />
     <ClCompile Include="src\fit.cpp" />
+    <ClCompile Include="src\mb_hasher_tmpl.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="src\print_stream.cpp" />
     <ClCompile Include="src\sqlite.cpp" />
     <ClCompile Include="src\unicode.cpp" />
@@ -110,6 +114,8 @@ copy /Y $(LibExpatDir)lib\$(Platform)\$(Configuration)\*.pdb $(OutDir)</Command>
     <ClInclude Include="src\file_tracker.h" />
     <ClInclude Include="src\file_tree_walker.h" />
     <ClInclude Include="src\fit.h" />
+    <ClInclude Include="src\mb_hasher.h" />
+    <ClInclude Include="src\mb_sha256_traits.h" />
     <ClInclude Include="src\print_stream.h" />
     <ClInclude Include="src\sqlite.h" />
     <ClInclude Include="src\unicode.h" />

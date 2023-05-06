@@ -7,8 +7,6 @@
 extern "C" {
 #include "sha256/sha256.h"
 }
-#else
-#include <sha256_mb.h>
 #endif
 
 #ifdef _WIN32
@@ -48,24 +46,25 @@ struct less_ci {
 };
 
 #ifdef NO_SSE_AVX
-static constexpr const size_t SHA256_BIN_SIZE = SHA256_DIGEST_SIZE;
-#else
-static constexpr const size_t SHA256_BIN_SIZE = SHA256_DIGEST_NWORDS * sizeof(uint32_t);
+static constexpr const size_t HASH_BIN_SIZE = SHA256_DIGEST_SIZE;
+static constexpr const size_t HASH_HEX_SIZE = HASH_BIN_SIZE * 2;
+static constexpr std::string_view HASH_TYPE = "SHA256";
 #endif
-
-static constexpr const size_t SHA256_HEX_SIZE = SHA256_BIN_SIZE * 2;
 
 file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info, print_stream_t& print_stream) :
       options(options),
       print_stream(print_stream),
       scan_id(scan_id),
-      hash_type("SHA256"sv),
+      hash_type(HASH_TYPE),
       file_buffer(new unsigned char[options.buffer_size]),
       files(files),
       files_mtx(files_mtx),
       progress_info(progress_info),
       EXIF_exts(parse_EXIF_exts(options)),
       exif_reader(options)
+#ifndef NO_SSE_AVX
+      , mb_hasher(options.buffer_size, mb_file_hasher_t::PAR_HASH_CTXS_AVX)
+#endif
 {
    int errcode = SQLITE_OK;
 
@@ -200,6 +199,9 @@ file_tracker_t::file_tracker_t(file_tracker_t&& other) :
       stmt_rollback_txn(other.stmt_rollback_txn),
       EXIF_exts(std::move(other.EXIF_exts)),
       exif_reader(std::move(other.exif_reader))
+#ifndef NO_SSE_AVX
+      , mb_hasher(options.buffer_size, mb_file_hasher_t::PAR_HASH_CTXS_AVX)
+#endif
 {
    other.file_scan_db = nullptr;
 
@@ -318,24 +320,49 @@ bool file_tracker_t::set_sqlite_journal_mode(sqlite3 *file_scan_db, print_stream
    return have_wal;
 }
 
-#ifndef NO_SSE_AVX
-//
-// Converts a hash returned from isa-l_cypto into a hex hash string.
-//
-void file_tracker_t::isa_mb_hash_to_hex(uint32_t hash[], unsigned char hexhash[])
+#ifdef NO_SSE_AVX
+void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& filesize, unsigned char hexhash[])
 {
-   static const char hex[] = "0123456789abcdef";
+   #ifdef _WIN32
+   std::unique_ptr<FILE, file_handle_deleter_t> file(_wfopen(filepath.wstring().c_str(), L"rb"));
+   #else
+   std::unique_ptr<FILE, file_handle_deleter_t> file(fopen(filepath.u8string().c_str(), "rb"));
+   #endif
 
-   // hash bytes are packed as little endian uint32_t elements
-   for(size_t i = 0; i < SHA256_DIGEST_NWORDS * sizeof(uint32_t); i++) {
-      // reposition little endian uint32_t bytes into a byte sequence (i.e. 0th -> 3rd, 1st -> 2nd, etc) and convert to hex
-      hexhash[((i - i % sizeof(uint32_t)) + (sizeof(uint32_t) - i % sizeof(uint32_t) - 1)) * 2] = hex[(*(reinterpret_cast<unsigned char*>(hash)+i) & 0xF0) >> 4];
-      hexhash[(((i - i % sizeof(uint32_t)) + (sizeof(uint32_t) - i % sizeof(uint32_t) - 1)) * 2) + 1] = hex[*(reinterpret_cast<unsigned char*>(hash)+i) & 0x0F];
+   if(!file)
+      throw std::runtime_error("Cannot open file " + filepath.u8string());
+
+   sha256_t ctx;
+   sha256_init(&ctx);
+
+   filesize = 0;
+
+   size_t lastread = 0;
+
+   while((lastread = std::fread(file_buffer.get(), 1, options.buffer_size, file.get())) != 0) {
+      sha256_update(&ctx, file_buffer.get(), lastread);
+      filesize += lastread;
+   }
+
+   if(std::ferror(file.get()))
+      throw std::runtime_error("Cannot read file (" + std::string(strerror(errno)) + ") " + filepath.u8string());
+
+   // hash for zero-length files should not be evaluated
+   if(filesize) {
+      unsigned char filehash[HASH_BIN_SIZE];
+
+      sha256_final(&ctx, filehash);
+
+      static const char hex[] = "0123456789abcdef";
+
+      for(size_t i = 0; i < SHA256_DIGEST_SIZE; i++) {
+         hexhash[i*2] = hex[(*(filehash+i) & 0xF0) >> 4];
+         hexhash[i*2+1] = hex[*(filehash+i) & 0x0F];
+      }
    }
 }
-#endif
-
-void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& filesize, unsigned char hexhash[])
+#else
+std::tuple<std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t&> file_tracker_t::open_file(const std::filesystem::path& filepath, uint64_t& filesize)
 {
    //
    // The narrow character version of fopen will fail to open files
@@ -349,93 +376,44 @@ void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& 
    std::unique_ptr<FILE, file_handle_deleter_t> file(fopen(filepath.u8string().c_str(), "rb"));
    #endif
 
-   if(!file)
-      throw std::runtime_error("Cannot open file " + filepath.u8string());
+   //
+   // Need to make sure the reference is preserved, so we update the
+   // actual file size value passed into this function.
+   // 
+   return std::make_tuple(std::move(file), std::ref(filesize));
+}
 
-#ifdef NO_SSE_AVX
-   sha256_t ctx;
-   sha256_init(&ctx);
-#else
-   SHA256_HASH_CTX mb_ctx, *mb_ctx_ptr = nullptr;
-   SHA256_HASH_CTX_MGR ctx_mgr;
+bool file_tracker_t::read_file(unsigned char *file_buffer, size_t buf_size, size_t& data_size, std::tuple<std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t&>& args)
+{
+   std::unique_ptr<FILE, file_handle_deleter_t>& file = std::get<0>(args);
+   size_t& file_size = std::get<1>(args);
 
-   sha256_ctx_mgr_init(&ctx_mgr);
-   hash_ctx_init(&mb_ctx);
+   data_size = std::fread(file_buffer, 1, buf_size, file.get());
 
-   // user data is unintialized in the macro above
-   mb_ctx.user_data = nullptr;
-#endif
-   size_t lastread = 0;
+   if(std::ferror(file.get()))
+      throw std::runtime_error("Cannot read file (" + std::string(strerror(errno)) + ") ");
+
+   file_size += data_size;
+
+   return feof(file.get()) == 0;
+}
+
+void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& filesize, unsigned char hexhash[])
+{
+   // need explicit template arguments because of the references
+   mb_hasher.submit_job<const std::filesystem::path&, uint64_t&>(&file_tracker_t::open_file, &file_tracker_t::read_file, filepath, filesize);
 
    filesize = 0;
 
-   //
-   // A single hashing context doesn't add much parallelism, so any
-   // potential speed improvements over a generic hashing library
-   // come from a more optimal implementation of the isa-l_crypto
-   // library. In order to take advantage of multi-buffer hashing,
-   // this code will need to be reworked to hash multiple files in
-   // parallel.
-   //
-   while((lastread = std::fread(file_buffer.get(), 1, options.buffer_size, file.get())) != 0) {
-#ifdef NO_SSE_AVX
-      sha256_update(&ctx, file_buffer.get(), lastread);
-#else
-      mb_ctx_ptr = sha256_ctx_mgr_submit(&ctx_mgr, filesize ? mb_ctx_ptr : &mb_ctx, file_buffer.get(), static_cast<uint32_t>(lastread), filesize ? HASH_UPDATE : HASH_FIRST);
+   uint32_t isa_mb_hash[mb_file_hasher_t::traits::HASH_UINT32_SIZE];
 
-      if(!mb_ctx_ptr) {
-         // cannot add to the current context and need to hash all pending data
-         if((mb_ctx_ptr = sha256_ctx_mgr_flush(&ctx_mgr)) == nullptr)
-            throw std::runtime_error("sha256_ctx_mgr_flush failed");
-      }
-
-      if(mb_ctx_ptr && mb_ctx_ptr->error != HASH_CTX_ERROR_NONE)
-         throw std::runtime_error(std::to_string(mb_ctx_ptr->error) + ": got a context with an error");
-#endif
-
-      filesize += lastread;
-   }
-
-   if(std::ferror(file.get()))
-      throw std::runtime_error("Cannot read file (" + std::string(strerror(errno)) + ") " + filepath.u8string());
+   std::optional<std::tuple<std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t>> args = mb_hasher.get_hash(isa_mb_hash);
 
    // hash for zero-length files should not be evaluated
-   if(filesize) {
-#ifdef NO_SSE_AVX
-      unsigned char filehash[SHA256_BIN_SIZE];
-
-      sha256_final(&ctx, filehash);
-
-      static const char hex[] = "0123456789abcdef";
-
-      for(size_t i = 0; i < SHA256_DIGEST_SIZE; i++) {
-         hexhash[i*2] = hex[(*(filehash+i) & 0xF0) >> 4];
-         hexhash[i*2+1] = hex[*(filehash+i) & 0x0F];
-      }
-#else
-      if(mb_ctx_ptr) {
-         mb_ctx_ptr = sha256_ctx_mgr_submit(&ctx_mgr, mb_ctx_ptr, nullptr, 0, HASH_LAST);
-
-         if(mb_ctx_ptr && mb_ctx_ptr->status == HASH_CTX_STS_COMPLETE)
-            isa_mb_hash_to_hex(mb_ctx_ptr->job.result_digest, hexhash);
-      }
-
-      while((mb_ctx_ptr = sha256_ctx_mgr_flush(&ctx_mgr)) != nullptr) {
-         if(mb_ctx_ptr->error != HASH_CTX_ERROR_NONE)
-            throw std::runtime_error(std::to_string(mb_ctx_ptr->error) + ": sha256_ctx_mgr_flush failed");
-
-         if(mb_ctx_ptr->status == HASH_CTX_STS_COMPLETE)
-            isa_mb_hash_to_hex(mb_ctx_ptr->job.result_digest, hexhash);
-         else {
-            mb_ctx_ptr = sha256_ctx_mgr_submit(&ctx_mgr, mb_ctx_ptr, nullptr, 0, HASH_LAST);
-
-            if(mb_ctx_ptr && mb_ctx_ptr->status == HASH_CTX_STS_COMPLETE)
-               isa_mb_hash_to_hex(mb_ctx_ptr->job.result_digest, hexhash);
-         }
-      }
-#endif      
-   }
+   if(filesize)
+      mb_file_hasher_t::isa_mb_hash_to_hex(isa_mb_hash, hexhash);
 }
+#endif      
 
 int64_t file_tracker_t::insert_file_record(const std::string& filepath, const std::filesystem::directory_entry& dir_entry)
 {
@@ -530,7 +508,7 @@ int64_t file_tracker_t::insert_version_record(const std::string& filepath, int64
    if(!filesize)
       insert_version_stmt.bind_param(nullptr);
    else
-      insert_version_stmt.bind_param(std::string_view(reinterpret_cast<const char*>(hexhash_file), SHA256_HEX_SIZE));
+      insert_version_stmt.bind_param(std::string_view(reinterpret_cast<const char*>(hexhash_file), HASH_HEX_SIZE));
 
    if(exif_id.has_value())
       insert_version_stmt.bind_param(exif_id.value());
@@ -604,8 +582,8 @@ void file_tracker_t::run(void)
 
    filepath.reserve(1024);
                
-   unsigned char hexhash_file[SHA256_HEX_SIZE + 1] = {};       // file hash; should not be accessed if filesize == 0
-   unsigned char hexhash_field[SHA256_HEX_SIZE + 1] = {};      // database hash; should no be accessed if hash_field_is_null is false
+   unsigned char hexhash_file[HASH_HEX_SIZE + 1] = {};       // file hash; should not be accessed if filesize == 0
+   unsigned char hexhash_field[HASH_HEX_SIZE + 1] = {};      // database hash; should no be accessed if hash_field_is_null is false
 
    std::unique_lock<std::mutex> files_lock(files_mtx);
 
@@ -710,11 +688,11 @@ void file_tracker_t::run(void)
 
             if(!hash_field_is_null) {
                // hold onto the column hash value
-               if(std::string_view(reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 2)), sqlite3_column_bytes(stmt_find_file, 2)) == "SHA256"sv) {
-                  if(sqlite3_column_bytes(stmt_find_file, 3) != SHA256_HEX_SIZE)
+               if(std::string_view(reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 2)), sqlite3_column_bytes(stmt_find_file, 2)) == HASH_TYPE) {
+                  if(sqlite3_column_bytes(stmt_find_file, 3) != HASH_HEX_SIZE)
                      throw std::runtime_error("Bad hash size for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
 
-                  memcpy(hexhash_field, reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 3)), SHA256_HEX_SIZE);
+                  memcpy(hexhash_field, reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 3)), HASH_HEX_SIZE);
                }
                else
                   throw std::runtime_error("Unknown hash type: "s + reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 2)));
@@ -748,7 +726,7 @@ void file_tracker_t::run(void)
                hash_file(dir_entry.path(), filesize, hexhash_file);
 
                // consider a NULL hash field as a match for zero-length files
-               hash_match = version_id.has_value() && ((filesize == 0 && hash_field_is_null) || memcmp(hexhash_file, hexhash_field, SHA256_HEX_SIZE) == 0);
+               hash_match = version_id.has_value() && ((filesize == 0 && hash_field_is_null) || memcmp(hexhash_file, hexhash_field, HASH_HEX_SIZE) == 0);
             }
 
             //
@@ -910,3 +888,5 @@ void file_tracker_t::join(void)
 }
 
 }
+
+#include "mb_hasher_tmpl.cpp"
