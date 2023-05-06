@@ -27,9 +27,8 @@ cd isa-l_crypto-${GIT_TAG}
 
 ./autogen.sh
 ./configure
-exit 1
 make
-#sudo make install
+sudo make install
 
 cd ..
 rm -rf isa-l_crypto-${GIT_TAG}

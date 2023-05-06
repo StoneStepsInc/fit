@@ -16,6 +16,6 @@ WORKDIR /root
 # automatic builds are expected to run on hardware with SSE/AVX support (i.e. no get-sha256)
 RUN chmod a+x get-isa-l_crypto get-exiv2
 
-RUN ./isa-l_crypto
+RUN ./get-isa-l_crypto
 
 RUN ./get-exiv2
