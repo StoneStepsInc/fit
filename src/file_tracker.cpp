@@ -386,7 +386,7 @@ std::tuple<std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t&> file_tracker
 bool file_tracker_t::read_file(unsigned char *file_buffer, size_t buf_size, size_t& data_size, std::tuple<std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t&>& args)
 {
    std::unique_ptr<FILE, file_handle_deleter_t>& file = std::get<0>(args);
-   size_t& file_size = std::get<1>(args);
+   uint64_t& file_size = std::get<1>(args);
 
    data_size = std::fread(file_buffer, 1, buf_size, file.get());
 

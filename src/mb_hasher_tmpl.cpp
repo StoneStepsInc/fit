@@ -181,7 +181,7 @@ void mb_hasher_t<mb_hash_traits, P...>::isa_mb_hash_to_hex(uint32_t isa_mb_hash[
 }
 
 template <typename mb_hash_traits, typename ... P>
-static void mb_hasher_t<mb_hash_traits, P...>::isa_mb_hash_to_bytes(uint32_t isa_mb_hash[mb_hash_traits::HASH_UINT32_SIZE], unsigned char bytes[mb_hash_traits::HASH_SIZE])
+void mb_hasher_t<mb_hash_traits, P...>::isa_mb_hash_to_bytes(uint32_t isa_mb_hash[mb_hash_traits::HASH_UINT32_SIZE], unsigned char bytes[mb_hash_traits::HASH_SIZE])
 {
    if(mb_hash_traits::HASH_UINT32_REORDER) {
       // hash bytes are packed as little endian uint32_t elements
