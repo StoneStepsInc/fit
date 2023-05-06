@@ -889,4 +889,6 @@ void file_tracker_t::join(void)
 
 }
 
+#ifndef NO_SSE_AVX
 #include "mb_hasher_tmpl.cpp"
+#endif

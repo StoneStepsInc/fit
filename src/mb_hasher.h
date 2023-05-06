@@ -1,8 +1,6 @@
 #ifndef FIT_MB_HASHER_H
 #define FIT_MB_HASHER_H
 
-#include <md5_mb.h>
-#include <sha1_mb.h>
 #include <multi_buffer.h>
 
 #include <optional>
