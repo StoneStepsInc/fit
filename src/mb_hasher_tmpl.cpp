@@ -86,7 +86,7 @@ std::optional<typename mb_hasher_t<mb_hash_traits, P...>::param_tuple_t> mb_hash
 
    size_t last_block_done = 0;
 
-   while (!last_block_done) {
+   while (mb_ctx_ptr || !last_block_done) {
       if(mb_ctx_ptr) {
          // always process the immediate context for as long as we have it
          ctx_args_t *ctx_args = static_cast<ctx_args_t*>(mb_ctx_ptr->user_data);
