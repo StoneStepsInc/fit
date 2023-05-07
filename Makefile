@@ -27,7 +27,7 @@ ifdef NO_SSE_AVX
 SRCS += sha256/sha256.c
 else
 INCDIRS += /usr/include/isa-l_crypto
-LIBS += isa-l_crypto
+LIBS += isal_crypto
 endif
 
 OBJS := $(patsubst %.c,%.o,$(filter %.c,$(SRCS))) \
