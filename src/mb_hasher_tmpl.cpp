@@ -107,7 +107,7 @@ std::optional<typename mb_hasher_t<mb_hash_traits, P...>::param_tuple_t> mb_hash
       }
       else if(!pending_ctxs.empty()) {
          // add a new pending job into the mix (order doesn't matter here)
-         mb_ctx_ptr = &mb_ctxs[pending_ctxs.back()];
+         mb_ctx_ptr = &mb_ctxs[pending_ctxs.front()];
 
          pending_ctxs.pop();
 
