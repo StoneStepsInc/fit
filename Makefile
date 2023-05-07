@@ -26,6 +26,7 @@ LIBS := sqlite3 pthread stdc++fs exiv2 exiv2-xmp expat z
 ifdef NO_SSE_AVX
 SRCS += sha256/sha256.c
 else
+INCDIRS += /usr/include/isa-l_crypto
 LIBS += isa-l_crypto
 endif
 
