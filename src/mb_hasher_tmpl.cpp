@@ -20,8 +20,8 @@ mb_hasher_t<mb_hash_traits, P...>::ctx_args_t::ctx_args_t(size_t id, size_t buf_
 
 template <typename mb_hash_traits, typename ... P>
 mb_hasher_t<mb_hash_traits, P...>::mb_hasher_t(size_t buf_size, size_t max_ctxs) :
-      max_ctxs(max_ctxs),
-      buf_size(buf_size)
+      buf_size(buf_size),
+      max_ctxs(max_ctxs)
 {
    mb_hash_traits::ctx_mgr_init(&mb_ctx_mgr);
 

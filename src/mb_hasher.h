@@ -69,9 +69,9 @@ class mb_hasher_t {
       };
 
    private:
-      size_t max_ctxs;
-
       size_t buf_size;
+
+      size_t max_ctxs;
 
       //
       // Data members in SHA256_MB_JOB_MGR must be aligned appropriately
