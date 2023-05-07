@@ -1,5 +1,7 @@
 #include "mb_hasher.h"
 
+#include <memory>
+
 namespace fit {
 
 template <typename mb_hash_traits, typename ... P>
