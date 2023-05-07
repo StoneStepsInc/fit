@@ -4,7 +4,7 @@ LABEL org.opencontainers.image.description="CI build image for Ubuntu (https://g
 
 RUN apt-get update -y
 
-RUN apt-get install -y cmake patch curl unzip make g++ libsqlite3-dev libexpat1-dev zlib1g-dev
+RUN apt-get install -y cmake patch curl unzip make g++ libsqlite3-dev libexpat1-dev zlib1g-dev rapidjson-dev
 
 # additional isa-l_crypto dependencies
 RUN apt-get install -y  nasm libtool autoconf automake
