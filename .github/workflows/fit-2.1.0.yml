@@ -87,7 +87,7 @@ jobs:
 
     runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/stonestepsinc/fit/${{ matrix.linux-flavor }}:20221126
+      image: ghcr.io/stonestepsinc/fit/${{ matrix.linux-flavor }}:20230507
 
     steps:
     - name: Checkout source
