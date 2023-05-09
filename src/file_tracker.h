@@ -68,6 +68,33 @@ class file_tracker_t {
 
       static constexpr const int DB_BUSY_TIMEOUT = 1000;
 
+      // same field order as in the select statement (stmt_find_file)
+      typedef std::tuple<int64_t, int64_t, std::string, std::optional<std::string>, int64_t, int64_t, int64_t> version_record_t;
+
+      //
+      // A wrapper for the file version select statement result tuple,
+      // which provides meaningful names to numbered column identifiers.
+      //
+      struct find_file_result_t {
+         const std::optional<version_record_t> version_record;
+
+         bool has_value(void) const {return version_record.has_value();}
+
+         int64_t version(void) const {return std::get<0>(version_record.value());}
+
+         int64_t mod_time(void) const {return std::get<1>(version_record.value());}
+
+         const std::string& hash_type(void) const {return std::get<2>(version_record.value());}
+
+         const std::optional<std::string>& hexhash(void) const {return std::get<3>(version_record.value());}
+
+         int64_t version_id(void) const {return std::get<4>(version_record.value());}
+
+         int64_t file_id(void) const {return std::get<5>(version_record.value());}
+
+         int64_t scanset_scan_id(void) const {return std::get<6>(version_record.value());}
+      };
+
    private:
       const options_t& options;
 
@@ -112,6 +139,8 @@ class file_tracker_t {
       int64_t insert_file_record(const std::string& filepath, const std::filesystem::directory_entry& dir_entry);
 
       int64_t insert_exif_record(const std::string& filepath, const std::vector<exif::field_value_t>& exif_fields, const exif::field_bitset_t& field_bitset);
+
+      find_file_result_t select_version_record(const std::string& filepath);
 
       int64_t insert_version_record(const std::string& filepath, int64_t file_id, int64_t version, int64_t filesize, const std::filesystem::directory_entry& dir_entry, unsigned char hexhash_file[], std::optional<int64_t> exif_id);
 
