@@ -86,6 +86,8 @@
     <Library Include="$(LibExpatDir)lib\$(Platform)\$(Configuration)\$(LibExpatName).lib">
       <Filter>lib</Filter>
     </Library>
-    <Library Include="$(IsaLibCryptoDir)lib\$(Platform)\$(Configuration)\$(IsaLibCryptoName).lib" />
+    <Library Include="$(IsaLibCryptoDir)lib\$(Platform)\$(Configuration)\$(IsaLibCryptoName).lib">
+      <Filter>lib</Filter>
+    </Library>
   </ItemGroup>
 </Project>
