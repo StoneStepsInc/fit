@@ -63,7 +63,7 @@ file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::q
       EXIF_exts(parse_EXIF_exts(options)),
       exif_reader(options)
 #ifndef NO_SSE_AVX
-      , mb_hasher(options.buffer_size, mb_file_hasher_t::PAR_HASH_CTXS_AVX)
+      , mb_hasher(options.buffer_size, mb_file_hasher_t::PAR_HASH_CTXS_AVX2)
 #endif
 {
    int errcode = SQLITE_OK;
@@ -200,7 +200,7 @@ file_tracker_t::file_tracker_t(file_tracker_t&& other) :
       EXIF_exts(std::move(other.EXIF_exts)),
       exif_reader(std::move(other.exif_reader))
 #ifndef NO_SSE_AVX
-      , mb_hasher(options.buffer_size, mb_file_hasher_t::PAR_HASH_CTXS_AVX)
+      , mb_hasher(options.buffer_size, other.mb_hasher.max_jobs())
 #endif
 {
    other.file_scan_db = nullptr;
@@ -362,7 +362,7 @@ void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& 
    }
 }
 #else
-std::tuple<std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t&> file_tracker_t::open_file(const std::filesystem::path& filepath, uint64_t& filesize)
+file_tracker_t::mb_file_hasher_t::param_tuple_t file_tracker_t::open_file(find_file_result_t&& version_record, std::filesystem::directory_entry&& dir_entry)
 {
    //
    // The narrow character version of fopen will fail to open files
@@ -371,19 +371,19 @@ std::tuple<std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t&> file_tracker
    // _wfopen to work around this problem.
    //
    #ifdef _WIN32
-   std::unique_ptr<FILE, file_handle_deleter_t> file(_wfopen(filepath.wstring().c_str(), L"rb"));
+   std::unique_ptr<FILE, file_handle_deleter_t> file(_wfopen(dir_entry.path().wstring().c_str(), L"rb"));
    #else
-   std::unique_ptr<FILE, file_handle_deleter_t> file(fopen(filepath.u8string().c_str(), "rb"));
+   std::unique_ptr<FILE, file_handle_deleter_t> file(fopen(dir_entry.path().u8string().c_str(), "rb"));
    #endif
 
    //
    // Need to make sure the reference is preserved, so we update the
    // actual file size value passed into this function.
    // 
-   return std::make_tuple(std::move(file), std::ref(filesize));
+   return std::make_tuple(std::move(file), 0, std::move(version_record), std::move(dir_entry));
 }
 
-bool file_tracker_t::read_file(unsigned char *file_buffer, size_t buf_size, size_t& data_size, std::tuple<std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t&>& args)
+bool file_tracker_t::read_file(unsigned char *file_buffer, size_t buf_size, size_t& data_size, mb_file_hasher_t::param_tuple_t& args)
 {
    std::unique_ptr<FILE, file_handle_deleter_t>& file = std::get<0>(args);
    uint64_t& file_size = std::get<1>(args);
@@ -396,22 +396,6 @@ bool file_tracker_t::read_file(unsigned char *file_buffer, size_t buf_size, size
    file_size += data_size;
 
    return feof(file.get()) == 0;
-}
-
-void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& filesize, unsigned char hexhash[])
-{
-   // need explicit template arguments because of the references
-   mb_hasher.submit_job<const std::filesystem::path&, uint64_t&>(&file_tracker_t::open_file, &file_tracker_t::read_file, filepath, filesize);
-
-   filesize = 0;
-
-   uint32_t isa_mb_hash[mb_file_hasher_t::traits::HASH_UINT32_SIZE];
-
-   std::optional<std::tuple<std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t>> args = mb_hasher.get_hash(isa_mb_hash);
-
-   // hash for zero-length files should not be evaluated
-   if(filesize)
-      mb_file_hasher_t::isa_mb_hash_to_hex(isa_mb_hash, hexhash);
 }
 #endif      
 
@@ -656,85 +640,85 @@ void file_tracker_t::run(void)
    std::unique_lock<std::mutex> files_lock(files_mtx);
 
    while(!stop_request) {
+      bool hash_match = false;                              // if true, the file didn't change; if false, a new version will be created
+
+      std::optional<std::filesystem::directory_entry> dir_entry;
+
+      find_file_result_t version_record;
+
       if(files.empty()) {
-         files_lock.unlock();
+#ifdef NO_SSE_AVX
+         if(true) {
+#else
+         if(!mb_hasher.active_jobs()) {
+#endif
+            files_lock.unlock();
 
-         //
-         // We don't expect this thread to idle much and don't need
-         // a condition variable here. It will reach this code only
-         // after it starts and right before the final few files
-         // are being processed. At all other times it will find
-         // files in the queue.
-         //
-         std::this_thread::sleep_for(std::chrono::milliseconds(300));
+            //
+            // We don't expect this thread to idle much and don't need
+            // a condition variable here. It will reach this code only
+            // after it starts and right before the final few files
+            // are being processed. At all other times it will find
+            // files in the queue.
+            //
+            std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-         files_lock.lock();
-         continue;
+            files_lock.lock();
+            continue;
+         }
       }
-
-      std::filesystem::directory_entry dir_entry = std::move(files.front());
-      files.pop();
+      else {
+         dir_entry = std::move(files.front());
+         files.pop();
+      }
 
       files_lock.unlock();
 
       try {
          uint64_t filesize = 0;
 
-         //
-         // If we have a base path, remove it from the full path, so files
-         // can be verified with a different base path.
-         // 
-         // lexically_relative is case sensitive and will be confused if
-         // mixed-case directory names are compared on Windows. See a
-         // comment in fit::verify_options where base path and scan path
-         // are compared. The net effect here will be that if mixed
-         // characters reach this point, `C:\Users\X` and `C:\Users\x`
-         // will be tracked as two different paths.
-         //
-         try {
-         if(options.base_path.empty())
-            filepath = dir_entry.path().u8string();
-         else
-            filepath = dir_entry.path().lexically_relative(options.base_path).u8string();
-         }
-         catch (const std::exception&) {
+         // dir_entry will be empty when we are finalizing last few hash jobs
+         if(dir_entry.has_value()) {
             //
-            // Windows may store file paths with invalid UCS-2 characters,
-            // which fail to convert to UTF-8 paths. For example, a file
-            // path may have a code point `\x1F7FB` in it, which doesn't
-            // have any Unicode character assigned and cannot be converted
-            // to a UTF-8 string.
+            // If we have a base path, remove it from the full path, so files
+            // can be verified with a different base path.
             // 
-            // Clear the file name to indicate this condition and mangle
-            // the file name for reporting purposes in the exception handler.
+            // lexically_relative is case sensitive and will be confused if
+            // mixed-case directory names are compared on Windows. See a
+            // comment in fit::verify_options where base path and scan path
+            // are compared. The net effect here will be that if mixed
+            // characters reach this point, `C:\Users\X` and `C:\Users\x`
+            // will be tracked as two different paths.
             //
-            filepath.clear();
-            throw;
-         }
+            try {
+            if(options.base_path.empty())
+               filepath = dir_entry.value().path().u8string();
+            else
+               filepath = dir_entry.value().path().lexically_relative(options.base_path).u8string();
+            }
+            catch (const std::exception&) {
+               //
+               // Windows may store file paths with invalid UCS-2 characters,
+               // which fail to convert to UTF-8 paths. For example, a file
+               // path may have a code point `\x1F7FB` in it, which doesn't
+               // have any Unicode character assigned and cannot be converted
+               // to a UTF-8 string.
+               // 
+               // Clear the file name to indicate this condition and mangle
+               // the file name for reporting purposes in the exception handler.
+               //
+               filepath.clear();
+               throw;
+            }
 
-         // a non-optional to allow version+1 whether version_record has a value or not
-         int64_t version = 0;
-
-         bool hash_match = false;                  // if true, the file didn't change; if false, a new version will be created
-
-         std::optional<int64_t> version_id;        // version record identifier, if one is found in the database
-         std::optional<int64_t> file_id;           // new file_id, if version_record has no value, existing one otherwise
-         std::optional<int64_t> exif_id;           // new exif_id, if no EXIF is found
-
-         find_file_result_t version_record = select_version_record(filepath);
-
-         if(version_record.has_value()) {
-            version = version_record.version();
-
-            version_id = version_record.version_id();
-
-            file_id = version_record.file_id();
+            version_record = select_version_record(filepath);
          }
 
          //
          // Skip all file processing if we are updating the last scanset and
          // found a file version record with the same scan number as we have
-         // in this file hasher instance, which is the last scan number.
+         // in this file tracker instance, which is set to the last scan
+         // number if options.update_last_scanset is true.
          //
          if(!options.update_last_scanset || !version_record.has_value() || version_record.scanset_scan_id() != scan_id) {
             //
@@ -742,11 +726,70 @@ void file_tracker_t::run(void)
             // modification time being unchanged from what was recorded
             // in the database.
             // 
-            if(!options.verify_files && options.skip_hash_mod_time && version_record.has_value()
-                  && version_record.mod_time() == std::chrono::duration_cast<std::chrono::seconds>(dir_entry.last_write_time().time_since_epoch()).count())
-               hash_match = true;
-            else {
-               hash_file(dir_entry.path(), filesize, hexhash_file);
+            if(dir_entry.has_value()) {
+               if(!options.verify_files && options.skip_hash_mod_time && version_record.has_value()
+                     && version_record.mod_time() == std::chrono::duration_cast<std::chrono::seconds>(dir_entry.value().last_write_time().time_since_epoch()).count()) {
+                  hash_match = true;
+               }
+            }
+
+            // a non-optional to allow version+1 whether version_record has a value or not
+            int64_t version = 0;
+
+            std::optional<int64_t> version_id;        // version record identifier (either from the database or a newly inserted one)
+            std::optional<int64_t> file_id;           // a file identifier (same as version_id)
+            std::optional<int64_t> exif_id;           // an EXIF data identifier (same as version_id)
+
+            if(!hash_match) {
+#ifdef NO_SSE_AVX
+               hash_file(dir_entry.value().path(), filesize, hexhash_file);
+#else
+               // check if we have a new file to submit for hashing (otherwise we are finalizing last few hash jobs)
+               if(dir_entry.has_value()) {
+                  //
+                  // Submit a parallel hash job for this file and pack all data we
+                  // gathered for this file as job arguments, so we can restore them
+                  // when we get hashes in a different order. Note that version_record
+                  // will be empty for new files, which is expected.
+                  //
+                  mb_hasher.submit_job(&file_tracker_t::open_file, &file_tracker_t::read_file, std::move(version_record), std::move(dir_entry).value());
+
+                  // if the multi-buffer hasher can accept more parallel jobs, get another file
+                  if(mb_hasher.available_jobs() > 0) {
+                     files_lock.lock();
+                     continue;
+                  }
+               }
+
+               uint32_t isa_mb_hash[mb_file_hasher_t::traits::HASH_UINT32_SIZE];
+
+               std::optional<mb_file_hasher_t::param_tuple_t> args = mb_hasher.get_hash(isa_mb_hash);
+
+               filesize = std::get<1>(args.value());
+
+               // hash for zero-length files should not be evaluated
+               if(filesize)
+                  mb_file_hasher_t::isa_mb_hash_to_hex(isa_mb_hash, hexhash_file);
+
+               // restore the version record and directory entry to continue the loop interrupted by queuing hash jobs
+               version_record = std::move(std::get<2>(args.value()));
+
+               if(version_record.has_value()) {
+                  version = version_record.version();
+
+                  version_id = version_record.version_id();
+
+                  file_id = version_record.file_id();
+               }
+
+               dir_entry = std::move(std::get<3>(args.value()));
+
+               // invalid UCS-2 code points have been filtered out above
+               if(options.base_path.empty())
+                  filepath = dir_entry.value().path().u8string();
+               else
+                  filepath = dir_entry.value().path().lexically_relative(options.base_path).u8string();
+#endif
 
                // consider a NULL hash field as a match for zero-length files
                hash_match = version_record.has_value() && ((filesize == 0 && !version_record.hexhash().has_value()) || memcmp(hexhash_file, version_record.hexhash().value().data(), HASH_HEX_SIZE) == 0);
@@ -768,7 +811,7 @@ void file_tracker_t::run(void)
 
             // if there is no file record for this path, insert one to get a file ID
             if(!options.verify_files && !file_id.has_value())
-               file_id = insert_file_record(filepath, dir_entry);
+               file_id = insert_file_record(filepath, dir_entry.value());
 
             // if there's no version record or the hash didn't match, we need to insert a new one
             if(!hash_match) {
@@ -780,7 +823,7 @@ void file_tracker_t::run(void)
                      print_stream.info(   "new file: %s", filepath.c_str());
                   }
                   else {
-                     if(version_record.mod_time() != std::chrono::duration_cast<std::chrono::seconds>(dir_entry.last_write_time().time_since_epoch()).count()) {
+                     if(version_record.mod_time() != std::chrono::duration_cast<std::chrono::seconds>(dir_entry.value().last_write_time().time_since_epoch()).count()) {
                         progress_info.modified_files++;
                         print_stream.info("modified: %s", filepath.c_str());
                      }
@@ -796,10 +839,10 @@ void file_tracker_t::run(void)
                   // data. We don't try to figure out if EXIF changed and store an
                   // EXIF record for every version of the picture file.
                   //
-                  if(!EXIF_exts.empty() && !dir_entry.path().extension().empty()) {
-                     if(std::binary_search(EXIF_exts.begin(), EXIF_exts.end(), dir_entry.path().extension().u8string(), less_ci())) {
+                  if(!EXIF_exts.empty() && !dir_entry.value().path().extension().empty()) {
+                     if(std::binary_search(EXIF_exts.begin(), EXIF_exts.end(), dir_entry.value().path().extension().u8string(), less_ci())) {
                         // filepath will contain a relative path if base path was specified
-                        exif::field_bitset_t field_bitset = exif_reader.read_file_exif(dir_entry.path(), print_stream);
+                        exif::field_bitset_t field_bitset = exif_reader.read_file_exif(dir_entry.value().path(), print_stream);
 
                         // ignore EXIF unless Make or Model were specified (some image editors add meaningless default values).
                         if(field_bitset.test(exif::EXIF_FIELD_Make) || field_bitset.test(exif::EXIF_FIELD_Model))
@@ -813,12 +856,12 @@ void file_tracker_t::run(void)
                   // unique in the queue, so there is no danger of a version
                   // conflict.
                   //
-                  version_id = insert_version_record(filepath, file_id.value(), version+1, filesize, dir_entry, hexhash_file, exif_id);
+                  version_id = insert_version_record(filepath, file_id.value(), version+1, filesize, dir_entry.value(), hexhash_file, exif_id);
                }
 
                // reuse for updated files during scans and for mismatched files during verification
                progress_info.updated_files++;
-               progress_info.updated_size += options.skip_hash_mod_time ? dir_entry.file_size() : filesize;
+               progress_info.updated_size += options.skip_hash_mod_time ? dir_entry.value().file_size() : filesize;
             }
 
             if(!options.verify_files) {
@@ -833,7 +876,7 @@ void file_tracker_t::run(void)
          // Update stats for processed files
          //
          progress_info.processed_files++;
-         progress_info.processed_size += options.skip_hash_mod_time ? dir_entry.file_size() : filesize;
+         progress_info.processed_size += options.skip_hash_mod_time ? dir_entry.value().file_size() : filesize;
       }
       catch (const std::exception& error) {
          progress_info.failed_files++;
@@ -845,7 +888,7 @@ void file_tracker_t::run(void)
          // identify which file we couldn't process.
          //
          if(filepath.empty()) {
-            std::u16string filepath_u16 = dir_entry.path().u16string();
+            std::u16string filepath_u16 = dir_entry.value().path().u16string();
             std::transform(filepath_u16.begin(), filepath_u16.end(),
                               std::back_inserter(filepath),
                               [] (char16_t chr) -> char {return (chr >= ' ' && chr < '\x7f' ? static_cast<char>(chr) : '?');});

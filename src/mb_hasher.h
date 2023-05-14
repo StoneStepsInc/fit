@@ -18,6 +18,8 @@ class mb_hasher_t {
    public:
       typedef mb_hash_traits traits;
 
+      typedef std::tuple<P...> param_tuple_t;
+
       //
       // From isa-l_crypto docs:
       //
@@ -39,8 +41,6 @@ class mb_hasher_t {
       static constexpr size_t ALIGN_MEM = 64;
 
    private:
-      typedef std::tuple<P...> param_tuple_t;
-
       typedef std::vector<typename mb_hash_traits::HASH_CTX> hash_ctx_vec_t;
 
       typedef std::queue<typename mb_hash_traits::HASH_CTX*> hash_ctx_queue_t;
@@ -93,9 +93,10 @@ class mb_hasher_t {
       //
       alignas(ALIGN_MEM) hash_ctx_mgr_t mb_ctx_mgr;
 
+      // isa-l_crypto hash job contexts
       hash_ctx_vec_t mb_ctxs;
 
-      // storage container for job context arguments pointed to by mb_hash_traits::HASH_CTX::user_data
+      // storage container for job context arguments pointed to by mb_hash_traits::HASH_CTX::user_data in mb_ctxs
       std::vector<ctx_args_t> ctx_args_vec;
 
       // intermediately flushed contexts while looking for a completed one
@@ -108,12 +109,18 @@ class mb_hasher_t {
       std::queue<size_t> pending_ctxs;
 
    public:
-      mb_hasher_t(size_t buf_size, size_t max_ctxs);
+      mb_hasher_t(size_t buf_size, size_t max_jobs);
 
       mb_hasher_t(const mb_hasher_t&) = delete;
       mb_hasher_t(mb_hasher_t&&) = delete;
 
       ~mb_hasher_t(void);
+
+      size_t max_jobs(void) const;
+
+      size_t available_jobs(void) const;
+
+      size_t active_jobs(void) const;
 
       template <typename ... O>
       void submit_job(param_tuple_t (*open_job)(O&&...), bool (*get_data)(unsigned char*, size_t, size_t&, param_tuple_t&), O&&... param);

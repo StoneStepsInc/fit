@@ -57,15 +57,6 @@ struct progress_info_t {
 //
 class file_tracker_t {
    private:
-#ifndef NO_SSE_AVX
-      typedef mb_hasher_t<mb_sha256_traits, std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t&> mb_file_hasher_t;
-
-      static constexpr const size_t HASH_BIN_SIZE = mb_file_hasher_t::traits::HASH_SIZE;
-      static constexpr const size_t HASH_HEX_SIZE = HASH_BIN_SIZE * 2;
-
-      static constexpr const std::string_view HASH_TYPE = mb_file_hasher_t::traits::HASH_TYPE;
-#endif
-
       static constexpr const int DB_BUSY_TIMEOUT = 1000;
 
       // same field order as in the select statement (stmt_find_file)
@@ -76,7 +67,13 @@ class file_tracker_t {
       // which provides meaningful names to numbered column identifiers.
       //
       struct find_file_result_t {
-         const std::optional<version_record_t> version_record;
+         std::optional<version_record_t> version_record;
+
+         find_file_result_t(void) : version_record(std::nullopt) {}
+         find_file_result_t(std::optional<version_record_t>&& other) : version_record(std::move(other)) {}
+         find_file_result_t(find_file_result_t&& other) noexcept : version_record(std::move(other.version_record)) {}
+
+         find_file_result_t& operator = (find_file_result_t&& other) noexcept {version_record = std::move(other.version_record); return *this;}
 
          bool has_value(void) const {return version_record.has_value();}
 
@@ -94,6 +91,15 @@ class file_tracker_t {
 
          int64_t scanset_scan_id(void) const {return std::get<6>(version_record.value());}
       };
+
+#ifndef NO_SSE_AVX
+      typedef mb_hasher_t<mb_sha256_traits, std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t, find_file_result_t, std::filesystem::directory_entry> mb_file_hasher_t;
+
+      static constexpr const size_t HASH_BIN_SIZE = mb_file_hasher_t::traits::HASH_SIZE;
+      static constexpr const size_t HASH_HEX_SIZE = HASH_BIN_SIZE * 2;
+
+      static constexpr const std::string_view HASH_TYPE = mb_file_hasher_t::traits::HASH_TYPE;
+#endif
 
    private:
       const options_t& options;
@@ -157,8 +163,8 @@ class file_tracker_t {
       void run(void);
 
 #ifndef NO_SSE_AVX
-      static std::tuple<std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t&> open_file(const std::filesystem::path& filepath, uint64_t& filesize);
-      static bool read_file(unsigned char *file_buffer, size_t buf_size, size_t& data_size, std::tuple<std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t&>& args);
+      static mb_file_hasher_t::param_tuple_t open_file(find_file_result_t&& version_record, std::filesystem::directory_entry&& dir_entry);
+      static bool read_file(unsigned char *file_buffer, size_t buf_size, size_t& data_size, mb_file_hasher_t::param_tuple_t& args);
 #endif
 
       static int sqlite_busy_handler_cb(void*, int count);

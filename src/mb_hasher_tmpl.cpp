@@ -21,9 +21,9 @@ mb_hasher_t<mb_hash_traits, P...>::ctx_args_t::ctx_args_t(size_t id, size_t buf_
 }
 
 template <typename mb_hash_traits, typename ... P>
-mb_hasher_t<mb_hash_traits, P...>::mb_hasher_t(size_t buf_size, size_t max_ctxs) :
+mb_hasher_t<mb_hash_traits, P...>::mb_hasher_t(size_t buf_size, size_t max_jobs) :
       buf_size(buf_size),
-      max_ctxs(max_ctxs)
+      max_ctxs(max_jobs)
 {
    mb_hash_traits::ctx_mgr_init(&mb_ctx_mgr);
 
@@ -38,6 +38,24 @@ mb_hasher_t<mb_hash_traits, P...>::mb_hasher_t(size_t buf_size, size_t max_ctxs)
 template <typename mb_hash_traits, typename ... P>
 mb_hasher_t<mb_hash_traits, P...>::~mb_hasher_t(void)
 {
+}
+
+template <typename mb_hash_traits, typename ... P>
+size_t mb_hasher_t<mb_hash_traits, P...>::max_jobs(void) const
+{
+   return max_ctxs;
+}
+
+template <typename mb_hash_traits, typename ... P>
+size_t mb_hasher_t<mb_hash_traits, P...>::available_jobs(void) const
+{
+   return max_ctxs - mb_ctxs.size() + free_ctxs.size();
+}
+
+template <typename mb_hash_traits, typename ... P>
+size_t mb_hasher_t<mb_hash_traits, P...>::active_jobs(void) const
+{
+   return mb_ctxs.size() - free_ctxs.size();
 }
 
 template <typename mb_hash_traits, typename ... P>
@@ -116,10 +134,16 @@ std::optional<typename mb_hasher_t<mb_hash_traits, P...>::param_tuple_t> mb_hash
          ctx_args_t *ctx_args = static_cast<ctx_args_t*>(mb_ctx_ptr->user_data);
 
          if(mb_ctx_ptr->status != HASH_CTX_STS_COMPLETE || !ctx_args->params.has_value() || ctx_args->processed_size)
-            throw std::runtime_error("Got a bad pending state for a job " + std::to_string(ctx_args->id));
+            throw std::runtime_error("Got a bad pending state for a hash job " + std::to_string(ctx_args->id));
 
          moredata = ctx_args->get_data(ctx_args->buffer, buf_size, data_size, ctx_args->params.value());
 
+         //
+         // We may get here zero-length data and it's too late to back out
+         // because the job has already been submitted. isa-l_crypto seems
+         // to handle these cases gracefully, but caller should discard the
+         // resulting hash.
+         //
          mb_ctx_ptr = mb_hash_traits::ctx_mgr_submit(&mb_ctx_mgr, mb_ctx_ptr, ctx_args->buffer, static_cast<uint32_t>(data_size), moredata ? HASH_FIRST : HASH_ENTIRE);
 
          ctx_args->processed_size += data_size;
@@ -130,14 +154,14 @@ std::optional<typename mb_hasher_t<mb_hash_traits, P...>::param_tuple_t> mb_hash
       else {
          // finally, see if we can flush a context to continue
          if((mb_ctx_ptr = mb_hash_traits::ctx_mgr_flush(&mb_ctx_mgr)) == nullptr)
-            throw std::runtime_error("Got a null flushed context while processing jobs");
+            throw std::runtime_error("Got a null flushed context while processing hash jobs");
       }
 
       if(mb_ctx_ptr) {
          ctx_args_t *ctx_args = static_cast<ctx_args_t*>(mb_ctx_ptr->user_data);
 
          if(mb_ctx_ptr->error != HASH_CTX_ERROR_NONE)
-            throw std::runtime_error("Got a context with an error (" + std::to_string(mb_ctx_ptr->error) + ") for a job " + std::to_string(ctx_args->id));
+            throw std::runtime_error("Got a context with an error (" + std::to_string(mb_ctx_ptr->error) + ") for a hash job " + std::to_string(ctx_args->id));
 
          if(mb_ctx_ptr->status == HASH_CTX_STS_COMPLETE) {
             ctx_args->processed_size = 0;
@@ -156,7 +180,7 @@ std::optional<typename mb_hasher_t<mb_hash_traits, P...>::param_tuple_t> mb_hash
       ctx_args_t *ctx_args = static_cast<ctx_args_t*>(mb_ctx_ptr->user_data);
 
       if(mb_ctx_ptr->error != HASH_CTX_ERROR_NONE)
-         throw std::runtime_error("Got a flushed context with an error (" + std::to_string(mb_ctx_ptr->error) + ") for a job " + std::to_string(ctx_args->id));
+         throw std::runtime_error("Got a flushed context with an error (" + std::to_string(mb_ctx_ptr->error) + ") for a hash job " + std::to_string(ctx_args->id));
 
       //
       // All returned contexts must be continued and cannot be discarded
@@ -177,7 +201,7 @@ std::optional<typename mb_hasher_t<mb_hash_traits, P...>::param_tuple_t> mb_hash
       }
    }
 
-   throw std::runtime_error("Got a null flushed context while finalizing jobs");
+   throw std::runtime_error("Got a null flushed context while finalizing hash jobs");
 }
 
 template <typename mb_hash_traits, typename ... P>
