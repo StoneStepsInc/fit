@@ -210,6 +210,11 @@ station.
 When scanning magnetic drives, keeping the SQLite database on
 a different drive will improve scanning speed.
 
+Starting with version 2.1.0, multi-buffer SHA-256 hashing is
+implemented, which takes advantage of SSE/AVX instructions
+in Intel processors and significantly increases hashing speed
+by computing hashes for multiple files in parallel.
+
 ## SQLite Database
 
 The SQLite database contains tables described in this section.
@@ -499,8 +504,8 @@ column.
 
 EXIF fields that are supposed to contain ASCII values are validated
 as UTF-8 fields, which includes ASCII. Fields containing invalid
-UTF-8 sequences will are discarded and their names are captured
-in the `$._fit.bad_utf8` array.
+UTF-8 sequences are discarded and their names are captured in the
+`$._fit.bad_utf8` array.
 
 ### Useful SQL
 
@@ -553,27 +558,21 @@ in this case.
 ### Windows
 
 Current source requires Visual Studio 2019 to build. It uses
-Nuget package for database access and reading EXIF and a 3rd-party
-source package to compute SHA-256 hashes.
-
-SHA-256 does not have a package and may be obtained via a batch
-file included in the project (`get-sha256.bat`). After running
-this batch file, a directory `src/sha256` will contain the source
-for the SHA-256 library.
+Nuget package for database access, reading EXIF and computing
+SHA-256 hashes.
 
 ### Linux
 
 Current source compiles on Linux, but very little testing was
 done to verify the results.
 
-SQLite development package needs to be installed (e.g. `sqlite-devel`
+A fwe development packages need to be installed (e.g. `sqlite-devel`
 on Fedora). See Docker files in `devops` for a list of packages
 required to build on various Linux flavors.
 
-SHA-256 does not have a package and may be obtained via a script
-included in the project (`get-sha256`). After running the script,
-a directory `src/sha256` will contain the source for the SHA-256
-library.
+Libraries that are not available as development packages can be
+obtained with `get-*` scripts from the `devops` directory, such
+as `devops/get-isa-l_crypto`.
 
 Linux time stamps will appear as negative values in the SQLite
 database and it is not clear at this point how they are computed.
@@ -595,7 +594,7 @@ This application uses following 3rd-party libraries, licensed separately.
 
 A SQL database management library.
 
-LICENSE: [Pubic Domain](https://www.sqlite.org/copyright.html)
+LICENSE: [Public Domain](https://www.sqlite.org/copyright.html)
 
 #### Exiv2
 
