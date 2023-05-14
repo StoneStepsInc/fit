@@ -740,6 +740,17 @@ void file_tracker_t::run(void)
             std::optional<int64_t> file_id;           // a file identifier (same as version_id)
             std::optional<int64_t> exif_id;           // an EXIF data identifier (same as version_id)
 
+            //
+            // Need to set these for options.skip_hash_mod_time==true, when
+            // we avoid hashing, so they are never restored after multi-buffer
+            // hashing nor inserted because hash_match==true.
+            //
+            if(version_record.has_value()) {
+               version = version_record.version();
+               version_id = version_record.version_id();
+               file_id = version_record.file_id();
+            }
+
             if(!hash_match) {
 #ifdef NO_SSE_AVX
                hash_file(dir_entry.value().path(), filesize, hexhash_file);
