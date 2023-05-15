@@ -75,7 +75,7 @@ class mb_hasher_t {
 
       //
       // Data members in SHA256_MB_JOB_MGR must be aligned appropriately
-      // for SSE, AVX, AVX2 and AVX512 operations or a crypting exception
+      // for SSE, AVX, AVX2 and AVX512 operations or a cryptic exception
       // will be thrown about not being able to access a memory location.
       // 
       // e.g. if SHA256_MB_JOB_MGR::lens is not aligned at least to a 16
