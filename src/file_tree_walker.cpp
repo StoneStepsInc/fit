@@ -28,7 +28,7 @@ file_tree_walker_t::file_tree_walker_t(const options_t& options, int64_t scan_id
       scan_id(scan_id)
 {
    for(size_t i = 0; i < options.thread_count; i++)
-      file_hashers.emplace_back(options, scan_id, files, files_mtx, progress_info, print_stream);
+      file_trackers.emplace_back(options, scan_id, files, files_mtx, progress_info, print_stream);
 }
 
 void file_tree_walker_t::initialize(print_stream_t& print_stream)
@@ -65,8 +65,8 @@ void file_tree_walker_t::walk_tree(void)
    static const char *enum_files_error_msg = "Cannot enumerate files";
 
    // start hasher threads
-   for(size_t i = 0; i < file_hashers.size(); i++)
-      file_hashers[i].start();
+   for(size_t i = 0; i < file_trackers.size(); i++)
+      file_trackers[i].start();
 
    uint64_t queued_files = 0;
 
@@ -168,12 +168,12 @@ void file_tree_walker_t::walk_tree(void)
    }
 
    // tell all file hasher threads to stop
-   for(size_t i = 0; i < file_hashers.size(); i++)
-      file_hashers[i].stop();
+   for(size_t i = 0; i < file_trackers.size(); i++)
+      file_trackers[i].stop();
 
    // and wait until they actually stop
-   for(size_t i = 0; i < file_hashers.size(); i++)
-      file_hashers[i].join();
+   for(size_t i = 0; i < file_trackers.size(); i++)
+      file_trackers[i].join();
 }
 
 uint64_t file_tree_walker_t::get_processed_files(void) const

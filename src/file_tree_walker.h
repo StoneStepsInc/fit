@@ -35,7 +35,7 @@ class file_tree_walker_t {
 
       int64_t scan_id;
 
-      std::vector<file_tracker_t>   file_hashers;
+      std::vector<file_tracker_t>   file_trackers;
 
       std::queue<std::filesystem::directory_entry> files;
       std::mutex files_mtx;
