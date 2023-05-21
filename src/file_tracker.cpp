@@ -330,7 +330,7 @@ void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& 
    #endif
 
    if(!file)
-      throw std::runtime_error("Cannot open file " + filepath.u8string());
+      throw std::runtime_error("Cannot open file (" + std::string(strerror(errno)) + ") " + dir_entry.path().u8string());
 
    sha256_t ctx;
    sha256_init(&ctx);
@@ -375,6 +375,9 @@ file_tracker_t::mb_file_hasher_t::param_tuple_t file_tracker_t::open_file(find_f
    #else
    std::unique_ptr<FILE, file_handle_deleter_t> file(fopen(dir_entry.path().u8string().c_str(), "rb"));
    #endif
+
+   if(!file)
+      throw std::runtime_error("Cannot open file (" + std::string(strerror(errno)) + ") " + dir_entry.path().u8string());
 
    //
    // Need to make sure the reference is preserved, so we update the
