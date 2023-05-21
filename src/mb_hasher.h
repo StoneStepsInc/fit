@@ -12,8 +12,10 @@ namespace fit {
 
 //
 // Multi-buffer hasher based on Intel's isa-l_crypto.
+// 
+// 
 //
-template <typename mb_hash_traits, typename ... P>
+template <typename mb_hash_traits, typename T, typename ... P>
 class mb_hasher_t {
    public:
       typedef mb_hash_traits traits;
@@ -51,24 +53,27 @@ class mb_hasher_t {
          // index into ctx_args_vec and mb_ctxs for this instance
          size_t id;
 
-         // data buffer for get_data
+         // data buffer storage for get_data
          std::unique_ptr<unsigned char[]> buffer_storage;
 
+         // memory aligned buffer pointer within buffer_storage
          unsigned char *buffer;
 
          // arguments for get_data
          std::optional<param_tuple_t> params;
 
          // a caller-provided function to obtain the next data block for hashing
-         bool (*get_data)(unsigned char *buffer, size_t buf_size, size_t& data_size, param_tuple_t& args);
+         bool (T::*get_data)(unsigned char *buffer, size_t buf_size, size_t& data_size, param_tuple_t& args) const;
 
          // total number of hashed bytes obtained via get_data
          size_t processed_size = 0;
 
-         ctx_args_t(size_t id, size_t buf_size, param_tuple_t&& params, bool (*get_data)(unsigned char*, size_t, size_t&, param_tuple_t&));
+         ctx_args_t(size_t id, size_t buf_size, param_tuple_t&& params, bool (T::*get_data)(unsigned char*, size_t, size_t&, param_tuple_t&) const);
       };
 
    private:
+      const T& data_obj;
+
       size_t buf_size;
 
       size_t max_ctxs;
@@ -109,26 +114,33 @@ class mb_hasher_t {
       std::queue<size_t> pending_ctxs;
 
    public:
-      mb_hasher_t(size_t buf_size, size_t max_jobs);
+      mb_hasher_t(const T& data_obj, size_t buf_size, size_t max_jobs);
 
       mb_hasher_t(const mb_hasher_t&) = delete;
       mb_hasher_t(mb_hasher_t&&) = delete;
 
       ~mb_hasher_t(void);
 
+      // returns the maximum number of hashes that can be submitted
       size_t max_jobs(void) const;
 
+      // returns the number of jobs that can be submitted
       size_t available_jobs(void) const;
 
+      // returns the number of hashes that are being computed
       size_t active_jobs(void) const;
 
+      // submits a new hash job, along with methods to obtain data to hash and their arguments
       template <typename ... O>
-      void submit_job(param_tuple_t (*open_job)(O&&...), bool (*get_data)(unsigned char*, size_t, size_t&, param_tuple_t&), O&&... param);
+      void submit_job(param_tuple_t (T::*open_job)(O&&...) const, bool (T::*get_data)(unsigned char*, size_t, size_t&, param_tuple_t&) const, O&&... param);
 
+      // returns the computed hash as computed by isa_l_crypto
       std::optional<param_tuple_t> get_hash(uint32_t isa_mb_hash[mb_hash_traits::HASH_UINT32_SIZE]);
 
+      // converts an isa-l_crypto hash into a traditional hexadecimal representation
       static void isa_mb_hash_to_hex(uint32_t isa_mb_hash[mb_hash_traits::HASH_UINT32_SIZE], unsigned char hex_hash[mb_hash_traits::HASH_SIZE*2]);
 
+      // converts an isa-l_crypto hash into a traditional byte representation
       static void isa_mb_hash_to_bytes(uint32_t isa_mb_hash[mb_hash_traits::HASH_UINT32_SIZE], unsigned char bytes[mb_hash_traits::HASH_SIZE]);
 };
 

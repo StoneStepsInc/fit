@@ -63,7 +63,7 @@ file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::q
       EXIF_exts(parse_EXIF_exts(options)),
       exif_reader(options)
 #ifndef NO_SSE_AVX
-      , mb_hasher(options.buffer_size, mb_file_hasher_t::PAR_HASH_CTXS_AVX2)
+      , mb_hasher(*this, options.buffer_size, mb_file_hasher_t::PAR_HASH_CTXS_AVX2)
 #endif
 {
    int errcode = SQLITE_OK;
@@ -200,7 +200,7 @@ file_tracker_t::file_tracker_t(file_tracker_t&& other) :
       EXIF_exts(std::move(other.EXIF_exts)),
       exif_reader(std::move(other.exif_reader))
 #ifndef NO_SSE_AVX
-      , mb_hasher(options.buffer_size, other.mb_hasher.max_jobs())
+      , mb_hasher(*this, options.buffer_size, other.mb_hasher.max_jobs())
 #endif
 {
    other.file_scan_db = nullptr;
@@ -362,7 +362,7 @@ void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& 
    }
 }
 #else
-file_tracker_t::mb_file_hasher_t::param_tuple_t file_tracker_t::open_file(find_file_result_t&& version_record, std::filesystem::directory_entry&& dir_entry)
+file_tracker_t::mb_file_hasher_t::param_tuple_t file_tracker_t::open_file(find_file_result_t&& version_record, std::filesystem::directory_entry&& dir_entry) const
 {
    //
    // The narrow character version of fopen will fail to open files
@@ -383,7 +383,7 @@ file_tracker_t::mb_file_hasher_t::param_tuple_t file_tracker_t::open_file(find_f
    return std::make_tuple(std::move(file), 0, std::move(version_record), std::move(dir_entry));
 }
 
-bool file_tracker_t::read_file(unsigned char *file_buffer, size_t buf_size, size_t& data_size, mb_file_hasher_t::param_tuple_t& args)
+bool file_tracker_t::read_file(unsigned char *file_buffer, size_t buf_size, size_t& data_size, mb_file_hasher_t::param_tuple_t& args) const
 {
    std::unique_ptr<FILE, file_handle_deleter_t>& file = std::get<0>(args);
    uint64_t& file_size = std::get<1>(args);

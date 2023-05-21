@@ -93,7 +93,7 @@ class file_tracker_t {
       };
 
 #ifndef NO_SSE_AVX
-      typedef mb_hasher_t<mb_sha256_traits, std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t, find_file_result_t, std::filesystem::directory_entry> mb_file_hasher_t;
+      typedef mb_hasher_t<mb_sha256_traits, file_tracker_t, std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t, find_file_result_t, std::filesystem::directory_entry> mb_file_hasher_t;
 
       static constexpr const size_t HASH_BIN_SIZE = mb_file_hasher_t::traits::HASH_SIZE;
       static constexpr const size_t HASH_HEX_SIZE = HASH_BIN_SIZE * 2;
@@ -163,8 +163,8 @@ class file_tracker_t {
       void run(void);
 
 #ifndef NO_SSE_AVX
-      static mb_file_hasher_t::param_tuple_t open_file(find_file_result_t&& version_record, std::filesystem::directory_entry&& dir_entry);
-      static bool read_file(unsigned char *file_buffer, size_t buf_size, size_t& data_size, mb_file_hasher_t::param_tuple_t& args);
+      mb_file_hasher_t::param_tuple_t open_file(find_file_result_t&& version_record, std::filesystem::directory_entry&& dir_entry) const;
+      bool read_file(unsigned char *file_buffer, size_t buf_size, size_t& data_size, mb_file_hasher_t::param_tuple_t& args) const;
 #endif
 
       static int sqlite_busy_handler_cb(void*, int count);

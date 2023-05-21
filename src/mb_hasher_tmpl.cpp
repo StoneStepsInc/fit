@@ -4,8 +4,8 @@
 
 namespace fit {
 
-template <typename mb_hash_traits, typename ... P>
-mb_hasher_t<mb_hash_traits, P...>::ctx_args_t::ctx_args_t(size_t id, size_t buf_size, param_tuple_t&& params, bool (*get_data)(unsigned char*, size_t, size_t&, param_tuple_t&)) :
+template <typename mb_hash_traits, typename T, typename ... P>
+mb_hasher_t<mb_hash_traits, T, P...>::ctx_args_t::ctx_args_t(size_t id, size_t buf_size, param_tuple_t&& params, bool (T::*get_data)(unsigned char*, size_t, size_t&, param_tuple_t&) const) :
       id(id),
       buffer_storage(new unsigned char [buf_size+ALIGN_MEM]),
       buffer(buffer_storage.get()),
@@ -20,8 +20,9 @@ mb_hasher_t<mb_hash_traits, P...>::ctx_args_t::ctx_args_t(size_t id, size_t buf_
       throw std::runtime_error("Cannot align a memory buffer for hashing");
 }
 
-template <typename mb_hash_traits, typename ... P>
-mb_hasher_t<mb_hash_traits, P...>::mb_hasher_t(size_t buf_size, size_t max_jobs) :
+template <typename mb_hash_traits, typename T, typename ... P>
+mb_hasher_t<mb_hash_traits, T, P...>::mb_hasher_t(const T& data_obj, size_t buf_size, size_t max_jobs) :
+      data_obj(data_obj),
       buf_size(buf_size),
       max_ctxs(max_jobs)
 {
@@ -35,32 +36,32 @@ mb_hasher_t<mb_hash_traits, P...>::mb_hasher_t(size_t buf_size, size_t max_jobs)
    free_ctxs.reserve(max_ctxs);
 }
 
-template <typename mb_hash_traits, typename ... P>
-mb_hasher_t<mb_hash_traits, P...>::~mb_hasher_t(void)
+template <typename mb_hash_traits, typename T, typename ... P>
+mb_hasher_t<mb_hash_traits, T, P...>::~mb_hasher_t(void)
 {
 }
 
-template <typename mb_hash_traits, typename ... P>
-size_t mb_hasher_t<mb_hash_traits, P...>::max_jobs(void) const
+template <typename mb_hash_traits, typename T, typename ... P>
+size_t mb_hasher_t<mb_hash_traits, T, P...>::max_jobs(void) const
 {
    return max_ctxs;
 }
 
-template <typename mb_hash_traits, typename ... P>
-size_t mb_hasher_t<mb_hash_traits, P...>::available_jobs(void) const
+template <typename mb_hash_traits, typename T, typename ... P>
+size_t mb_hasher_t<mb_hash_traits, T, P...>::available_jobs(void) const
 {
    return max_ctxs - mb_ctxs.size() + free_ctxs.size();
 }
 
-template <typename mb_hash_traits, typename ... P>
-size_t mb_hasher_t<mb_hash_traits, P...>::active_jobs(void) const
+template <typename mb_hash_traits, typename T, typename ... P>
+size_t mb_hasher_t<mb_hash_traits, T, P...>::active_jobs(void) const
 {
    return mb_ctxs.size() - free_ctxs.size();
 }
 
-template <typename mb_hash_traits, typename ... P>
+template <typename mb_hash_traits, typename T, typename ... P>
 template <typename ... O>
-void mb_hasher_t<mb_hash_traits, P...>::submit_job(param_tuple_t (*open_job)(O&&...), bool (*get_data)(unsigned char*, size_t, size_t&, param_tuple_t&), O&&... param)
+void mb_hasher_t<mb_hash_traits, T, P...>::submit_job(param_tuple_t (T::*open_job)(O&&...) const, bool (T::*get_data)(unsigned char*, size_t, size_t&, param_tuple_t&) const, O&&... param)
 {
    ctx_args_t *ctx_args = nullptr;
 
@@ -72,14 +73,14 @@ void mb_hasher_t<mb_hash_traits, P...>::submit_job(param_tuple_t (*open_job)(O&&
       if(mb_ctxs[ctx_args->id].status != HASH_CTX_STS_COMPLETE || ctx_args->params.has_value())
          throw std::runtime_error("A free context must be completed and cannot have arguments (" + std::to_string(ctx_args->id) + ")");
 
-      ctx_args->params = open_job(std::forward<O>(param)...);
+      ctx_args->params = (data_obj.*open_job)(std::forward<O>(param)...);
       ctx_args->get_data = get_data;
    }
    else {
       if(mb_ctxs.size() == max_ctxs)
          throw std::runtime_error("Maximum number of multi-buffer contexts has been reached");
 
-      param_tuple_t oparams = open_job(std::forward<O>(param)...);
+      param_tuple_t oparams = (data_obj.*open_job)(std::forward<O>(param)...);
 
       ctx_args = &ctx_args_vec.emplace_back(mb_ctxs.size(), buf_size, std::move(oparams), get_data);
 
@@ -95,8 +96,8 @@ void mb_hasher_t<mb_hash_traits, P...>::submit_job(param_tuple_t (*open_job)(O&&
    pending_ctxs.push(ctx_args->id);
 }
 
-template <typename mb_hash_traits, typename ... P>
-std::optional<typename mb_hasher_t<mb_hash_traits, P...>::param_tuple_t> mb_hasher_t<mb_hash_traits, P...>::get_hash(uint32_t isa_mb_hash[mb_hash_traits::HASH_UINT32_SIZE])
+template <typename mb_hash_traits, typename T, typename ... P>
+std::optional<typename mb_hasher_t<mb_hash_traits, T, P...>::param_tuple_t> mb_hasher_t<mb_hash_traits, T, P...>::get_hash(uint32_t isa_mb_hash[mb_hash_traits::HASH_UINT32_SIZE])
 {
    typename mb_hash_traits::HASH_CTX *mb_ctx_ptr = nullptr;
 
@@ -111,7 +112,7 @@ std::optional<typename mb_hasher_t<mb_hash_traits, P...>::param_tuple_t> mb_hash
          // always process the immediate context for as long as we have it
          ctx_args_t *ctx_args = static_cast<ctx_args_t*>(mb_ctx_ptr->user_data);
 
-         moredata = ctx_args->get_data(ctx_args->buffer, buf_size, data_size, ctx_args->params.value());
+         moredata = (data_obj.*ctx_args->get_data)(ctx_args->buffer, buf_size, data_size, ctx_args->params.value());
 
          mb_ctx_ptr = mb_hash_traits::ctx_mgr_submit(&mb_ctx_mgr, mb_ctx_ptr, ctx_args->buffer, static_cast<uint32_t>(data_size), moredata ? HASH_UPDATE : HASH_LAST);
 
@@ -136,7 +137,7 @@ std::optional<typename mb_hasher_t<mb_hash_traits, P...>::param_tuple_t> mb_hash
          if(mb_ctx_ptr->status != HASH_CTX_STS_COMPLETE || !ctx_args->params.has_value() || ctx_args->processed_size)
             throw std::runtime_error("Got a bad pending state for a hash job " + std::to_string(ctx_args->id));
 
-         moredata = ctx_args->get_data(ctx_args->buffer, buf_size, data_size, ctx_args->params.value());
+         moredata = (data_obj.*ctx_args->get_data)(ctx_args->buffer, buf_size, data_size, ctx_args->params.value());
 
          //
          // We may get here zero-length data and it's too late to back out
@@ -204,8 +205,8 @@ std::optional<typename mb_hasher_t<mb_hash_traits, P...>::param_tuple_t> mb_hash
    throw std::runtime_error("Got a null flushed context while finalizing hash jobs");
 }
 
-template <typename mb_hash_traits, typename ... P>
-void mb_hasher_t<mb_hash_traits, P...>::isa_mb_hash_to_hex(uint32_t isa_mb_hash[mb_hash_traits::HASH_UINT32_SIZE], unsigned char hex_hash[mb_hash_traits::HASH_SIZE*2])
+template <typename mb_hash_traits, typename T, typename ... P>
+void mb_hasher_t<mb_hash_traits, T, P...>::isa_mb_hash_to_hex(uint32_t isa_mb_hash[mb_hash_traits::HASH_UINT32_SIZE], unsigned char hex_hash[mb_hash_traits::HASH_SIZE*2])
 {
    static const char hex[] = "0123456789abcdef";
 
@@ -222,8 +223,8 @@ void mb_hasher_t<mb_hash_traits, P...>::isa_mb_hash_to_hex(uint32_t isa_mb_hash[
    }
 }
 
-template <typename mb_hash_traits, typename ... P>
-void mb_hasher_t<mb_hash_traits, P...>::isa_mb_hash_to_bytes(uint32_t isa_mb_hash[mb_hash_traits::HASH_UINT32_SIZE], unsigned char bytes[mb_hash_traits::HASH_SIZE])
+template <typename mb_hash_traits, typename T, typename ... P>
+void mb_hasher_t<mb_hash_traits, T, P...>::isa_mb_hash_to_bytes(uint32_t isa_mb_hash[mb_hash_traits::HASH_UINT32_SIZE], unsigned char bytes[mb_hash_traits::HASH_SIZE])
 {
    if(mb_hash_traits::HASH_UINT32_REORDER) {
       // hash bytes are packed as little endian uint32_t elements
