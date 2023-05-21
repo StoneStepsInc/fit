@@ -13,7 +13,32 @@ namespace fit {
 //
 // Multi-buffer hasher based on Intel's isa-l_crypto.
 // 
+// A typical use of a multi-buffer hasher is to submit hash jobs while
+// there are still job slots available and then call `get_hash` and
+// `submit_job` for all remaining input data sources. When data sources
+// are exhausted, the outstanding hashes should be picked up via
+// `get_hash` calls, like this.
 // 
+//     mb_hasher_t<mb_sha256_traits, X, D1, D2> mbh(x, 4096, 2);
+// 
+//     mbh.submit_job(&X::open, &X::read, std::move(d1), std::move(d2));
+//     mbh.submit_job(&X::open, &X::read, std::move(d1), std::move(d2));
+// 
+//     std::tuple<D1, D2> mt = mbh.get_hash(isa_mb_hash);
+//     mbh.submit_job(&X::open, &X::read, std::move(d1), std::move(d2));
+// 
+//     mt = mbh.get_hash(isa_mb_hash);
+//     mbh.submit_job(&X::open, &X::read, std::move(d1), std::move(d2));
+//
+//     mt = mbh.get_hash(isa_mb_hash);
+//     mt = mbh.get_hash(isa_mb_hash);
+// 
+// `D1` and `D2` are used for exposition of arbitrary user types carried
+// by `mb_hasher_t` on caller's behalf. All types used as `mb_hasher_t`
+// template arguments must be constructable from template parameters
+// passed into `submit_job`. The tuple with `D1` and `D2` instances for
+// each hash job will be returned from `get_hash` (e.g. it may carry
+// a data source handle, amount of data read from the data source, etc).
 //
 template <typename mb_hash_traits, typename T, typename ... P>
 class mb_hasher_t {

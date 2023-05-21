@@ -59,6 +59,13 @@ size_t mb_hasher_t<mb_hash_traits, T, P...>::active_jobs(void) const
    return mb_ctxs.size() - free_ctxs.size();
 }
 
+//
+// `open_job` and `get_data` are pointers to member functions, which
+// are expected to be `const` and are intended to provide read-only
+// context for hash jobs. All mutable hash job data, such as data
+// stream handle, position, amount of bytes read so far, etc, should
+// be maintained in hash job parameters in `param_tuple_t`.
+//
 template <typename mb_hash_traits, typename T, typename ... P>
 template <typename ... O>
 void mb_hasher_t<mb_hash_traits, T, P...>::submit_job(param_tuple_t (T::*open_job)(O&&...) const, bool (T::*get_data)(unsigned char*, size_t, size_t&, param_tuple_t&) const, O&&... param)
