@@ -63,7 +63,7 @@ file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::q
       EXIF_exts(parse_EXIF_exts(options)),
       exif_reader(options)
 #ifndef NO_SSE_AVX
-      , mb_hasher(*this, options.buffer_size, mb_file_hasher_t::PAR_HASH_CTXS_AVX2)
+      , mb_hasher(*this, options.buffer_size, options.mb_hash_max.has_value() ? options.mb_hash_max.value() : mb_file_hasher_t::PAR_HASH_CTXS_AVX2)
 #endif
 {
    int errcode = SQLITE_OK;
@@ -778,6 +778,9 @@ void file_tracker_t::run(void)
                uint32_t isa_mb_hash[mb_file_hasher_t::traits::HASH_UINT32_SIZE];
 
                std::optional<mb_file_hasher_t::param_tuple_t> args = mb_hasher.get_hash(isa_mb_hash);
+
+               // close the file handle explicitly to avoid keeping it open while handling hashing results
+               std::get<0>(args.value()).reset();
 
                filesize = std::get<1>(args.value());
 

@@ -110,6 +110,24 @@ modes and are as follows:
     This option instructs `fit` to store EXIF values obtained from
     the Exiv2 library as JSON in the database.
 
+  * `-t`
+
+    Number of threads used for hashing and updating file information
+    in the database. The default value is `4` threads.
+
+  * `-H`
+
+    Maxumum number of multi-buffer hash jobs being performed at the
+    same time. Multi-buffer hashing takes advantage of processor
+    instructions that apply the same operation against multiple sets
+    of different data. The default value is `8` buffers.
+
+    Note that each multi-buffer hash job requires an open file handle,
+    so the maximum number of simultaneously opened file handles may
+    be exceded for some combinations of `-t` and `-H` options, which
+    will be indicated by errors reporting that too many files are
+    open.
+
 ## Scanning a File Tree
 
 Scanning a file tree without the `-v` option will record computed

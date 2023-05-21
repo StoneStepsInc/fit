@@ -39,6 +39,8 @@ struct options_t {
    std::string log_file;
    std::optional<std::string> EXIF_exts;
 
+   std::optional<size_t> mb_hash_max;
+
    size_t thread_count = 4;
    size_t buffer_size = 65536;
 

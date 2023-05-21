@@ -101,6 +101,7 @@ void print_usage(void)
    fputs("    -m message   - optional scan description\n", stdout);
    fputs("    -r           - recursive scan\n", stdout);
    fputs("    -v           - verify scanned files against database entries\n", stdout);
+   fputs("    -H           - multi-buffer hash maximum (default: 8, min: 1, max: 32)\n", stdout);
    fputs("    -t           - file hasher thread count (default: 4, min: 1, max: 64)\n", stdout);
    fputs("    -s size      - file buffer size (default: 65536, min: 512, max: 1048576)\n", stdout);
    fputs("    -i seconds   - progress reporting interval (default: 10, min: 1)\n", stdout);
@@ -211,6 +212,9 @@ options_t parse_options(int argc, char *argv[])
             break;
          case 'J':
             options.exiv2_json = true;
+            break;
+         case 'H':
+            options.mb_hash_max = atoi(argv[++i]);
             break;
          case 'h':
          case '?':
