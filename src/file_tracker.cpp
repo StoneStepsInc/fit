@@ -330,7 +330,7 @@ void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& 
    #endif
 
    if(!file)
-      throw std::runtime_error("Cannot open file (" + std::string(strerror(errno)) + ") " + dir_entry.path().u8string());
+      throw std::runtime_error("Cannot open file (" + std::string(strerror(errno)) + ") " + filepath.u8string());
 
    sha256_t ctx;
    sha256_init(&ctx);
