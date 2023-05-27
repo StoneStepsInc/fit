@@ -1,7 +1,7 @@
 //
 // File Integrity Tracker (fit)
 // 
-// Copyright (c) 2022, Stone Steps Inc.
+// Copyright (c) 2023, Stone Steps Inc.
 //
 #include "file_tree_walker.h"
 #include "print_stream.h"
@@ -47,7 +47,7 @@ namespace fit {
 
 static const char *title = "File Integrity Tracker";
 static const char *version = "2.1.0+" STR_BUILD_NUMBER(BUILD_NUMBER);
-static const char *copyright = "Copyright (c) 2022 Stone Steps Inc.";
+static const char *copyright = "Copyright (c) 2023 Stone Steps Inc.";
 
 //
 // A two-component database schema version is stored in the SQLite
