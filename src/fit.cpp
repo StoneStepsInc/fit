@@ -105,7 +105,7 @@ void print_usage(void)
    fputs("    -H           - multi-buffer hash maximum (default: 8, min: 1, max: 32)\n", stdout);
 #endif
    fputs("    -t           - file hasher thread count (default: 4, min: 1, max: 64)\n", stdout);
-   fputs("    -s size      - file buffer size (default: 65536, min: 512, max: 1048576)\n", stdout);
+   fputs("    -s size      - file buffer size (default: 524288, min: 512, max: 16777216)\n", stdout);
    fputs("    -i seconds   - progress reporting interval (default: 10, min: 1)\n", stdout);
    fputs("    -w           - skip hashing for files with same last-modified time\n", stdout);
    fputs("    -u           - continue last scan (update last scanset)\n", stdout);
@@ -252,7 +252,7 @@ void verify_options(options_t& options)
    if(options.thread_count == 0 || options.thread_count > 64)
       throw std::runtime_error("Invalid thread count");
 
-   if(options.buffer_size < 512 || options.buffer_size > 1048576)
+   if(options.buffer_size < 512 || options.buffer_size > 16*1024*1024)
       throw std::runtime_error("Invalid file buffer size");
 
    // round buffer size up to the nearest 512 or 4096 boundary, if it's not already there

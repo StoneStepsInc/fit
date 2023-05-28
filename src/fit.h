@@ -40,11 +40,11 @@ struct options_t {
    std::optional<std::string> EXIF_exts;
 
 #ifndef NO_SSE_AVX
-   std::optional<size_t> mb_hash_max;
+   size_t mb_hash_max = 8;
 #endif
 
    size_t thread_count = 4;
-   size_t buffer_size = 65536;
+   size_t buffer_size = 512*1024;
 
    int progress_interval = 10;
 

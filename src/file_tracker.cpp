@@ -63,7 +63,7 @@ file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::q
       EXIF_exts(parse_EXIF_exts(options)),
       exif_reader(options)
 #ifndef NO_SSE_AVX
-      , mb_hasher(*this, options.buffer_size, options.mb_hash_max.has_value() ? options.mb_hash_max.value() : mb_file_hasher_t::PAR_HASH_CTXS_AVX2)
+      , mb_hasher(*this, options.buffer_size, options.mb_hash_max)
 #endif
 {
    int errcode = SQLITE_OK;

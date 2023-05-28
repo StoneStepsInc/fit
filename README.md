@@ -83,7 +83,7 @@ modes and are as follows:
   * `-s file-buffer-size`
 
     Defines the size of the file read buffer, rounded up to either
-    `512` or `4096` bytes. The default buffer size is `65536` bytes.
+    `512` or `4096` bytes. The default value is `524288` bytes.
 
   * `-a`
 
