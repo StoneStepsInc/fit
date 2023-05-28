@@ -192,46 +192,52 @@ contents of files with greater versions were changed.
 
 ## Scan Performance
 
-Scan speed will depend on the type of disks being scanned and
-may be controlled to some degree with the `-t` option, which
-specifies how many threads should be used for scanning.
+Scan speed in initial `fit` releases mostly depended on the
+number of threads and the hash buffer size, so it was easier
+to estimate scan performance in different configurations.
+However, as more features were added, it became harder to
+predict scan performance based on configuration parameters.
 
-However, as more `fit` features are added, the database schema
-is becoming more complex, which requires more elaborate database
-operations and results is slower performance, regardless of the
-number of threads used. The numbers below show typical scan
-speed for SSD and magnetic drives in relation to the number of
-threads.
+This section describes various configuration parameters
+that affect scan performance and may be useful for fine-tuning
+scan speed before large scans. In general, it might be a good
+idea to run a test scan against a sample directory using a
+throw-away database.
 
-For disks that allow fast random access, such as SSD drives,
-more threads, to a limit, will result in better performance.
-For example, scanning an internal SSD drive yields these scan
-times, depending on the number of threads used.
+Multiple files are scanned in parallel using `-t` threads.
+Each thread has its own EXIF reader, a file hasher and a
+set of scan buffers.
 
-  * `-t 2` scans at `51.1` MB/sec
-  * `-t 4` scans at `58.6` MB/sec
-  * `-t 16` scans at `65.9` MB/sec
-  * `-t 32` scans at `62.8` MB/sec
+Using more threads increases parallelism, but also increases
+contention for shared resources, such as disk and database.
 
-For magnetic disks, more threads reading the disk results in
-more contention and using fewer threads results in better scan
-speed. The numbers below are captured against a 4-drive Storage
-Space attached via USB 3.0 connected to a Thunderbolt docking
-station.
+Keeping the SQLite database on a different disk from the one
+being scanned should be the default approach because otherwise
+scan performance will visibly deteriorate.
 
-  * `-t 1` scans at `30.1` MB/sec
-  * `-t 2` scans at `33.7` MB/sec
-  * `-t 4` scans at `35.9` MB/sec
-  * `-t 16` scans at `35.1` MB/sec
-  * `-t 32` scans at `33.9` MB/sec
+Each scan thread maintains its own set of hashing buffers,
+so each scan thread will open `-H` files, will read `-s`
+bytes from each file, and will hash this amount in parallel,
+reading more data, `-s` bytes at a time, as hashing progresses.
+This means that only hashing is done in parallel on a single
+scan thread, while files are being read one at a time, which
+may improve scan speed against drives that provide slower
+random access.
 
-When scanning magnetic drives, keeping the SQLite database on
-a different drive will improve scanning speed.
+Increasing buffer size via larger `-s` values may help to
+improve scan speed against large files, such as video and
+image files in RAW format, which may be stored sequentially
+on disk, but may also create more disk activity for fragmented
+files because of the increased disk seeking.
 
-Starting with version 2.1.0, multi-buffer SHA-256 hashing is
-implemented, which takes advantage of SSE/AVX instructions
-in Intel processors and significantly increases hashing speed
-by computing hashes for multiple files in parallel.
+Antivirus software can significantly slow down scans if
+the target directory contains many executables or libraries
+because file open operations are typically intercepted for
+these types of files. The difference may be as much as
+scanning at 19 MB/s with the antivirus being active vs.
+75 MB/s with the target directory temporarily added to the
+exclusion list for the duration of the scan. Don't forget
+to remove the exclusion after the scan.
 
 ## SQLite Database
 
