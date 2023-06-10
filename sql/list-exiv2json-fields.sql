@@ -1,7 +1,7 @@
 --
--- sqlite3 -box -cmd ".param set @FILENAME some-file-name" -cmd ".param set @SCAN_ID N" sqlite.db < sql/list-exiv2json-fields.sql
+-- sqlite3 -box -cmd ".param set @FILEPATH some-file-path" -cmd ".param set @SCAN_ID N" sqlite.db < sql/list-exiv2json-fields.sql
 --
--- Lists all Exiv2Json fields for the specified file name and scan ID.
+-- Lists all Exiv2Json fields for the specified file and scan ID.
 -- If @SCAN_ID is omitted, the last scan ID is used.
 --
 SELECT
@@ -16,7 +16,7 @@ FROM
     JOIN exif ON exif_id = exif.rowid
 WHERE
     scan_id = coalesce(@SCAN_ID, (SELECT MAX(rowid) FROM scans), 0)
-    AND files.name = @FILENAME
+    AND files.path = @FILEPATH
     AND json_field.type <> 'object'                  -- skip sub-object JSON values
     AND typeof(json_field.key) <> 'integer'          -- skip individual array values
     AND json_field.fullkey NOT LIKE '$."_fit".%'     -- skip our fields (e.g. overized array names, etc)
