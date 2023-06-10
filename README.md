@@ -460,7 +460,14 @@ If `-J` option was used, additional EXIF values obtained from
 the Exiv2 library are stored as JSON in the `Exiv2Json` column
 of the `exif` table.
 
-JSON values in this table may be different from text values
+Note that using `-J` option will significantly increase the
+size of the database. For example, a database containing scans
+of 207,208 files, 186,515 of which are photos with EXIF, will
+be approximately 125 MB in size. The same number of files
+scanned with the `-J` option will produce a database that is
+approximately 1,067 MB in size.
+
+JSON values in this column may be different from text values
 described on the Exiv2 page above.
 
 For example, `Exif.GPSInfo.GPSLongitude` is described as a
