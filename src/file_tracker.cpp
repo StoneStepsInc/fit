@@ -17,6 +17,14 @@ extern "C" {
 #include <chrono>
 #include <algorithm>
 
+#ifdef _MSC_VER
+#include <format>
+#define FMTNS std
+#else
+#include <fmt/format.h>
+#define FMTNS fmt
+#endif
+
 #include <cstring>
 
 #ifndef _MSC_VER
@@ -33,7 +41,7 @@ using namespace std::literals::string_literals;
 namespace fit {
 
 struct less_ci {
-   bool operator () (const std::string& s1, const std::string& s2)
+   bool operator () (const std::u8string& s1, const std::u8string& s2)
    {
       if(s1.empty() && s2.empty())
          return false;
@@ -41,7 +49,8 @@ struct less_ci {
       if(s1.length() != s2.length())
          return s1.length() < s2.length();
 
-      return strcasecmp(s1.c_str(), s2.c_str()) < 0;
+      // use simplified byte comparison because it is only used for comparing extensions of picture files
+      return strcasecmp(reinterpret_cast<const char*>(s1.c_str()), reinterpret_cast<const char*>(s2.c_str())) < 0;
    }
 };
 
@@ -68,7 +77,7 @@ file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::q
 {
    int errcode = SQLITE_OK;
 
-   if((errcode = sqlite3_open_v2(options.db_path.u8string().c_str(), &file_scan_db, SQLITE_OPEN_READWRITE, nullptr)) != SQLITE_OK)
+   if((errcode = sqlite3_open_v2(reinterpret_cast<const char*>(options.db_path.u8string().c_str()), &file_scan_db, SQLITE_OPEN_READWRITE, nullptr)) != SQLITE_OK)
       throw std::runtime_error(sqlite3_errstr(errcode));
 
    if(!set_sqlite_journal_mode(file_scan_db, print_stream))
@@ -267,9 +276,9 @@ file_tracker_t::~file_tracker_t(void)
    }
 }
 
-std::vector<std::string> file_tracker_t::parse_EXIF_exts(const options_t& options)
+std::vector<std::u8string> file_tracker_t::parse_EXIF_exts(const options_t& options)
 {
-   std::vector<std::string> EXIF_exts;
+   std::vector<std::u8string> EXIF_exts;
 
    if(options.EXIF_exts.has_value() && !options.EXIF_exts.value().empty()) {
       size_t start = 0, pos;
@@ -377,7 +386,7 @@ file_tracker_t::mb_file_hasher_t::param_tuple_t file_tracker_t::open_file(find_f
    #endif
 
    if(!file)
-      throw std::runtime_error("Cannot open file (" + std::string(strerror(errno)) + ") " + dir_entry.path().u8string());
+      throw std::runtime_error(FMTNS::format("Cannot open file ({:s}) {:s}", strerror(errno), dir_entry.path().u8string()));
 
    //
    // Need to make sure the reference is preserved, so we update the
@@ -402,7 +411,7 @@ bool file_tracker_t::read_file(unsigned char *file_buffer, size_t buf_size, size
 }
 #endif      
 
-int64_t file_tracker_t::insert_file_record(const std::string& filepath, const std::filesystem::directory_entry& dir_entry)
+int64_t file_tracker_t::insert_file_record(const std::u8string& filepath, const std::filesystem::directory_entry& dir_entry)
 {
    int64_t file_id = 0;
    int errcode = SQLITE_OK;
@@ -419,7 +428,7 @@ int64_t file_tracker_t::insert_file_record(const std::string& filepath, const st
    insert_file_stmt.bind_param(filepath);
             
    if((errcode = sqlite3_step(stmt_insert_file)) != SQLITE_DONE)
-      throw std::runtime_error("Cannot insert a file record for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
+      throw std::runtime_error(FMTNS::format("Cannot insert a file record for {:s} ({:s})", filepath, sqlite3_errstr(errcode)));
 
    file_id = sqlite3_last_insert_rowid(file_scan_db);
 
@@ -428,7 +437,7 @@ int64_t file_tracker_t::insert_file_record(const std::string& filepath, const st
    return file_id;
 }
 
-int64_t file_tracker_t::insert_exif_record(const std::string& filepath, const std::vector<exif::field_value_t>& exif_fields, const exif::field_bitset_t& field_bitset)
+int64_t file_tracker_t::insert_exif_record(const std::u8string& filepath, const std::vector<exif::field_value_t>& exif_fields, const exif::field_bitset_t& field_bitset)
 {
    int64_t exif_id = 0;
 
@@ -445,12 +454,12 @@ int64_t file_tracker_t::insert_exif_record(const std::string& filepath, const st
          else if(exif_fields[i].index() == 2)
             insert_exif_stmt.bind_param(std::get<2>(exif_fields[i]));
          else
-            throw std::runtime_error("Bad field value in EXIF record for "s + filepath + " (" + std::to_string(i) + ")");
+            throw std::runtime_error(FMTNS::format("Bad field value in EXIF record for {:s} ({:d})", filepath, i));
       }
    }
 
    if((errcode = sqlite3_step(stmt_insert_exif)) != SQLITE_DONE)
-      throw std::runtime_error("Cannot insert an EXIF record for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
+      throw std::runtime_error(FMTNS::format("Cannot insert an EXIF record for {:s} ({:s})", filepath, sqlite3_errstr(errcode)));
 
    // get the row ID for the new EXIF record
    exif_id = sqlite3_last_insert_rowid(file_scan_db);
@@ -460,7 +469,7 @@ int64_t file_tracker_t::insert_exif_record(const std::string& filepath, const st
    return exif_id;
 }
 
-file_tracker_t::find_file_result_t file_tracker_t::select_version_record(const std::string& filepath)
+file_tracker_t::find_file_result_t file_tracker_t::select_version_record(const std::u8string& filepath)
 {
    int errcode = SQLITE_OK;
 
@@ -478,7 +487,7 @@ file_tracker_t::find_file_result_t file_tracker_t::select_version_record(const s
    errcode = sqlite3_step(stmt_find_file);
 
    if(errcode != SQLITE_DONE && errcode != SQLITE_ROW)
-      throw std::runtime_error("SQLite select failed for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
+      throw std::runtime_error(FMTNS::format("SQLite select failed for {:s} ({:s})", filepath, sqlite3_errstr(errcode)));
 
    // if we found a file record, get the columns we need
    if(errcode != SQLITE_ROW)
@@ -502,7 +511,7 @@ file_tracker_t::find_file_result_t file_tracker_t::select_version_record(const s
       // hold onto the column hash value
       if(hash_type == HASH_TYPE) {
          if(sqlite3_column_bytes(stmt_find_file, 3) != HASH_HEX_SIZE)
-            throw std::runtime_error("Bad hash size for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
+            throw std::runtime_error(FMTNS::format("Bad hash size for {:s} ({:s})", filepath, sqlite3_errstr(errcode)));
 
          memcpy(hexhash_field, reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 3)), HASH_HEX_SIZE);
       }
@@ -529,7 +538,7 @@ file_tracker_t::find_file_result_t file_tracker_t::select_version_record(const s
             scanset_scan_id)};
 }
 
-int64_t file_tracker_t::insert_version_record(const std::string& filepath, int64_t file_id, int64_t version, int64_t filesize, const std::filesystem::directory_entry& dir_entry, unsigned char hexhash_file[], std::optional<int64_t> exif_id)
+int64_t file_tracker_t::insert_version_record(const std::u8string& filepath, int64_t file_id, int64_t version, int64_t filesize, const std::filesystem::directory_entry& dir_entry, unsigned char hexhash_file[], std::optional<int64_t> exif_id)
 {
    int64_t version_id = 0;
 
@@ -564,7 +573,7 @@ int64_t file_tracker_t::insert_version_record(const std::string& filepath, int64
    if(!filesize)
       insert_version_stmt.bind_param(nullptr);
    else
-      insert_version_stmt.bind_param(std::string_view(reinterpret_cast<const char*>(hexhash_file), HASH_HEX_SIZE));
+      insert_version_stmt.bind_param(std::u8string_view(reinterpret_cast<const char8_t*>(hexhash_file), HASH_HEX_SIZE));
 
    if(exif_id.has_value())
       insert_version_stmt.bind_param(exif_id.value());
@@ -578,7 +587,7 @@ int64_t file_tracker_t::insert_version_record(const std::string& filepath, int64
    // and left SQLite record storage locked.
    //
    if((errcode = sqlite3_step(stmt_insert_version)) != SQLITE_DONE)
-      throw std::runtime_error("Cannot insert a version record for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
+      throw std::runtime_error(FMTNS::format("Cannot insert a version record for {:s} ({:s})", filepath, sqlite3_errstr(errcode)));
 
    // get the row ID for the new version record
    version_id = sqlite3_last_insert_rowid(file_scan_db);
@@ -588,7 +597,7 @@ int64_t file_tracker_t::insert_version_record(const std::string& filepath, int64
    return version_id;
 }
 
-void file_tracker_t::insert_scanset_record(const std::string& filepath, int64_t version_id)
+void file_tracker_t::insert_scanset_record(const std::u8string& filepath, int64_t version_id)
 {
    int errcode = SQLITE_OK;
 
@@ -600,28 +609,28 @@ void file_tracker_t::insert_scanset_record(const std::string& filepath, int64_t 
    insert_scanset_file_stmt.bind_param(version_id);
 
    if((errcode = sqlite3_step(stmt_insert_scanset_file)) != SQLITE_DONE)
-      throw std::runtime_error("Cannot insert a scanset record for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
+      throw std::runtime_error(FMTNS::format("Cannot insert a scanset record for {:s} ({:s})", filepath, sqlite3_errstr(errcode)));
 
    insert_scanset_file_stmt.reset();
 }
 
-void file_tracker_t::begin_transaction(const std::string& filepath)
+void file_tracker_t::begin_transaction(const std::u8string& filepath)
 {
    int errcode = sqlite3_step(stmt_begin_txn);
 
    if(errcode != SQLITE_DONE)
-      throw std::runtime_error("Cannot start a SQLite transaction for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
+      throw std::runtime_error(FMTNS::format("Cannot start a SQLite transaction for {:s} ({:s})", filepath, sqlite3_errstr(errcode)));
 }
 
-void file_tracker_t::commit_transaction(const std::string& filepath)
+void file_tracker_t::commit_transaction(const std::u8string& filepath)
 {
    int errcode = sqlite3_step(stmt_commit_txn);
 
    if(errcode != SQLITE_DONE)
-      throw std::runtime_error("Cannot commit a SQLite transaction for "s + filepath + " (" + sqlite3_errstr(errcode) + ")");
+      throw std::runtime_error(FMTNS::format("Cannot commit a SQLite transaction for {:s} ({:s})", filepath, sqlite3_errstr(errcode)));
 }
 
-void file_tracker_t::rollback_transaction(const std::string& filepath)
+void file_tracker_t::rollback_transaction(const std::u8string& filepath)
 {
    int errcode = sqlite3_step(stmt_rollback_txn);
 
@@ -634,7 +643,7 @@ void file_tracker_t::run(void)
    int errcode = SQLITE_OK;
 
    // a file path string buffer
-   std::string filepath;
+   std::u8string filepath;
 
    filepath.reserve(1024);
                

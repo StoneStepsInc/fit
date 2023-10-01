@@ -6,6 +6,7 @@
 #include "file_tree_walker.h"
 #include "print_stream.h"
 #include "sqlite.h"
+#include "unicode.h"
 
 #include "fit.h"
 
@@ -28,6 +29,14 @@
 #include <queue>
 #include <chrono>
 #include <optional>
+
+#ifdef _MSC_VER
+#include <format>
+#define FMTNS std
+#else
+#include <fmt/format.h>
+#define FMTNS fmt
+#endif
 
 using namespace std::literals::string_view_literals;
 using namespace std::literals::string_literals;
@@ -125,10 +134,10 @@ options_t parse_options(int argc, char *argv[])
    // start with 1 to skip the command program name
    for(size_t i = 1; i < argc; i++) {
       if(!argv[i])
-         throw std::runtime_error("A null argument is not valid: " + std::to_string(i));
+         throw std::runtime_error(FMTNS::format("A null argument is not valid: {:d}", i));
 
       if(*argv[i] != '-')
-         throw std::runtime_error("Invalid option: " + std::string(argv[i]));
+         throw std::runtime_error(FMTNS::format("Invalid option: {:s}", argv[i]));
 
       // hold onto the option index to detect option values
       size_t opt_i = i;
@@ -138,7 +147,7 @@ options_t parse_options(int argc, char *argv[])
          if(i > 1)
             options.all += ' ';
 
-         options.all += argv[i];
+         options.all += reinterpret_cast<char8_t*>(argv[i]);
       }
 
       switch(*(argv[i]+1)) {
@@ -164,7 +173,35 @@ options_t parse_options(int argc, char *argv[])
             if(i+1 == argc || *(argv[i+1]) == '-')
                throw std::runtime_error("Missing scan message value");
 
-            options.scan_message = argv[++i];
+            //
+            // Passing UTF-8 into Windows programs is quite a bit of a
+            // challenge. Some of the workarounds are described in this
+            // GitHub issue.
+            // 
+            // https://github.com/PowerShell/PowerShell/issues/7233
+            // 
+            // The top line is taken from one of the comments in the
+            // issue above. The following command purposfully encodes
+            // UTF-8 bytes as malformed characters in the default
+            // encoding, such as Win1252, and will end up here as bytes
+            // representing UTF-8 characters.
+            // 
+            // $OutputEncoding=[console]::InputEncoding=[console]::OutputEncoding=New-Object System.Text.UTF8Encoding
+            // fit -b xyz.db -m $([System.Text.Encoding]::Default.GetString([System.Text.Encoding]::UTF8.GetBytes("ABC £ DEF")))
+            // 
+            // In the example above, the `£` character is encoded as A3
+            // in Win1252 and as C2 A3 in UTF-8. Similarly, Katakana
+            // character \u30A9 is encoded as E3 82 A9 in UTF-8. When
+            // re-encoded into the `Default` character set above, the
+            // former may look like extra Win1252 characters in the
+            // debugger (e.g. `Â£`), but will be interpreted as valid
+            // UTF-8 in the code and later in the database.
+            //
+            if(!unicode::is_valid_utf8(argv[i+1]))
+               // don't echo the message because it may be mangled in the output, creating more confusion
+               throw std::runtime_error("Scan message contains invalid UTF-8 characters");
+
+            options.scan_message = reinterpret_cast<const char8_t*>(argv[++i]);
             break;
          case 'r':
             options.recursive_scan = true;
@@ -200,7 +237,7 @@ options_t parse_options(int argc, char *argv[])
             if(i+1 == argc || *(argv[i+1]) == '-')
                throw std::runtime_error("Missing log file path value");
 
-            options.log_file = argv[++i];
+            options.log_file = reinterpret_cast<const char8_t*>(argv[++i]);
             break;
          case 'a':
             options.skip_no_access_paths = true;
@@ -208,7 +245,7 @@ options_t parse_options(int argc, char *argv[])
          case 'X':
             // empty string means that EXIF scanning is disabled
             if(i+1 < argc && *(argv[i+1]) != '-')
-               options.EXIF_exts = argv[++i];
+               options.EXIF_exts = reinterpret_cast<const char8_t*>(argv[++i]);
             else
                options.EXIF_exts.emplace();
             break;
@@ -238,9 +275,9 @@ options_t parse_options(int argc, char *argv[])
       if(opt_i != i && *(argv[opt_i]+1) != 'm' && *(argv[opt_i]+1) != 'd') {
          // wrap arguments that may have spaces in quotes
          if(strchr("blp", *(argv[opt_i]+1)))
-            options.all = options.all + " \"" + argv[i] + "\"";
+            options.all = options.all + u8" \"" + reinterpret_cast<const char8_t*>(argv[i]) + u8"\"";
          else
-            options.all = options.all + " " + argv[i];
+            options.all = options.all + u8" " + reinterpret_cast<const char8_t*>(argv[i]);
       }
    }
 
@@ -267,13 +304,13 @@ void verify_options(options_t& options)
       throw std::runtime_error("Database file path must be specified");
 
    if(std::filesystem::is_directory(options.db_path))
-      throw std::runtime_error(options.db_path.u8string() + " cannot be a directory");
+      throw std::runtime_error(FMTNS::format("{:s} cannot be a directory", options.db_path.u8string()));
 
    if(!options.db_path.has_filename())
-      throw std::runtime_error(options.db_path.u8string() + " must point to a file");
+      throw std::runtime_error(FMTNS::format("{:s} must point to a file", options.db_path.u8string()));
 
    if(!std::filesystem::is_directory(std::filesystem::absolute(options.db_path).remove_filename()))
-      throw std::runtime_error(std::filesystem::absolute(options.db_path).remove_filename().u8string() + " must be an existing directory");
+      throw std::runtime_error(FMTNS::format("{:s} must be an existing directory", std::filesystem::absolute(options.db_path).remove_filename().u8string()));
 
    // scan_path
    if(options.scan_paths.empty())
@@ -281,12 +318,12 @@ void verify_options(options_t& options)
 
    for(const std::filesystem::path& scan_path : options.scan_paths) {
       if(!std::filesystem::exists(scan_path))
-         throw std::runtime_error(scan_path.u8string() + " does not exist");
+         throw std::runtime_error(FMTNS::format("{:s} does not exist", scan_path.u8string()));
    }
 
    for(const std::filesystem::path& scan_path : options.scan_paths) {
       if(!std::filesystem::is_directory(scan_path))
-         throw std::runtime_error(scan_path.u8string() + " is not a directory");
+         throw std::runtime_error(FMTNS::format("{:s} is not a directory", scan_path.u8string()));
    }
 
    //
@@ -304,7 +341,7 @@ void verify_options(options_t& options)
 
    if(!options.base_path.empty()) {
       if(!std::filesystem::is_directory(options.base_path))
-         throw std::runtime_error(options.base_path.u8string() + " is not a directory");
+         throw std::runtime_error(FMTNS::format("{:s} is not a directory", options.base_path.u8string()));
 
       options.base_path = std::filesystem::canonical(options.base_path);
 
@@ -325,7 +362,7 @@ void verify_options(options_t& options)
 
    // if there are no EXIF extensions, use the default list
    if(!options.EXIF_exts.has_value())
-      options.EXIF_exts = ".jpg.jpeg.cr2.dng.nef.tiff.tif.heif.webp"sv;
+      options.EXIF_exts = u8".jpg.jpeg.cr2.dng.nef.tiff.tif.heif.webp"sv;
 }
 
 std::string schema_version_string(int schema_version)
@@ -356,7 +393,7 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
 
    try {
       // attempt to open an existing database first
-      if((errcode = sqlite3_open_v2(options.db_path.u8string().c_str(), &file_scan_db, sqlite_flags, nullptr)) == SQLITE_OK) {
+      if((errcode = sqlite3_open_v2(reinterpret_cast<const char*>(options.db_path.u8string().c_str()), &file_scan_db, sqlite_flags, nullptr)) == SQLITE_OK) {
          sqlite_stmt_t user_version_stmt("PRAGMA user_version"sv);
 
          if((errcode = user_version_stmt.prepare(file_scan_db, "PRAGMA user_version;"sv)) != SQLITE_OK)
@@ -374,10 +411,10 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
       }
       else {
          if(options.verify_files)
-            throw std::runtime_error("Cannot open a SQLite database in "s + options.db_path.generic_u8string());
+            throw std::runtime_error(FMTNS::format("Cannot open a SQLite database in {:s}", options.db_path.generic_u8string()));
 
          // attempt to create a new database
-         if((errcode = sqlite3_open_v2(options.db_path.u8string().c_str(), &file_scan_db, sqlite_flags | SQLITE_OPEN_CREATE, nullptr)) != SQLITE_OK)
+         if((errcode = sqlite3_open_v2(reinterpret_cast<const char*>(options.db_path.u8string().c_str()), &file_scan_db, sqlite_flags | SQLITE_OPEN_CREATE, nullptr)) != SQLITE_OK)
             throw std::runtime_error(sqlite3_errstr(errcode));
 
          print_stream.info("Creating a new SQLite database %s", options.db_path.generic_u8string().c_str());
@@ -496,7 +533,7 @@ int64_t insert_scan_record(const options_t& options, sqlite3 *file_scan_db)
       // need a statement block here to make sure statement is reset before it is finalized
       sqlite_stmt_binder_t insert_scan_stmt(stmt_insert_scan, "insert scan"sv);
 
-      insert_scan_stmt.bind_param(std::string_view(version));
+      insert_scan_stmt.bind_param(std::u8string_view(reinterpret_cast<const char8_t*>(version)));
       insert_scan_stmt.bind_param(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
 
       if(options.base_path.empty())
@@ -525,7 +562,7 @@ int64_t insert_scan_record(const options_t& options, sqlite3 *file_scan_db)
 
 int64_t select_last_scan_id(const options_t& options, sqlite3 *file_scan_db)
 {
-   std::string scan_options;
+   std::u8string scan_options;
    std::optional<int64_t> scan_id;
    std::optional<std::runtime_error> select_error;
 
@@ -548,7 +585,7 @@ int64_t select_last_scan_id(const options_t& options, sqlite3 *file_scan_db)
       if(errcode == SQLITE_ROW) {
          scan_id = sqlite3_column_int64(stmt_last_scan, 0);
 
-         scan_options.assign(reinterpret_cast<const char*>(sqlite3_column_text(stmt_last_scan, 1)), sqlite3_column_bytes(stmt_last_scan, 1));
+         scan_options.assign(reinterpret_cast<const char8_t*>(sqlite3_column_text(stmt_last_scan, 1)), sqlite3_column_bytes(stmt_last_scan, 1));
       }
    }
 
@@ -576,8 +613,8 @@ int64_t select_last_scan_id(const options_t& options, sqlite3 *file_scan_db)
    if(options.all.length() <= scan_options.length())
       throw std::runtime_error("Update scan cannot have fewer options than the last scan");
    
-   const char *optcp = options.all.c_str();
-   const char *scncp = scan_options.c_str();
+   const char8_t *optcp = options.all.c_str();
+   const char8_t *scncp = scan_options.c_str();
 
    // both sets of options are normalized and have same spacing and quoting
    while(*optcp) {
@@ -586,7 +623,7 @@ int64_t select_last_scan_id(const options_t& options, sqlite3 *file_scan_db)
       else {
          // if we ran out of scan options, we must have only -u at the end
          if(!*scncp) { 
-            if(!strcmp(optcp, " -u"))
+            if(!strcmp(reinterpret_cast<const char*>(optcp), " -u"))
                optcp += 3;
             break;
          }
@@ -642,10 +679,10 @@ int main(int argc, char *argv[])
       std::unique_ptr<FILE, fit::file_handle_deleter_t> log_file;
 
       if(!options.log_file.empty()) {
-         log_file.reset(fopen(options.log_file.c_str(), "ab"));
+         log_file.reset(fopen(reinterpret_cast<const char*>(options.log_file.c_str()), "ab"));
 
          if(!log_file)
-            throw std::runtime_error("Cannot open log file "s + options.log_file);
+            throw std::runtime_error(FMTNS::format("Cannot open log file {:s}", options.log_file));
       }
 
       fit::print_stream_t print_stream(log_file.get());

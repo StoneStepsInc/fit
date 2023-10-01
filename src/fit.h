@@ -35,9 +35,9 @@ struct options_t {
    bool update_last_scanset = false;
    bool exiv2_json = false;
 
-   std::string scan_message;
-   std::string log_file;
-   std::optional<std::string> EXIF_exts;
+   std::u8string scan_message;
+   std::u8string log_file;
+   std::optional<std::u8string> EXIF_exts;
 
 #ifndef NO_SSE_AVX
    size_t mb_hash_max = 8;
@@ -48,7 +48,7 @@ struct options_t {
 
    int progress_interval = 10;
 
-   std::string all;
+   std::u8string all;
 };
 
 }

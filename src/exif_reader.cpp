@@ -148,14 +148,14 @@ template <typename T>
 void exif_reader_t::fmt_exif_byte(const Exiv2::DataValue& exif_value, const char *format, field_value_t& field_value)
 {
    size_t slen;
-   char buf[128];
+   char8_t buf[128];
 
-   slen = snprintf(buf, sizeof(buf), format, static_cast<T>(exif_value.toLong(0)));
+   slen = snprintf(reinterpret_cast<char*>(buf), sizeof(buf), format, static_cast<T>(exif_value.toLong(0)));
 
    // append additional bytes until we run out of values or buffer is full
    for(size_t i = 1; i < exif_value.count() && slen < sizeof(buf)-1; i++) {
       *(buf+slen++) = ' ';
-      slen += snprintf(buf+slen, sizeof(buf)-slen, format, static_cast<T>(exif_value.toLong(static_cast<long>(i))));
+      slen += snprintf(reinterpret_cast<char*>(buf)+slen, sizeof(buf)-slen, format, static_cast<T>(exif_value.toLong(static_cast<long>(i))));
    }
 
    // if snprintf indicated truncation, replace last 3 characters with `...` (there's a null character from snprintf)
@@ -165,7 +165,7 @@ void exif_reader_t::fmt_exif_byte(const Exiv2::DataValue& exif_value, const char
       *(buf+sizeof(buf)-2) = '.';
    }
 
-   field_value.emplace<std::string>(buf, slen >= sizeof(buf) ? sizeof(buf)-1 : slen);
+   field_value.emplace<std::u8string>(buf, slen >= sizeof(buf) ? sizeof(buf)-1 : slen);
 }
 
 //
@@ -181,18 +181,18 @@ template <typename T>
 bool exif_reader_t::fmt_exif_number(const Exiv2::ValueType<T>& exif_value, const char *format, field_value_t& field_value)
 {
    size_t slen;
-   char buf[128];
+   char8_t buf[128];
 
    if(exif_value.count() == 1) {
       field_value = exif_value.value_.front();
       return true;
    }
 
-   slen = snprintf(buf, sizeof(buf), format, exif_value.value_.front());
+   slen = snprintf(reinterpret_cast<char*>(buf), sizeof(buf), format, exif_value.value_.front());
 
    for(size_t i = 1; i < exif_value.count() && slen < sizeof(buf)-1; i++) {
       *(buf+slen++) = ' ';
-      slen += snprintf(buf+slen, sizeof(buf)-slen, format, *(exif_value.value_.begin()+i));
+      slen += snprintf(reinterpret_cast<char*>(buf)+slen, sizeof(buf)-slen, format, *(exif_value.value_.begin()+i));
    }
 
    // if snprintf indicated truncation, replace last 3 characters with `...` (there's a null character from snprintf)
@@ -202,7 +202,7 @@ bool exif_reader_t::fmt_exif_number(const Exiv2::ValueType<T>& exif_value, const
       *(buf+sizeof(buf)-2) = '.';
    }
 
-   field_value.emplace<std::string>(buf, slen >= sizeof(buf) ? sizeof(buf)-1 : slen);
+   field_value.emplace<std::u8string>(buf, slen >= sizeof(buf) ? sizeof(buf)-1 : slen);
 
    return slen < sizeof(buf);
 }
@@ -218,14 +218,14 @@ bool exif_reader_t::fmt_exif_rational(const Exiv2::ValueType<T>& exif_value, fie
 {
    size_t fsize;
    size_t slen = 0;
-   char buf[128];
+   char8_t buf[128];
 
    for(size_t i = 0; i < exif_value.count(); i++) {
       if(i) {
          if(sizeof(buf) - slen == 0)
             return false;
 
-         *(buf+slen++) = ' ';
+         *(buf+slen++) = u8' ';
       }
 
       T rational = *(exif_value.value_.begin() + i);
@@ -239,7 +239,7 @@ bool exif_reader_t::fmt_exif_rational(const Exiv2::ValueType<T>& exif_value, fie
       // copied from libexif/0.6.24
       int decimals = (int)(log10(denominator)-0.08+1.0);
 
-      if((fsize = snprintf(buf+slen, sizeof(buf)-slen, "%.*f",
+      if((fsize = snprintf(reinterpret_cast<char*>(buf)+slen, sizeof(buf)-slen, "%.*f",
             decimals,
             (double) numerator /
             (double) denominator)) >= sizeof(buf)-slen)
@@ -248,12 +248,12 @@ bool exif_reader_t::fmt_exif_rational(const Exiv2::ValueType<T>& exif_value, fie
       slen += fsize;
    }
 
-   field_value.emplace<std::string>(buf, slen);
+   field_value.emplace<std::u8string>(buf, slen);
 
    return true;
 }
 
-std::string_view exif_reader_t::trim_whitespace(const std::string& value)
+std::u8string_view exif_reader_t::trim_whitespace(const std::u8string& value)
 {
    return trim_whitespace(value.data(), value.size());
 }
@@ -265,13 +265,13 @@ std::string_view exif_reader_t::trim_whitespace(const std::string& value)
 // or whitespace. This method will trim whitespace from the beginning
 // of the value and any padding from the end.
 //
-std::string_view exif_reader_t::trim_whitespace(const char *value, size_t length)
+std::u8string_view exif_reader_t::trim_whitespace(const char8_t *value, size_t length)
 {
    // we don't ever expect a null pointer in this call
    if(!value)
       throw std::runtime_error("Cannot trim whitespace against a null pointer");
 
-   const char *bp = value, *ep = bp + length;
+   const char8_t *bp = value, *ep = bp + length;
 
    while (bp < ep && memchr(whitespace.data(), *bp, whitespace.length()))
       bp++;
@@ -280,7 +280,7 @@ std::string_view exif_reader_t::trim_whitespace(const char *value, size_t length
    while(ep > bp && memchr(whitespace.data(), *(ep-1), whitespace.length()+1))
       ep--;
 
-   return std::string_view(bp, ep - bp);
+   return std::u8string_view(bp, ep - bp);
 }
 
 //
@@ -291,18 +291,18 @@ std::string_view exif_reader_t::trim_whitespace(const char *value, size_t length
 // and then a few non-null characters, all included into the entry size
 // value.
 //
-std::string_view exif_reader_t::trim_whitespace(const char *value)
+std::u8string_view exif_reader_t::trim_whitespace(const char8_t *value)
 {
    // we don't ever expect a null pointer in this call
    if(!value)
       throw std::runtime_error("Cannot trim whitespace against a null pointer");
 
-   const char *bp = value;
+   const char8_t *bp = value;
 
    while (*bp && memchr(whitespace.data(), *bp, whitespace.length()))
       bp++;
 
-   return std::string_view(bp);
+   return std::u8string_view(bp);
 }
 
 void exif_reader_t::initialize(print_stream_t& print_stream)
@@ -377,7 +377,7 @@ void exif_reader_t::update_exiv2_json(rapidjson::Document& exiv2_json, std::opti
          //
          if(tagId == EXIF_TAG_USER_COMMENT) {
             if(field_bitset.test(EXIF_FIELD_UserComment))
-               json_pointer.Set(exiv2_json, rapidjson::Value(std::get<2>(exif_fields[EXIF_FIELD_UserComment]).c_str(), static_cast<rapidjson::SizeType>(std::get<2>(exif_fields[EXIF_FIELD_UserComment]).length()), rapidjson_mem_pool), rapidjson_mem_pool);
+               json_pointer.Set(exiv2_json, rapidjson::Value(reinterpret_cast<const char*>(std::get<2>(exif_fields[EXIF_FIELD_UserComment]).c_str()), static_cast<rapidjson::SizeType>(std::get<2>(exif_fields[EXIF_FIELD_UserComment]).length()), rapidjson_mem_pool), rapidjson_mem_pool);
             else {
                const Exiv2::CommentValue *comment = dynamic_cast<const Exiv2::CommentValue*>(&exif_value);
 
@@ -400,9 +400,9 @@ void exif_reader_t::update_exiv2_json(rapidjson::Document& exiv2_json, std::opti
                      const std::string& comment_ref = comment->comment();
 
                      // need a reference to keep the string view valid against the temporary returned above
-                     std::string_view comment_value = trim_whitespace(comment_ref);
+                     std::u8string_view comment_value = trim_whitespace(reinterpret_cast<const char8_t*>(comment_ref.c_str()), comment_ref.length());
                      if(!comment_value.empty())
-                        json_pointer.Set(exiv2_json, rapidjson::Value(comment_value.data(), static_cast<rapidjson::SizeType>(comment_value.length()), rapidjson_mem_pool), rapidjson_mem_pool);
+                        json_pointer.Set(exiv2_json, rapidjson::Value(reinterpret_cast<const char*>(comment_value.data()), static_cast<rapidjson::SizeType>(comment_value.length()), rapidjson_mem_pool), rapidjson_mem_pool);
                   }
                }
             }
@@ -411,7 +411,7 @@ void exif_reader_t::update_exiv2_json(rapidjson::Document& exiv2_json, std::opti
          else if(tagId == EXIF_TAG_COPYRIGHT) {
             // keep the copyright field formatting consistent with the column value
             if(field_bitset.test(EXIF_FIELD_Copyright))
-               json_pointer.Set(exiv2_json, rapidjson::Value(std::get<2>(exif_fields[EXIF_FIELD_Copyright]).c_str(), static_cast<rapidjson::SizeType>(std::get<2>(exif_fields[EXIF_FIELD_Copyright]).length()), rapidjson_mem_pool), rapidjson_mem_pool);
+               json_pointer.Set(exiv2_json, rapidjson::Value(reinterpret_cast<const char*>(std::get<2>(exif_fields[EXIF_FIELD_Copyright]).c_str()), static_cast<rapidjson::SizeType>(std::get<2>(exif_fields[EXIF_FIELD_Copyright]).length()), rapidjson_mem_pool), rapidjson_mem_pool);
             return;
          }
       }
@@ -423,9 +423,9 @@ void exif_reader_t::update_exiv2_json(rapidjson::Document& exiv2_json, std::opti
             jsonptr_push_back.Set(bad_utf8_fields, exiv2_json_path, rapidjson_mem_pool);
          }
          else {
-            std::string_view ascii_value = trim_whitespace(static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str());
+            std::u8string_view ascii_value = trim_whitespace(reinterpret_cast<const char8_t*>(static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str()));
             if(!ascii_value.empty())
-               json_pointer.Set(exiv2_json, rapidjson::Value(ascii_value.data(), static_cast<rapidjson::SizeType>(ascii_value.length()), rapidjson_mem_pool));
+               json_pointer.Set(exiv2_json, rapidjson::Value(reinterpret_cast<const char*>(ascii_value.data()), static_cast<rapidjson::SizeType>(ascii_value.length()), rapidjson_mem_pool));
          }
          return;
       }
@@ -570,7 +570,7 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
          return field_bitset;
 
       // used only for numeric formatting - strings are copied directly from entries
-      char buf[64];
+      char8_t buf[64];
 
       // field index within the bitset; set only for fields that should be processed according to their type
       std::optional<size_t> field_index;
@@ -658,7 +658,7 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                      if(exif_value.typeId() != Exiv2::TypeId::asciiString || exif_value.size() < 11 || exif_value.toLong(4) != static_cast<long>(':') || exif_value.toLong(7) != static_cast<long>(':'))
                         field_index = EXIF_FIELD_GPSDateStamp;
                      else {
-                        std::string& tstamp = std::get<std::string>(exif_fields[EXIF_FIELD_GPSDateStamp] = static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str());
+                        std::u8string& tstamp = std::get<std::u8string>(exif_fields[EXIF_FIELD_GPSDateStamp] = reinterpret_cast<const char8_t*>(static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str()));
                         tstamp[4] = tstamp[7] = '-';
                         field_bitset.set(EXIF_FIELD_GPSDateStamp);
                      }
@@ -704,8 +704,8 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                         field_index = EXIF_FIELD_DateTime;
                      else {
                         // assign a C-string to avoid picking up padding, if there is any
-                        std::string& tstamp = std::get<std::string>(exif_fields[EXIF_FIELD_DateTime] = static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str());
-                        tstamp[4] = tstamp[7] = '-';
+                        std::u8string& tstamp = std::get<std::u8string>(exif_fields[EXIF_FIELD_DateTime] = reinterpret_cast<const char8_t*>(static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str()));
+                        tstamp[4] = tstamp[7] = u8'-';
                         field_bitset.set(EXIF_FIELD_DateTime);
                      }
                      break;
@@ -729,13 +729,13 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                         //
                         if(exif_value.size() > 1 && unicode::is_valid_utf8(static_cast<const Exiv2::AsciiValue&>(exif_value).value_)) {
                            // do not trim the whitespace because the space in front is significant
-                           std::string_view copyright_value = static_cast<const Exiv2::AsciiValue&>(exif_value).value_;
+                           std::u8string_view copyright_value = reinterpret_cast<const char8_t*>(static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str());
 
                            if(!copyright_value.empty()) {
-                              std::string& copyright = exif_fields[EXIF_FIELD_Copyright].emplace<std::string>(copyright_value);
+                              std::u8string& copyright = exif_fields[EXIF_FIELD_Copyright].emplace<std::u8string>(copyright_value);
 
                               // search for the editor copyright separator and replace it with a semicolon
-                              size_t editor_sep = copyright.find_first_of('\x0');
+                              size_t editor_sep = copyright.find_first_of(u8'\x0');
                               if(editor_sep != std::string::npos)
                                  *(copyright.begin() + editor_sep) = ';';
 
@@ -758,9 +758,9 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                            if(!value || value >= 1)
                               field_index = EXIF_FIELD_ExposureTime;
                            else {
-                              size_t slen = snprintf(buf, sizeof(buf), "1/%.0f", 1. / value);
+                              size_t slen = snprintf(reinterpret_cast<char*>(buf), sizeof(buf), "1/%.0f", 1. / value);
 
-                              exif_fields[EXIF_FIELD_ExposureTime].emplace<std::string>(buf, slen);
+                              exif_fields[EXIF_FIELD_ExposureTime].emplace<std::u8string>(buf, slen);
 
                               field_bitset.set(EXIF_FIELD_ExposureTime);
                            }
@@ -776,9 +776,9 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                         if(!rational.value_.front().second)
                            field_index = EXIF_FIELD_FNumber;
                         else {
-                           size_t slen = snprintf(buf, sizeof(buf), "f/%.01f", (double) rational.value_.front().first / (double) rational.value_.front().second);
+                           size_t slen = snprintf(reinterpret_cast<char*>(buf), sizeof(buf), "f/%.01f", (double) rational.value_.front().first / (double) rational.value_.front().second);
 
-                           exif_fields[EXIF_FIELD_FNumber].emplace<std::string>(buf, slen);
+                           exif_fields[EXIF_FIELD_FNumber].emplace<std::u8string>(buf, slen);
 
                            field_bitset.set(EXIF_FIELD_FNumber);
                         }
@@ -806,7 +806,7 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                      if(exif_value.typeId() != Exiv2::TypeId::asciiString || exif_value.size() < 20 || exif_value.toLong(4) != static_cast<long>(':') || exif_value.toLong(7) != static_cast<long>(':'))
                         field_index = EXIF_FIELD_DateTimeOriginal;
                      else {
-                        std::string& tstamp = std::get<std::string>(exif_fields[EXIF_FIELD_DateTimeOriginal] = static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str());
+                        std::u8string& tstamp = std::get<std::u8string>(exif_fields[EXIF_FIELD_DateTimeOriginal] = reinterpret_cast<const char8_t*>(static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str()));
                         tstamp[4] = tstamp[7] = '-';
                         field_bitset.set(EXIF_FIELD_DateTimeOriginal);
                      }
@@ -815,7 +815,7 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                      if(exif_value.typeId() != Exiv2::TypeId::asciiString || exif_value.size() < 20 || exif_value.toLong(4) != static_cast<long>(':') || exif_value.toLong(7) != static_cast<long>(':'))
                         field_index = EXIF_FIELD_DateTimeDigitized;
                      else {
-                        std::string& tstamp = std::get<std::string>(exif_fields[EXIF_FIELD_DateTimeDigitized] = static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str());
+                        std::u8string& tstamp = std::get<std::u8string>(exif_fields[EXIF_FIELD_DateTimeDigitized] = reinterpret_cast<const char8_t*>(static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str()));
                         tstamp[4] = tstamp[7] = '-';
                         field_bitset.set(EXIF_FIELD_DateTimeDigitized);
                      }
@@ -900,11 +900,11 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                            //
                            if(*(comment->value_.begin()+8) && (padding_pos == std::string::npos || padding_pos > 8)) {
                               if(unicode::is_valid_utf8(comment->value_.data()+8, padding_pos == std::string::npos ? comment->value_.length()-8 : padding_pos-8)) {
-                                 std::string_view comment_value = trim_whitespace(comment->value_.data()+8, padding_pos == std::string::npos ? comment->value_.length()-8 : padding_pos-8);
+                                 std::u8string_view comment_value = trim_whitespace(reinterpret_cast<const char8_t*>(comment->value_.data())+8, padding_pos == std::string::npos ? comment->value_.length()-8 : padding_pos-8);
 
                                  // skip anything less than two characters (big endian UCS-2 will be interepted as a single character)
                                  if(comment_value.length() > 1) {
-                                    exif_fields[EXIF_FIELD_UserComment].emplace<std::string>(comment_value);
+                                    exif_fields[EXIF_FIELD_UserComment].emplace<std::u8string>(comment_value);
                                     field_bitset.set(EXIF_FIELD_UserComment);
                                  }
                               }
@@ -1001,10 +1001,10 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                      //
                      // ASCII entries are always null-terminated (some may have null character embedded in the string - e.g. Copyright)
                      if(exif_value.size() > 1 && unicode::is_valid_utf8(static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str())) {
-                        std::string_view ascii_value = trim_whitespace(static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str());
+                        std::u8string_view ascii_value = trim_whitespace(reinterpret_cast<const char8_t*>(static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str()));
 
                         if(!ascii_value.empty()) {
-                           exif_fields[field_index.value()].emplace<std::string>(ascii_value);
+                           exif_fields[field_index.value()].emplace<std::u8string>(ascii_value);
                            field_bitset.set(field_index.value());
                         }
                      }
@@ -1099,7 +1099,7 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                //
                if(i->typeId() == Exiv2::TypeId::xmpText) {
                   const Exiv2::XmpTextValue& xmp_text = static_cast<const Exiv2::XmpTextValue&>(i->value());
-                  exif_fields[EXIF_FIELD_XMPxmpRating] = xmp_text.value_;
+                  exif_fields[EXIF_FIELD_XMPxmpRating].emplace<std::u8string>(std::u8string_view(reinterpret_cast<const char8_t*>(xmp_text.value_.c_str()), xmp_text.value_.length()));
                   field_bitset.set(EXIF_FIELD_XMPxmpRating);
                }
             }
@@ -1117,7 +1117,7 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
 
             exiv2_json.value().Accept(writer);
 
-            exif_fields[EXIF_FIELD_Exiv2Json] = strbuf.GetString();
+            exif_fields[EXIF_FIELD_Exiv2Json] = reinterpret_cast<const char8_t*>(strbuf.GetString());
             field_bitset.set(EXIF_FIELD_Exiv2Json);
          }
       }

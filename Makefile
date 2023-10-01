@@ -49,7 +49,7 @@ endif
 CFLAGS := -std=gnu99 \
 	$(CCFLAGS_COMMON)
 
-CXXFLAGS := -std=c++17 \
+CXXFLAGS := -std=c++20 \
 	$(CCFLAGS_COMMON) \
 	-fexceptions \
 	-DRAPIDJSON_HAS_STDSTRING \

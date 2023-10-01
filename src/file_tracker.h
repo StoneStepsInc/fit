@@ -121,7 +121,7 @@ class file_tracker_t {
 
       progress_info_t& progress_info;
 
-      std::vector<std::string> EXIF_exts;
+      std::vector<std::u8string> EXIF_exts;
 
       exif::exif_reader_t exif_reader;
 
@@ -142,21 +142,21 @@ class file_tracker_t {
       sqlite3_stmt *stmt_rollback_txn = nullptr;
 
    private:
-      int64_t insert_file_record(const std::string& filepath, const std::filesystem::directory_entry& dir_entry);
+      int64_t insert_file_record(const std::u8string& filepath, const std::filesystem::directory_entry& dir_entry);
 
-      int64_t insert_exif_record(const std::string& filepath, const std::vector<exif::field_value_t>& exif_fields, const exif::field_bitset_t& field_bitset);
+      int64_t insert_exif_record(const std::u8string& filepath, const std::vector<exif::field_value_t>& exif_fields, const exif::field_bitset_t& field_bitset);
 
-      find_file_result_t select_version_record(const std::string& filepath);
+      find_file_result_t select_version_record(const std::u8string& filepath);
 
-      int64_t insert_version_record(const std::string& filepath, int64_t file_id, int64_t version, int64_t filesize, const std::filesystem::directory_entry& dir_entry, unsigned char hexhash_file[], std::optional<int64_t> exif_id);
+      int64_t insert_version_record(const std::u8string& filepath, int64_t file_id, int64_t version, int64_t filesize, const std::filesystem::directory_entry& dir_entry, unsigned char hexhash_file[], std::optional<int64_t> exif_id);
 
-      void insert_scanset_record(const std::string& filepath, int64_t version_id);
+      void insert_scanset_record(const std::u8string& filepath, int64_t version_id);
 
-      void begin_transaction(const std::string& filepath);
+      void begin_transaction(const std::u8string& filepath);
 
-      void commit_transaction(const std::string& filepath);
+      void commit_transaction(const std::u8string& filepath);
 
-      void rollback_transaction(const std::string& filepath);
+      void rollback_transaction(const std::u8string& filepath);
 
       void hash_file(const std::filesystem::path& filepath, uint64_t& filesize, unsigned char hexhash[]);
 
@@ -169,7 +169,7 @@ class file_tracker_t {
 
       static int sqlite_busy_handler_cb(void*, int count);
 
-      static std::vector<std::string> parse_EXIF_exts(const options_t& options);
+      static std::vector<std::u8string> parse_EXIF_exts(const options_t& options);
 
       static bool set_sqlite_journal_mode(sqlite3 *file_scan_db, print_stream_t& print_stream);
 

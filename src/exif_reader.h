@@ -103,7 +103,7 @@ enum field_index_t {
    EXIF_FIELD_FieldCount
 };
 
-typedef std::variant<nullptr_t, int64_t, std::string> field_value_t;
+typedef std::variant<nullptr_t, int64_t, std::u8string> field_value_t;
 
 typedef std::bitset<EXIF_FIELD_FieldCount> field_bitset_t;
 
@@ -145,11 +145,11 @@ class exif_reader_t {
       template <typename T>
       static bool fmt_exif_rational(const Exiv2::ValueType<T>& exif_value, field_value_t& field_value);
 
-      static std::string_view trim_whitespace(const std::string& value);
+      static std::u8string_view trim_whitespace(const std::u8string& value);
 
-      static std::string_view trim_whitespace(const char *value, size_t length);
+      static std::u8string_view trim_whitespace(const char8_t *value, size_t length);
 
-      static std::string_view trim_whitespace(const char *value);
+      static std::u8string_view trim_whitespace(const char8_t *value);
 
       const std::string& get_exiv2_json_path(const char *family_name, const std::string& group_name, const std::string& tag_name);
 

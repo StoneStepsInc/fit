@@ -5,6 +5,34 @@
 #include <cstdio>
 #include <cstdarg>
 
+#include <string>
+
+#ifdef _MSC_VER
+#include <format>
+#define FMTNS std
+#else
+#include <fmt/format.h>
+#define FMTNS fmt
+#endif
+
+template <>
+struct FMTNS::formatter<std::u8string_view, char> : FMTNS::formatter<string_view, char> {
+      template<class format_context_t>
+      auto format(const std::u8string_view& str, format_context_t& fmtctx) const
+      {
+         return FMTNS::formatter<string_view, char>::format(std::string_view(reinterpret_cast<const char*>(str.data()), str.length()), fmtctx);
+      }
+};
+
+template <>
+struct FMTNS::formatter<std::u8string, char> : FMTNS::formatter<string_view, char> {
+      template<class format_context_t>
+      auto format(const std::u8string& str, format_context_t& fmtctx) const
+      {
+         return FMTNS::formatter<string_view, char>::format(std::string_view(reinterpret_cast<const char*>(str.c_str()), str.length()), fmtctx);
+      }
+};
+
 namespace fit {
 
 class print_stream_t {

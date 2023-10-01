@@ -48,9 +48,9 @@ class sqlite_stmt_binder_t {
 
       void bind_param(int64_t value);
 
-      void bind_param(const std::string& value);
+      void bind_param(const std::u8string& value);
 
-      void bind_param(const std::string_view& value);
+      void bind_param(const std::u8string_view& value);
 
       void bind_param(const void *value, size_t size);
 };
