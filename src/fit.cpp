@@ -507,11 +507,13 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
 
 void close_sqlite_database(sqlite3 *file_scan_db)
 {
-   if(sqlite3_close(file_scan_db) != SQLITE_OK)
-      fprintf(stderr, "Failed to close the SQLite database\n");
+   int errcode = SQLITE_OK;
 
-   if(sqlite3_shutdown())
-      fprintf(stderr, "Failed to shut down SQLite\n");
+   if((errcode = sqlite3_close(file_scan_db)) != SQLITE_OK)
+      fprintf(stderr, "Failed to close the SQLite database (%s)\n", sqlite3_errstr(errcode));
+
+   if((errcode = sqlite3_shutdown()) != SQLITE_OK)
+      fprintf(stderr, "Failed to shut down SQLite (%s)\n", sqlite3_errstr(errcode));
 }
 
 int64_t insert_scan_record(const options_t& options, sqlite3 *file_scan_db)
