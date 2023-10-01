@@ -46,7 +46,7 @@ using namespace std::literals::string_literals;
 namespace fit {
 
 static const char *title = "File Integrity Tracker";
-static const char *version = "2.1.0+" STR_BUILD_NUMBER(BUILD_NUMBER);
+static const char *version = "3.0.0+" STR_BUILD_NUMBER(BUILD_NUMBER);
 static const char *copyright = "Copyright (c) 2023 Stone Steps Inc.";
 
 //

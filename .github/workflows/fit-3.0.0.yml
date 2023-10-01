@@ -9,7 +9,7 @@
 # which means that this file needs to be renamed when the version
 # is changed, so the run number starts a new sequence.
 #
-name: fit 2.1.0
+name: fit 3.0.0
 
 on: workflow_dispatch
 
