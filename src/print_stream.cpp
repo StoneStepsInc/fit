@@ -63,7 +63,7 @@ void print_stream_t::warning(const char *fmt, ...)
    va_list valist;
 
    va_start(valist, fmt);
-   print(stdout, "wrn", fmt, valist);
+   print(stderr, "wrn", fmt, valist);
    va_end(valist);
 }
 
