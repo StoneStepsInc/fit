@@ -335,7 +335,7 @@ void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& 
    #ifdef _WIN32
    std::unique_ptr<FILE, file_handle_deleter_t> file(_wfopen(filepath.wstring().c_str(), L"rb"));
    #else
-   std::unique_ptr<FILE, file_handle_deleter_t> file(fopen(filepath.u8string().c_str(), "rb"));
+   std::unique_ptr<FILE, file_handle_deleter_t> file(fopen(reinterpret_cast<const char*>(filepath.u8string().c_str()), "rb"));
    #endif
 
    if(!file)
@@ -382,7 +382,7 @@ file_tracker_t::mb_file_hasher_t::param_tuple_t file_tracker_t::open_file(find_f
    #ifdef _WIN32
    std::unique_ptr<FILE, file_handle_deleter_t> file(_wfopen(dir_entry.path().wstring().c_str(), L"rb"));
    #else
-   std::unique_ptr<FILE, file_handle_deleter_t> file(fopen(dir_entry.path().u8string().c_str(), "rb"));
+   std::unique_ptr<FILE, file_handle_deleter_t> file(fopen(reinterpret_cast<const char*>(dir_entry.path().u8string().c_str()), "rb"));
    #endif
 
    if(!file)
