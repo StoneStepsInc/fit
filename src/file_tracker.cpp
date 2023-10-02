@@ -386,7 +386,7 @@ file_tracker_t::mb_file_hasher_t::param_tuple_t file_tracker_t::open_file(find_f
    #endif
 
    if(!file)
-      throw std::runtime_error(FMTNS::format("Cannot open file ({:s}) {:s}", strerror(errno), dir_entry.path().u8string()));
+      throw std::runtime_error(FMTNS::format("Cannot open file ({:s}) {:s}", strerror(errno), u8tosv_t(dir_entry.path().u8string())));
 
    //
    // Need to make sure the reference is preserved, so we update the
@@ -428,7 +428,7 @@ int64_t file_tracker_t::insert_file_record(const std::u8string& filepath, const 
    insert_file_stmt.bind_param(filepath);
             
    if((errcode = sqlite3_step(stmt_insert_file)) != SQLITE_DONE)
-      throw std::runtime_error(FMTNS::format("Cannot insert a file record for {:s} ({:s})", filepath, sqlite3_errstr(errcode)));
+      throw std::runtime_error(FMTNS::format("Cannot insert a file record for {:s} ({:s})", u8tosv_t(filepath), sqlite3_errstr(errcode)));
 
    file_id = sqlite3_last_insert_rowid(file_scan_db);
 
@@ -454,12 +454,12 @@ int64_t file_tracker_t::insert_exif_record(const std::u8string& filepath, const 
          else if(exif_fields[i].index() == 2)
             insert_exif_stmt.bind_param(std::get<2>(exif_fields[i]));
          else
-            throw std::runtime_error(FMTNS::format("Bad field value in EXIF record for {:s} ({:d})", filepath, i));
+            throw std::runtime_error(FMTNS::format("Bad field value in EXIF record for {:s} ({:d})", u8tosv_t(filepath), i));
       }
    }
 
    if((errcode = sqlite3_step(stmt_insert_exif)) != SQLITE_DONE)
-      throw std::runtime_error(FMTNS::format("Cannot insert an EXIF record for {:s} ({:s})", filepath, sqlite3_errstr(errcode)));
+      throw std::runtime_error(FMTNS::format("Cannot insert an EXIF record for {:s} ({:s})", u8tosv_t(filepath), sqlite3_errstr(errcode)));
 
    // get the row ID for the new EXIF record
    exif_id = sqlite3_last_insert_rowid(file_scan_db);
@@ -487,7 +487,7 @@ file_tracker_t::find_file_result_t file_tracker_t::select_version_record(const s
    errcode = sqlite3_step(stmt_find_file);
 
    if(errcode != SQLITE_DONE && errcode != SQLITE_ROW)
-      throw std::runtime_error(FMTNS::format("SQLite select failed for {:s} ({:s})", filepath, sqlite3_errstr(errcode)));
+      throw std::runtime_error(FMTNS::format("SQLite select failed for {:s} ({:s})", u8tosv_t(filepath), sqlite3_errstr(errcode)));
 
    // if we found a file record, get the columns we need
    if(errcode != SQLITE_ROW)
@@ -511,7 +511,7 @@ file_tracker_t::find_file_result_t file_tracker_t::select_version_record(const s
       // hold onto the column hash value
       if(hash_type == HASH_TYPE) {
          if(sqlite3_column_bytes(stmt_find_file, 3) != HASH_HEX_SIZE)
-            throw std::runtime_error(FMTNS::format("Bad hash size for {:s} ({:s})", filepath, sqlite3_errstr(errcode)));
+            throw std::runtime_error(FMTNS::format("Bad hash size for {:s} ({:s})", u8tosv_t(filepath), sqlite3_errstr(errcode)));
 
          memcpy(hexhash_field, reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 3)), HASH_HEX_SIZE);
       }
@@ -587,7 +587,7 @@ int64_t file_tracker_t::insert_version_record(const std::u8string& filepath, int
    // and left SQLite record storage locked.
    //
    if((errcode = sqlite3_step(stmt_insert_version)) != SQLITE_DONE)
-      throw std::runtime_error(FMTNS::format("Cannot insert a version record for {:s} ({:s})", filepath, sqlite3_errstr(errcode)));
+      throw std::runtime_error(FMTNS::format("Cannot insert a version record for {:s} ({:s})", u8tosv_t(filepath), sqlite3_errstr(errcode)));
 
    // get the row ID for the new version record
    version_id = sqlite3_last_insert_rowid(file_scan_db);
@@ -609,7 +609,7 @@ void file_tracker_t::insert_scanset_record(const std::u8string& filepath, int64_
    insert_scanset_file_stmt.bind_param(version_id);
 
    if((errcode = sqlite3_step(stmt_insert_scanset_file)) != SQLITE_DONE)
-      throw std::runtime_error(FMTNS::format("Cannot insert a scanset record for {:s} ({:s})", filepath, sqlite3_errstr(errcode)));
+      throw std::runtime_error(FMTNS::format("Cannot insert a scanset record for {:s} ({:s})", u8tosv_t(filepath), sqlite3_errstr(errcode)));
 
    insert_scanset_file_stmt.reset();
 }
@@ -619,7 +619,7 @@ void file_tracker_t::begin_transaction(const std::u8string& filepath)
    int errcode = sqlite3_step(stmt_begin_txn);
 
    if(errcode != SQLITE_DONE)
-      throw std::runtime_error(FMTNS::format("Cannot start a SQLite transaction for {:s} ({:s})", filepath, sqlite3_errstr(errcode)));
+      throw std::runtime_error(FMTNS::format("Cannot start a SQLite transaction for {:s} ({:s})", u8tosv_t(filepath), sqlite3_errstr(errcode)));
 }
 
 void file_tracker_t::commit_transaction(const std::u8string& filepath)
@@ -627,7 +627,7 @@ void file_tracker_t::commit_transaction(const std::u8string& filepath)
    int errcode = sqlite3_step(stmt_commit_txn);
 
    if(errcode != SQLITE_DONE)
-      throw std::runtime_error(FMTNS::format("Cannot commit a SQLite transaction for {:s} ({:s})", filepath, sqlite3_errstr(errcode)));
+      throw std::runtime_error(FMTNS::format("Cannot commit a SQLite transaction for {:s} ({:s})", u8tosv_t(filepath), sqlite3_errstr(errcode)));
 }
 
 void file_tracker_t::rollback_transaction(const std::u8string& filepath)

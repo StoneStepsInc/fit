@@ -15,21 +15,23 @@
 #define FMTNS fmt
 #endif
 
-template <>
-struct FMTNS::formatter<std::u8string_view, char> : FMTNS::formatter<string_view, char> {
-      template<class format_context_t>
-      auto format(const std::u8string_view& str, format_context_t& fmtctx) const
-      {
-         return FMTNS::formatter<string_view, char>::format(std::string_view(reinterpret_cast<const char*>(str.data()), str.length()), fmtctx);
-      }
+namespace fit {
+struct u8tosv_t {
+   std::string_view str;
+
+   u8tosv_t(const std::u8string_view& str) : str(reinterpret_cast<const char*>(str.data()), str.length()) {}
+   u8tosv_t(const std::u8string& str) : str(reinterpret_cast<const char*>(str.c_str()), str.length()) {}
+
+   operator const std::string_view& (void) const {return str;}
 };
+}
 
 template <>
-struct FMTNS::formatter<std::u8string, char> : FMTNS::formatter<string_view, char> {
+struct FMTNS::formatter<fit::u8tosv_t, char> : FMTNS::formatter<std::string_view, char> {
       template<class format_context_t>
-      auto format(const std::u8string& str, format_context_t& fmtctx) const
+      auto format(const fit::u8tosv_t& u8tosv, format_context_t& fmtctx) const
       {
-         return FMTNS::formatter<string_view, char>::format(std::string_view(reinterpret_cast<const char*>(str.c_str()), str.length()), fmtctx);
+         return FMTNS::formatter<std::string_view, char>::format(u8tosv, fmtctx);
       }
 };
 
