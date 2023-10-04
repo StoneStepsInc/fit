@@ -2,18 +2,21 @@ FROM fedora:36
 
 LABEL org.opencontainers.image.description="CI build image for Fedora (https://github.com/StoneStepsInc/fit)"
 
-RUN dnf -y install cmake patch curl unzip make gcc-c++ sqlite-devel expat-devel zlib-devel rapidjson-devel fmt-devel
+RUN dnf -y install cmake patch curl unzip make gcc-c++ sqlite-devel expat-devel zlib-devel rapidjson-devel
 
 # additional isa-l_crypto dependencies
 RUN dnf -y install nasm libtool autoconf automake
 
-COPY get-isa-l_crypto get-exiv2 exiv2-c++17.patch /root/
+COPY get-isa-l_crypto get-exiv2 exiv2-c++17.patch get-fmt /root/
 
 WORKDIR /root
 
 # automatic builds are expected to run on hardware with SSE/AVX support (i.e. no get-sha256)
-RUN chmod a+x get-isa-l_crypto get-exiv2
+RUN chmod a+x get-isa-l_crypto get-exiv2 get-fmt
 
 RUN ./get-isa-l_crypto
 
 RUN ./get-exiv2
+
+# fmt-devel is v8.1.1 and generates build errors
+RUN ./get-fmt

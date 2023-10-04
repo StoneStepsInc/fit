@@ -1,0 +1,13 @@
+#!/bin/bash
+
+FMT_VER=10.1.1
+
+curl --location --output fmt-$FMT_VER.zip https://github.com/fmtlib/fmt/releases/download/$FMT_VER/fmt-$FMT_VER.zip
+
+unzip -x fmt-$FMT_VER.zip
+
+cmake -S fmt-$FMT_VER -B fmt-$FMT_VER/build -DCMAKE_BUILD_TYPE=Release
+
+cmake --build fmt-$FMT_VER/build
+
+cmake --install fmt-$FMT_VER/build

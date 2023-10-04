@@ -4,18 +4,21 @@ LABEL org.opencontainers.image.description="CI build image for Ubuntu (https://g
 
 RUN apt-get update -y
 
-RUN apt-get install -y cmake patch curl unzip make g++ libsqlite3-dev libexpat1-dev zlib1g-dev rapidjson-dev libfmt-dev
+RUN apt-get install -y cmake patch curl unzip make g++ libsqlite3-dev libexpat1-dev zlib1g-dev rapidjson-dev
 
 # additional isa-l_crypto dependencies
 RUN apt-get install -y  nasm libtool autoconf automake
 
-COPY get-isa-l_crypto get-exiv2 exiv2-c++17.patch /root/
+COPY get-isa-l_crypto get-exiv2 exiv2-c++17.patch get-fmt /root/
 
 WORKDIR /root
 
 # automatic builds are expected to run on hardware with SSE/AVX support (i.e. no get-sha256)
-RUN chmod a+x get-isa-l_crypto get-exiv2
+RUN chmod a+x get-isa-l_crypto get-exiv2 get-fmt
 
 RUN ./get-isa-l_crypto
 
 RUN ./get-exiv2
+
+# libfmt-dev works on Ubuntu, but keep it consistent with Fedora, where it does not
+RUN ./get-fmt
