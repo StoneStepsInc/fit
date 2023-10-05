@@ -21,8 +21,6 @@ struct u8tosv_t {
 
    u8tosv_t(const std::u8string_view& str) : str(reinterpret_cast<const char*>(str.data()), str.length()) {}
    u8tosv_t(const std::u8string& str) : str(reinterpret_cast<const char*>(str.c_str()), str.length()) {}
-
-   operator const std::string_view& (void) const {return str;}
 };
 }
 
@@ -31,7 +29,7 @@ struct FMTNS::formatter<fit::u8tosv_t, char> : FMTNS::formatter<std::string_view
       template<class format_context_t>
       auto format(const fit::u8tosv_t& u8tosv, format_context_t& fmtctx) const
       {
-         return FMTNS::formatter<std::string_view, char>::format(u8tosv, fmtctx);
+         return FMTNS::formatter<std::string_view, char>::format(u8tosv.str, fmtctx);
       }
 };
 
