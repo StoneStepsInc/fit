@@ -17,13 +17,16 @@ unzip -x fmt-$FMT_VER.zip
 
 rm -f fmt-$FMT_VER.zip
 
-cmake -S fmt-$FMT_VER -B fmt/Release -DCMAKE_BUILD_TYPE=Release
+cmake -S fmt-$FMT_VER -B fmt/Release \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DFMT_TEST=OFF \
+    -DFMT_DOC=OFF
 
 cmake --build fmt/Release
 
 cmake --install fmt/Release
 
-cp fit/Release/install_manifest.txt fit_install_manifest.txt
+cp fmt/Release/install_manifest.txt fmt_install_manifest.txt
 
 rm -rf fmt/Release
 
