@@ -30,4 +30,7 @@ cp fmt/Release/install_manifest.txt fmt_install_manifest.txt
 
 rm -rf fmt/Release
 
+rmdir fmt
+
 rm -rf fmt-$FMT_VER
+

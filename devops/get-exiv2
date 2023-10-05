@@ -44,4 +44,7 @@ cp exiv2/Release/install_manifest.txt exiv2_install_manifest.txt
 
 rm -rf exiv2/Release
 
+rmdir exiv2
+
 rm -rf $EXIV2_DNAME
+
