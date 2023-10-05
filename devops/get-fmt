@@ -1,13 +1,30 @@
 #!/bin/bash
 
 FMT_VER=10.1.1
+FMT_SHA256=b84e58a310c9b50196cda48d5678d5fa0849bca19e5fdba6b684f0ee93ed9d1b
 
 curl --location --output fmt-$FMT_VER.zip https://github.com/fmtlib/fmt/releases/download/$FMT_VER/fmt-$FMT_VER.zip
 
+echo "$FMT_SHA256  fmt-$FMT_VER.zip" | sha256sum --check
+
+if [ $? -ne 0 ]
+then
+    echo "Bad checksum: fmt-$FMT_VER.zip"
+    exit 1
+fi
+
 unzip -x fmt-$FMT_VER.zip
 
-cmake -S fmt-$FMT_VER -B fmt-$FMT_VER/build -DCMAKE_BUILD_TYPE=Release
+rm -f fmt-$FMT_VER.zip
 
-cmake --build fmt-$FMT_VER/build
+cmake -S fmt-$FMT_VER -B fmt/Release -DCMAKE_BUILD_TYPE=Release
 
-cmake --install fmt-$FMT_VER/build
+cmake --build fmt/Release
+
+cmake --install fmt/Release
+
+cp fit/Release/install_manifest.txt fit_install_manifest.txt
+
+rm -rf fmt/Release
+
+rm -rf fmt-$FMT_VER
