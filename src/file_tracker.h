@@ -162,6 +162,8 @@ class file_tracker_t {
 
       void run(void);
 
+      static time_t file_time_to_time_t(const std::chrono::file_clock::time_point& file_time);
+
 #ifndef NO_SSE_AVX
       mb_file_hasher_t::param_tuple_t open_file(find_file_result_t&& version_record, std::filesystem::directory_entry&& dir_entry) const;
       bool read_file(unsigned char *file_buffer, size_t buf_size, size_t& data_size, mb_file_hasher_t::param_tuple_t& args) const;

@@ -85,8 +85,10 @@ static const char *copyright = "Copyright (c) 2023 Stone Steps Inc.";
 //   v4.0   Reworked ix_scansets_scan_version
 // 
 //   v5.0   Added Exiv2Json to exif
+// 
+//   v6.0   File time stamps are in time_t now (no schema changes)
 //
-static const int DB_SCHEMA_VERSION = 50;
+static const int DB_SCHEMA_VERSION = 60;
 
 std::atomic<bool> abort_scan = false;
 

@@ -276,6 +276,19 @@ file_tracker_t::~file_tracker_t(void)
    }
 }
 
+time_t file_tracker_t::file_time_to_time_t(const std::chrono::file_clock::time_point& file_time)
+{
+#if defined(_MSC_VER) || (defined(__GNUC__) && __GNUC__ >= 13)
+   // works only in VC++ 19.37, GCC 13 and CLang 17
+   // utc_clock epoch is 1970, even though the official UTC epoch is 1972
+   return std::chrono::duration_cast<std::chrono::seconds>(std::chrono::clock_cast<std::chrono::utc_clock>(file_time).time_since_epoch()).count();
+#else
+   // VC++ 19.37 does not implement to_sys and GCC 13 does not implement to_utc
+   // note that system_clock epoch is not required to be 1970, even though many implementations do so, so must be explicitly converted to time_t
+   return std::chrono::system_clock::to_time_t(std::chrono::file_clock::to_sys(file_time));
+#endif
+}
+
 std::vector<std::u8string> file_tracker_t::parse_EXIF_exts(const options_t& options)
 {
    std::vector<std::u8string> EXIF_exts;
@@ -561,7 +574,7 @@ int64_t file_tracker_t::insert_version_record(const std::u8string& filepath, int
    // same or not, so there is no need for a platform-specific way
    // to interpret it as time.
    //
-   insert_version_stmt.bind_param(static_cast<int64_t>(std::chrono::duration_cast<std::chrono::seconds>(dir_entry.last_write_time().time_since_epoch()).count()));
+   insert_version_stmt.bind_param(static_cast<int64_t>(file_time_to_time_t(dir_entry.last_write_time())));
 
    insert_version_stmt.bind_param(static_cast<int64_t>(dir_entry.file_size()));
    insert_version_stmt.bind_param(static_cast<int64_t>(filesize));
@@ -740,7 +753,7 @@ void file_tracker_t::run(void)
             // 
             if(dir_entry.has_value()) {
                if(!options.verify_files && options.skip_hash_mod_time && version_record.has_value()
-                     && version_record.mod_time() == std::chrono::duration_cast<std::chrono::seconds>(dir_entry.value().last_write_time().time_since_epoch()).count()) {
+                     && version_record.mod_time() == static_cast<int64_t>(file_time_to_time_t(dir_entry.value().last_write_time()))) {
                   hash_match = true;
                }
             }
@@ -849,7 +862,7 @@ void file_tracker_t::run(void)
                      print_stream.info(   "new file: %s", filepath.c_str());
                   }
                   else {
-                     if(version_record.mod_time() != std::chrono::duration_cast<std::chrono::seconds>(dir_entry.value().last_write_time().time_since_epoch()).count()) {
+                     if(version_record.mod_time() != static_cast<int64_t>(file_time_to_time_t(dir_entry.value().last_write_time()))) {
                         progress_info.modified_files++;
                         print_stream.info("modified: %s", filepath.c_str());
                      }
