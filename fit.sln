@@ -1,9 +1,46 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.32228.343
+# Visual Studio Version 17
+VisualStudioVersion = 17.7.34031.279
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fit", "fit.vcxproj", "{A725AE64-02D2-40B6-9D40-BE20E2209242}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "devops", "devops", "{373C68B3-1175-4036-8D2F-F84755C9B108}"
+	ProjectSection(SolutionItems) = preProject
+		devops\check-sha256.bat = devops\check-sha256.bat
+		devops\Dockerfile.fedora = devops\Dockerfile.fedora
+		devops\Dockerfile.ubuntu = devops\Dockerfile.ubuntu
+		devops\exiv2-c++17.patch = devops\exiv2-c++17.patch
+		devops\get-exiv2 = devops\get-exiv2
+		devops\get-fmt = devops\get-fmt
+		devops\get-isa-l_crypto = devops\get-isa-l_crypto
+		devops\get-sha256 = devops\get-sha256
+		devops\get-sha256.bat = devops\get-sha256.bat
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sql", "sql", "{4CCE7C08-066C-4734-8DFA-18A17D3104CB}"
+	ProjectSection(SolutionItems) = preProject
+		sql\group-exif-camera.sql = sql\group-exif-camera.sql
+		sql\group-exif-exp-mode.sql = sql\group-exif-exp-mode.sql
+		sql\group-exif-focallength.sql = sql\group-exif-focallength.sql
+		sql\group-exif-xmp-rating.sql = sql\group-exif-xmp-rating.sql
+		sql\group-exiv2json-focallength35mm.sql = sql\group-exiv2json-focallength35mm.sql
+		sql\group-ext-scan.sql = sql\group-ext-scan.sql
+		sql\group-top-dir.sql = sql\group-top-dir.sql
+		sql\list-added-files.sql = sql\list-added-files.sql
+		sql\list-changed-files.sql = sql\list-changed-files.sql
+		sql\list-dup-files.sql = sql\list-dup-files.sql
+		sql\list-exiv2json-fields.sql = sql\list-exiv2json-fields.sql
+		sql\list-removed-files.sql = sql\list-removed-files.sql
+		sql\list-scans.sql = sql\list-scans.sql
+		sql\show-file-by-hash.sql = sql\show-file-by-hash.sql
+		sql\show-file-by-name.sql = sql\show-file-by-name.sql
+		sql\upgrade-db_0.0-1.0.sql = sql\upgrade-db_0.0-1.0.sql
+		sql\upgrade-db_1.0-2.0.sql = sql\upgrade-db_1.0-2.0.sql
+		sql\upgrade-db_2.0-3.0.sql = sql\upgrade-db_2.0-3.0.sql
+		sql\upgrade-db_3.0-4.0.sql = sql\upgrade-db_3.0-4.0.sql
+		sql\upgrade-db_4.0-5.0.sql = sql\upgrade-db_4.0-5.0.sql
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
