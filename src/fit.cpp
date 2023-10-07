@@ -699,7 +699,7 @@ int main(int argc, char *argv[])
       std::unique_ptr<sqlite3, sqlite3_database_deleter_t> file_scan_db(fit::open_sqlite_database(options, schema_version, print_stream));
 
       if(schema_version != fit::DB_SCHEMA_VERSION)
-         throw std::runtime_error("Database must be upgraded from v"s + fit::schema_version_string(schema_version) + " to v"s + fit::schema_version_string(fit::DB_SCHEMA_VERSION));
+         throw std::runtime_error(FMTNS::format("Database must be upgraded from v{:s} to v{:s}"sv, fit::schema_version_string(schema_version), fit::schema_version_string(fit::DB_SCHEMA_VERSION)));
 
       int64_t scan_id = 0;
       
