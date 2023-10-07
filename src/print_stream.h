@@ -7,7 +7,7 @@
 
 #include <string>
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) || (defined(__GNUC__) && __GNUC__ >= 13)
 #include <format>
 #define FMTNS std
 #else
@@ -16,6 +16,11 @@
 #endif
 
 namespace fit {
+//
+// Within this project std::string and std::string_view always
+// carry UTF-8 strings, so we can just cast the character pointer,
+// without applying any character encoding conversions.
+//
 struct u8tosv_t {
    std::string_view str;
 
@@ -24,6 +29,16 @@ struct u8tosv_t {
 };
 }
 
+//
+// Define a formatter specialization using a lightweight string
+// view wrapper that merely casts char8_t pointer to a char pointer.
+// 
+// Worth noting that VC++ 19.37 compiles if a formatter is
+// specialized for std::u8string_view, but errors are reported
+// for fmt and std in GCC v13, probably because a generic narrow
+// character string cannot be interpreted without knowing the
+// character encoding.
+//
 template <>
 struct FMTNS::formatter<fit::u8tosv_t, char> : FMTNS::formatter<std::string_view, char> {
       template<class format_context_t>

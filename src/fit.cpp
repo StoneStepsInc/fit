@@ -30,7 +30,7 @@
 #include <chrono>
 #include <optional>
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) || (defined(__GNUC__) && __GNUC__ >= 13)
 #include <format>
 #define FMTNS std
 #else
