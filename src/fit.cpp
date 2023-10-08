@@ -712,7 +712,7 @@ void update_schema_from_v50(sqlite3 *file_scan_db, print_stream_t& print_stream)
       #if defined(_MSC_VER) || (defined(__GNUC__) && __GNUC__ >= 13)
       update_mod_time_stmt.bind_param(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::clock_cast<std::chrono::utc_clock>(mod_time_fc).time_since_epoch()).count());
       #else
-      update_mod_time_stmt.bind_param(std::chrono::system_clock::to_time_t(std::chrono::file_clock::to_sys(mod_time_fc))));
+      update_mod_time_stmt.bind_param(std::chrono::system_clock::to_time_t(std::chrono::file_clock::to_sys(mod_time_fc)));
       #endif
 
       update_mod_time_stmt.bind_param(rowid);
