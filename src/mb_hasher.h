@@ -21,14 +21,14 @@ namespace fit {
 // 
 //     mb_hasher_t<mb_sha256_traits, X, D1, D2> mbh(x, 4096, 2);
 // 
-//     mbh.submit_job(&X::open, &X::read, std::move(d1), std::move(d2));
-//     mbh.submit_job(&X::open, &X::read, std::move(d1), std::move(d2));
+//     mbh.submit_job(&X::open, &X::read, std::move(d11), std::move(d21));
+//     mbh.submit_job(&X::open, &X::read, std::move(d12), std::move(d22));
 // 
 //     std::tuple<D1, D2> mt = mbh.get_hash(isa_mb_hash);
-//     mbh.submit_job(&X::open, &X::read, std::move(d1), std::move(d2));
+//     mbh.submit_job(&X::open, &X::read, std::move(d13), std::move(d23));
 // 
 //     mt = mbh.get_hash(isa_mb_hash);
-//     mbh.submit_job(&X::open, &X::read, std::move(d1), std::move(d2));
+//     mbh.submit_job(&X::open, &X::read, std::move(d14), std::move(d24));
 //
 //     mt = mbh.get_hash(isa_mb_hash);
 //     mt = mbh.get_hash(isa_mb_hash);
@@ -93,7 +93,7 @@ class mb_hasher_t {
          // total number of hashed bytes obtained via get_data
          size_t processed_size = 0;
 
-         ctx_args_t(size_t id, size_t buf_size, param_tuple_t&& params, bool (T::*get_data)(unsigned char*, size_t, size_t&, param_tuple_t&) const);
+         ctx_args_t(size_t id, size_t buf_size, param_tuple_t&& params, bool (T::*get_data)(unsigned char*, size_t, size_t&, param_tuple_t&) const noexcept);
       };
 
    private:
@@ -157,7 +157,7 @@ class mb_hasher_t {
 
       // submits a new hash job, along with methods to obtain data to hash and their arguments
       template <typename ... O>
-      void submit_job(param_tuple_t (T::*open_job)(O&&...) const, bool (T::*get_data)(unsigned char*, size_t, size_t&, param_tuple_t&) const, O&&... param);
+      void submit_job(param_tuple_t (T::*open_job)(O&&...) const, bool (T::*get_data)(unsigned char*, size_t, size_t&, param_tuple_t&) const noexcept, O&&... param);
 
       // returns the computed hash as computed by isa_l_crypto
       std::optional<param_tuple_t> get_hash(uint32_t isa_mb_hash[mb_hash_traits::HASH_UINT32_SIZE]);

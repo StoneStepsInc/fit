@@ -406,22 +406,39 @@ file_tracker_t::mb_file_hasher_t::param_tuple_t file_tracker_t::open_file(find_f
    // Need to make sure the reference is preserved, so we update the
    // actual file size value passed into this function.
    // 
-   return std::make_tuple(std::move(file), 0, std::move(version_record), std::move(dir_entry));
+   return std::make_tuple(std::move(file), 0, std::move(version_record), std::move(dir_entry), std::nullopt);
 }
 
-bool file_tracker_t::read_file(unsigned char *file_buffer, size_t buf_size, size_t& data_size, mb_file_hasher_t::param_tuple_t& args) const
+bool file_tracker_t::read_file(unsigned char *file_buffer, size_t buf_size, size_t& data_size, mb_file_hasher_t::param_tuple_t& args) const noexcept
 {
-   std::unique_ptr<FILE, file_handle_deleter_t>& file = std::get<0>(args);
-   uint64_t& file_size = std::get<1>(args);
+   try {
+      std::unique_ptr<FILE, file_handle_deleter_t>& file = std::get<0>(args);
+      uint64_t& file_size = std::get<1>(args);
 
-   data_size = std::fread(file_buffer, 1, buf_size, file.get());
+      data_size = std::fread(file_buffer, 1, buf_size, file.get());
 
-   if(std::ferror(file.get()))
-      throw std::runtime_error("Cannot read file (" + std::string(strerror(errno)) + ") ");
+      if(std::ferror(file.get()))
+         throw std::runtime_error(FMTNS::format("Cannot read file ({:s}) {:s} ", strerror(errno), u8tosv_t(std::get<3>(args).path().u8string())));
 
-   file_size += data_size;
+      file_size += data_size;
 
-   return feof(file.get()) == 0;
+      return feof(file.get()) == 0;
+   }
+   catch (const std::exception& error) {
+      // std::optional<file_read_error_t>
+      std::get<4>(args).emplace(error.what());
+   }
+   catch (...) {
+      std::get<4>(args).emplace(FMTNS::format("Unexpected error caught while reading {:s}", u8tosv_t(std::get<3>(args).path().u8string())));
+   }
+
+   // indicate that we didn't read anything
+   data_size = 0;
+
+   // reset the number of bytes read so far because it is irrelevant and misleading in this case
+   std::get<1>(args) = 0;
+
+   return false;
 }
 #endif      
 
@@ -722,19 +739,30 @@ void file_tracker_t::run(void)
             else
                filepath = dir_entry.value().path().lexically_relative(options.base_path).u8string();
             }
-            catch (const std::exception&) {
+            catch (const std::exception& error) {
+               progress_info.failed_files++;
+
                //
                // Windows may store file paths with invalid UCS-2 characters,
                // which fail to convert to UTF-8 paths. For example, a file
                // path may have a code point `\x1F7FB` in it, which doesn't
                // have any Unicode character assigned and cannot be converted
                // to a UTF-8 string.
-               // 
-               // Clear the file name to indicate this condition and mangle
-               // the file name for reporting purposes in the exception handler.
+               //
+               // Use a crude ASCII conversion and replace all non-ASCII
+               // characters with `?`, just to identify which file we
+               // couldn't process.
                //
                filepath.clear();
-               throw;
+
+               std::u16string filepath_u16 = dir_entry.value().path().u16string();
+               std::transform(filepath_u16.begin(), filepath_u16.end(),
+                                 std::back_inserter(filepath),
+                                 [] (char16_t chr) -> char {return (chr >= ' ' && chr < '\x7f' ? static_cast<char>(chr) : '?');});
+
+               print_stream.error("Cannot process a path with invalid UTF-16 characters (%s) %s", error.what(), filepath.c_str());
+               files_lock.lock();
+               continue;
             }
 
             version_record = select_version_record(filepath);
@@ -789,7 +817,22 @@ void file_tracker_t::run(void)
                   // when we get hashes in a different order. Note that version_record
                   // will be empty for new files, which is expected.
                   //
-                  mb_hasher.submit_job(&file_tracker_t::open_file, &file_tracker_t::read_file, std::move(version_record), std::move(dir_entry).value());
+                  try {
+                     mb_hasher.submit_job(&file_tracker_t::open_file, &file_tracker_t::read_file, std::move(version_record), std::move(dir_entry).value());
+                  }
+                  catch (const std::exception& error) {
+                     progress_info.failed_files++;
+
+                     //
+                     // If we failed to open a file, the hash job slot remains available
+                     // and we can just continue with the next file. The error is expected
+                     // to be self-descriptive, so we don't have to provide more context
+                     // here.
+                     //
+                     print_stream.error("%s", error.what());
+                     files_lock.lock();
+                     continue;
+                  }
 
                   // if the multi-buffer hasher can accept more parallel jobs, get another file
                   if(mb_hasher.available_jobs() > 0) {
@@ -804,6 +847,16 @@ void file_tracker_t::run(void)
 
                // close the file handle explicitly to avoid keeping it open while handling hashing results
                std::get<0>(args.value()).reset();
+
+               // if we got an error while reading this file, report the error, discard results and continue to the next file
+               if(std::get<4>(args.value()).has_value()) {
+                  progress_info.failed_files++;
+
+                  // same as when calling mb_hasher.submit_job
+                  print_stream.error("%s", std::get<4>(args.value()).value().error.c_str());
+                  files_lock.lock();
+                  continue;
+               }
 
                filesize = std::get<1>(args.value());
 

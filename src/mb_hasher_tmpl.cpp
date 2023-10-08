@@ -5,7 +5,7 @@
 namespace fit {
 
 template <typename mb_hash_traits, typename T, typename ... P>
-mb_hasher_t<mb_hash_traits, T, P...>::ctx_args_t::ctx_args_t(size_t id, size_t buf_size, param_tuple_t&& params, bool (T::*get_data)(unsigned char*, size_t, size_t&, param_tuple_t&) const) :
+mb_hasher_t<mb_hash_traits, T, P...>::ctx_args_t::ctx_args_t(size_t id, size_t buf_size, param_tuple_t&& params, bool (T::*get_data)(unsigned char*, size_t, size_t&, param_tuple_t&) const noexcept) :
       id(id),
       buffer_storage(new unsigned char [buf_size+ALIGN_MEM]),
       buffer(buffer_storage.get()),
@@ -65,23 +65,48 @@ size_t mb_hasher_t<mb_hash_traits, T, P...>::active_jobs(void) const
 // context for hash jobs. All mutable hash job data, such as data
 // stream handle, position, amount of bytes read so far, etc, should
 // be maintained in hash job parameters in `param_tuple_t`.
+// 
+// `open_job` may throw an exception, in which case there will be
+// no change in the `mb_hasher_t` state. The caller is responsible
+// in this case for handling the exception.
+// 
+// `read_data` is not allowed to throw exceptions. If any error is
+// encountered, it should be carried in the parameter tuple and
+// `read_data` should return `false` to indicate that there is no
+// more data. The caller is responsible for checking if there is
+// an error in the returned parameter tuple and handle such error
+// appropriately.
+// 
+// Note that the hash value in case of an error should be considered
+// as meaningless, even though it will contain a hash of data returned
+// by `read_data` up until the error was encountered (including the
+// data size set in the last call that returned `false` to indicate
+// that there's no more data).
 //
 template <typename mb_hash_traits, typename T, typename ... P>
 template <typename ... O>
-void mb_hasher_t<mb_hash_traits, T, P...>::submit_job(param_tuple_t (T::*open_job)(O&&...) const, bool (T::*get_data)(unsigned char*, size_t, size_t&, param_tuple_t&) const, O&&... param)
+void mb_hasher_t<mb_hash_traits, T, P...>::submit_job(param_tuple_t (T::*open_job)(O&&...) const, bool (T::*get_data)(unsigned char*, size_t, size_t&, param_tuple_t&) const noexcept, O&&... param)
 {
    ctx_args_t *ctx_args = nullptr;
 
    if(!free_ctxs.empty()) {
       ctx_args = static_cast<ctx_args_t*>(mb_ctxs[free_ctxs.back()].user_data);
 
-      free_ctxs.pop_back();
-
+      // we cannot throw away a bad context, so this becomes an unrecoverable error that will need to be tracked as a bug
       if(mb_ctxs[ctx_args->id].status != HASH_CTX_STS_COMPLETE || ctx_args->params.has_value())
          throw std::runtime_error("A free context must be completed and cannot have arguments (" + std::to_string(ctx_args->id) + ")");
 
       ctx_args->params = (data_obj.*open_job)(std::forward<O>(param)...);
       ctx_args->get_data = get_data;
+
+      //
+      // If open_job throws an exception, the context will remain in
+      // free_ctxs with the same status and without params. It is the
+      // responsibility of the caller to catch this exception and
+      // ensure that it does not affect other active jobs, which must
+      // be completed for this class to remain usable.
+      //
+      free_ctxs.pop_back();
    }
    else {
       if(mb_ctxs.size() == max_ctxs)

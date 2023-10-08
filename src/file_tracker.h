@@ -92,8 +92,25 @@ class file_tracker_t {
          int64_t scanset_scan_id(void) const {return std::get<6>(version_record.value());}
       };
 
+      //
+      // A wrapper class for an error captured while reading data
+      // from a file being hashed. The reader function cannot throw
+      // exceptions and this class serves as an error text holder
+      // within hash job context parameters, so when a hash result
+      // is obtained, and this tuple member is not empty, the hash
+      // is considered invalid and the error within this class is
+      // reported.
+      // 
+      // The reason it is a class and not just a string within the
+      // tuple, is to allow adding additional error details in the
+      // future.
+      //
+      struct file_read_error_t {
+         std::string    error;
+      };
+
 #ifndef NO_SSE_AVX
-      typedef mb_hasher_t<mb_sha256_traits, file_tracker_t, std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t, find_file_result_t, std::filesystem::directory_entry> mb_file_hasher_t;
+      typedef mb_hasher_t<mb_sha256_traits, file_tracker_t, std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t, find_file_result_t, std::filesystem::directory_entry, std::optional<file_read_error_t>> mb_file_hasher_t;
 
       static constexpr const size_t HASH_BIN_SIZE = mb_file_hasher_t::traits::HASH_SIZE;
       static constexpr const size_t HASH_HEX_SIZE = HASH_BIN_SIZE * 2;
@@ -166,7 +183,7 @@ class file_tracker_t {
 
 #ifndef NO_SSE_AVX
       mb_file_hasher_t::param_tuple_t open_file(find_file_result_t&& version_record, std::filesystem::directory_entry&& dir_entry) const;
-      bool read_file(unsigned char *file_buffer, size_t buf_size, size_t& data_size, mb_file_hasher_t::param_tuple_t& args) const;
+      bool read_file(unsigned char *file_buffer, size_t buf_size, size_t& data_size, mb_file_hasher_t::param_tuple_t& args) const noexcept;
 #endif
 
       static int sqlite_busy_handler_cb(void*, int count);
