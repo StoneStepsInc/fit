@@ -312,14 +312,10 @@ This table has following fields:
 
   * `mod_time` `INTEGER  NOT NULL`
 
-    File modification time in platform-specific units. It should not
-    be assumed to be a Unix epoch time stamp. For example, on Windows
-    this value contains the number of seconds since 1601-01-01, UTC
-    and may be converted to Unix epoch by subtracting the value for
-    1970-01-01, UTC from the file time, which translates into this
-    SQLite clause:
+    File modification time, in seconds since 1970-01-01, UTC. Use
+    this expression to output it as a calendar time in SQLite shell.
 
-        datetime(mod_time-11644473600, 'unixepoch')
+        datetime(scan_time, 'unixepoch')
 
   * `entry_size` `INTEGER NOT NULL`
 
@@ -584,6 +580,45 @@ with older versions of SQLite. For example, prior to version
 be upgraded on different systems using a newer SQLite version
 in this case.
 
+### Upgrading Database v5.0 to v6.0
+
+File version records in the database schema prior to v6.0
+were maintained in native file system clock units, which
+were different between operating systems.
+
+Starting from the database schema v6.0, which was released
+in `fit` v3.0.0, file version time stamps are maintained
+in seconds since 1970-01-01, UTC, which requires databases
+created by prior versions of `fit` to be upgraded, as
+described in this section.
+
+File version time stamps cannot be updated via a single SQL
+statement because each time stamp must be adjusted according
+to the time zone settings. A special upgrade mode option is
+available in `fit` to perform this upgrade.
+
+Note that due to potential number of records that musy be
+updated, SQL transactions are not used for this update. Make
+sure to create a copy of the database file before running
+this upgrade, in case if the upgrade fails. If any errors
+are reported after the upgrade has started, the database
+will become unusable because it will be hard to distinguish
+updated time stamps from the original ones.
+
+Run this command to upgrade the database schema v5.0 to v6.0:
+
+    fit --upgrade-schema=6.0 -b c:\path\to\database\file
+
+This upgrade may take a long time, depending on the size of
+the database (e.g. on an average computer, it takes about 6
+minutes to update 100,000 records).
+
+`fit` will output a `.` for each 1000 records updated and
+will wrap each dotted line after 50,000 records to show
+progress.
+
+Interrupting the upgrade process will render database unusable.
+
 ## Source
 
 ### Windows
@@ -597,20 +632,13 @@ SHA-256 hashes.
 Current source compiles on Linux, but very little testing was
 done to verify the results.
 
-A fwe development packages need to be installed (e.g. `sqlite-devel`
+A few development packages need to be installed (e.g. `sqlite-devel`
 on Fedora). See Docker files in `devops` for a list of packages
 required to build on various Linux flavors.
 
 Libraries that are not available as development packages can be
 obtained with `get-*` scripts from the `devops` directory, such
 as `devops/get-isa-l_crypto`.
-
-Linux time stamps will appear as negative values in the SQLite
-database and it is not clear at this point how they are computed.
-
-Time stamps can be shown around the actual file modification
-time by adding `6437646000`, but it appears that this does not
-include some of time zone adjustments.
 
 ## License
 

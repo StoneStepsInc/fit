@@ -281,6 +281,7 @@ time_t file_tracker_t::file_time_to_time_t(const std::chrono::file_clock::time_p
 #if defined(_MSC_VER) || (defined(__GNUC__) && __GNUC__ >= 13)
    // works only in VC++ 19.37, GCC 13 and CLang 17
    // utc_clock epoch is 1970, even though the official UTC epoch is 1972
+   // this might be more concise - std::chrono::file_clock::to_utc(mod_time_fc), but GCC 13 doesn't implement to_utc (plus use of generic clock_cast is encouraged)
    return std::chrono::duration_cast<std::chrono::seconds>(std::chrono::clock_cast<std::chrono::utc_clock>(file_time).time_since_epoch()).count();
 #else
    // VC++ 19.37 does not implement to_sys and GCC 13 does not implement to_utc

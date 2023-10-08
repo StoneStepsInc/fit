@@ -144,7 +144,7 @@ options_t parse_options(int argc, char *argv[])
       // hold onto the option index to detect option values
       size_t opt_i = i;
 
-      // see below
+      // conditions should match the loop with same option conditions following the switch
       if(*(argv[i]+1) != 'm' && *(argv[i]+1) != 'd') {
          if(i > 1)
             options.all += ' ';
@@ -152,119 +152,127 @@ options_t parse_options(int argc, char *argv[])
          options.all += reinterpret_cast<char8_t*>(argv[i]);
       }
 
-      switch(*(argv[i]+1)) {
-         case 'b':
-            if(i+1 == argc || *(argv[i+1]) == '-')
-               throw std::runtime_error("Missing database file path value");
+      if(*(argv[i]+1) == '-') {
+         if(!strcmp(argv[i]+2, "upgrade-schema=6.0"))
+            options.upgrade_schema_to_v60 = true;
+         else
+            throw std::runtime_error(FMTNS::format("Invalid long option {:s}", argv[i]));
+      }
+      else {
+         switch(*(argv[i]+1)) {
+            case 'b':
+               if(i+1 == argc || *(argv[i+1]) == '-')
+                  throw std::runtime_error("Missing database file path value");
 
-            options.db_path = argv[++i];
-            break;
-         case 'p':
-            if(i+1 == argc || *(argv[i+1]) == '-')
-               throw std::runtime_error("Missing base path value");
+               options.db_path = argv[++i];
+               break;
+            case 'p':
+               if(i+1 == argc || *(argv[i+1]) == '-')
+                  throw std::runtime_error("Missing base path value");
 
-            options.base_path = argv[++i];
-            break;
-         case 'd':
-            if(i+1 == argc || *(argv[i+1]) == '-')
-               throw std::runtime_error("Missing directory to scan value");
+               options.base_path = argv[++i];
+               break;
+            case 'd':
+               if(i+1 == argc || *(argv[i+1]) == '-')
+                  throw std::runtime_error("Missing directory to scan value");
 
-            options.scan_paths.emplace_back(argv[++i]);
-            break;
-         case 'm':
-            if(i+1 == argc || *(argv[i+1]) == '-')
-               throw std::runtime_error("Missing scan message value");
+               options.scan_paths.emplace_back(argv[++i]);
+               break;
+            case 'm':
+               if(i+1 == argc || *(argv[i+1]) == '-')
+                  throw std::runtime_error("Missing scan message value");
 
-            //
-            // Passing UTF-8 into Windows programs is quite a bit of a
-            // challenge. Some of the workarounds are described in this
-            // GitHub issue.
-            // 
-            // https://github.com/PowerShell/PowerShell/issues/7233
-            // 
-            // The top line is taken from one of the comments in the
-            // issue above. The following command purposfully encodes
-            // UTF-8 bytes as malformed characters in the default
-            // encoding, such as Win1252, and will end up here as bytes
-            // representing UTF-8 characters.
-            // 
-            // $OutputEncoding=[console]::InputEncoding=[console]::OutputEncoding=New-Object System.Text.UTF8Encoding
-            // fit -b xyz.db -m $([System.Text.Encoding]::Default.GetString([System.Text.Encoding]::UTF8.GetBytes("ABC £ DEF")))
-            // 
-            // In the example above, the `£` character is encoded as A3
-            // in Win1252 and as C2 A3 in UTF-8. Similarly, Katakana
-            // character \u30A9 is encoded as E3 82 A9 in UTF-8. When
-            // re-encoded into the `Default` character set above, the
-            // former may look like extra Win1252 characters in the
-            // debugger (e.g. `Â£`), but will be interpreted as valid
-            // UTF-8 in the code and later in the database.
-            //
-            if(!unicode::is_valid_utf8(argv[i+1]))
-               // don't echo the message because it may be mangled in the output, creating more confusion
-               throw std::runtime_error("Scan message contains invalid UTF-8 characters");
+               //
+               // Passing UTF-8 into Windows programs is quite a bit of a
+               // challenge. Some of the workarounds are described in this
+               // GitHub issue.
+               // 
+               // https://github.com/PowerShell/PowerShell/issues/7233
+               // 
+               // The top line is taken from one of the comments in the
+               // issue above. The following command purposfully encodes
+               // UTF-8 bytes as malformed characters in the default
+               // encoding, such as Win1252, and will end up here as bytes
+               // representing UTF-8 characters.
+               // 
+               // $OutputEncoding=[console]::InputEncoding=[console]::OutputEncoding=New-Object System.Text.UTF8Encoding
+               // fit -b xyz.db -m $([System.Text.Encoding]::Default.GetString([System.Text.Encoding]::UTF8.GetBytes("ABC £ DEF")))
+               // 
+               // In the example above, the `£` character is encoded as A3
+               // in Win1252 and as C2 A3 in UTF-8. Similarly, Katakana
+               // character \u30A9 is encoded as E3 82 A9 in UTF-8. When
+               // re-encoded into the `Default` character set above, the
+               // former may look like extra Win1252 characters in the
+               // debugger (e.g. `Â£`), but will be interpreted as valid
+               // UTF-8 in the code and later in the database.
+               //
+               if(!unicode::is_valid_utf8(argv[i+1]))
+                  // don't echo the message because it may be mangled in the output, creating more confusion
+                  throw std::runtime_error("Scan message contains invalid UTF-8 characters");
 
-            options.scan_message = reinterpret_cast<const char8_t*>(argv[++i]);
-            break;
-         case 'r':
-            options.recursive_scan = true;
-            break;
-         case 'v':
-            options.verify_files = true;
-            break;
-         case 't':
-            if(i+1 == argc || *(argv[i+1]) == '-')
-               throw std::runtime_error("Missing thread count value");
+               options.scan_message = reinterpret_cast<const char8_t*>(argv[++i]);
+               break;
+            case 'r':
+               options.recursive_scan = true;
+               break;
+            case 'v':
+               options.verify_files = true;
+               break;
+            case 't':
+               if(i+1 == argc || *(argv[i+1]) == '-')
+                  throw std::runtime_error("Missing thread count value");
 
-            options.thread_count = atoi(argv[++i]);
-            break;
-         case 's':
-            if(i+1 == argc || *(argv[i+1]) == '-')
-               throw std::runtime_error("Missing buffer size value");
+               options.thread_count = atoi(argv[++i]);
+               break;
+            case 's':
+               if(i+1 == argc || *(argv[i+1]) == '-')
+                  throw std::runtime_error("Missing buffer size value");
 
-            options.buffer_size = atoi(argv[++i]);
-            break;
-         case 'i':
-            if(i+1 == argc || *(argv[i+1]) == '-')
-               throw std::runtime_error("Missing progress reporting interval value");
+               options.buffer_size = atoi(argv[++i]);
+               break;
+            case 'i':
+               if(i+1 == argc || *(argv[i+1]) == '-')
+                  throw std::runtime_error("Missing progress reporting interval value");
 
-            options.progress_interval = atoi(argv[++i]);
-            break;
-         case 'w':
-            options.skip_hash_mod_time = true;
-            break;
-         case 'u':
-            options.update_last_scanset = true;
-            break;
-         case 'l':
-            if(i+1 == argc || *(argv[i+1]) == '-')
-               throw std::runtime_error("Missing log file path value");
+               options.progress_interval = atoi(argv[++i]);
+               break;
+            case 'w':
+               options.skip_hash_mod_time = true;
+               break;
+            case 'u':
+               options.update_last_scanset = true;
+               break;
+            case 'l':
+               if(i+1 == argc || *(argv[i+1]) == '-')
+                  throw std::runtime_error("Missing log file path value");
 
-            options.log_file = reinterpret_cast<const char8_t*>(argv[++i]);
-            break;
-         case 'a':
-            options.skip_no_access_paths = true;
-            break;
-         case 'X':
-            // empty string means that EXIF scanning is disabled
-            if(i+1 < argc && *(argv[i+1]) != '-')
-               options.EXIF_exts = reinterpret_cast<const char8_t*>(argv[++i]);
-            else
-               options.EXIF_exts.emplace();
-            break;
-         case 'J':
-            options.exiv2_json = true;
-            break;
-#ifndef NO_SSE_AVX
-         case 'H':
-            options.mb_hash_max = atoi(argv[++i]);
-            break;
-#endif
-         case 'h':
-         case '?':
-            options.print_usage = true;
-            break;
-         default:
-            throw std::runtime_error("Unknown option: " + std::string(argv[i]));
+               options.log_file = reinterpret_cast<const char8_t*>(argv[++i]);
+               break;
+            case 'a':
+               options.skip_no_access_paths = true;
+               break;
+            case 'X':
+               // empty string means that EXIF scanning is disabled
+               if(i+1 < argc && *(argv[i+1]) != '-')
+                  options.EXIF_exts = reinterpret_cast<const char8_t*>(argv[++i]);
+               else
+                  options.EXIF_exts.emplace();
+               break;
+            case 'J':
+               options.exiv2_json = true;
+               break;
+   #ifndef NO_SSE_AVX
+            case 'H':
+               options.mb_hash_max = atoi(argv[++i]);
+               break;
+   #endif
+            case 'h':
+            case '?':
+               options.print_usage = true;
+               break;
+            default:
+               throw std::runtime_error("Unknown option: " + std::string(argv[i]));
+         }
       }
 
       //
@@ -651,6 +659,125 @@ int64_t select_last_scan_id(const options_t& options, sqlite3 *file_scan_db)
    return scan_id.value();
 }
 
+void update_schema_from_v50(sqlite3 *file_scan_db, print_stream_t& print_stream)
+{
+   char *errmsg = nullptr;
+   int errcode = SQLITE_OK;
+
+   std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
+   uint64_t record_count = 0;
+
+   sqlite3_stmt *stmt_select_mod_time = nullptr;
+   std::string_view sql_select_mod_time = "select rowid, mod_time from versions"sv;
+
+   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_select_mod_time.data(), (int) sql_select_mod_time.length()+1, &stmt_select_mod_time, nullptr)) != SQLITE_OK)
+      throw std::runtime_error(FMTNS::format("Cannot prepare a SQLite statement to select mod_time in versions ({:s})"sv, sqlite3_errstr(errcode)));
+
+   sqlite3_stmt *stmt_update_mod_time = nullptr;
+   std::string_view sql_update_mod_time = "update versions set mod_time = ? where rowid = ?"sv;
+
+   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_update_mod_time.data(), (int) sql_update_mod_time.length()+1, &stmt_update_mod_time, nullptr)) != SQLITE_OK) {
+      sqlite3_finalize(stmt_select_mod_time);
+      throw std::runtime_error(FMTNS::format("Cannot prepare a SQLite statement to update mod_time in versions ({:s})"sv, sqlite3_errstr(errcode)));
+   }
+
+   print_stream.info("Upgrading database schema to version 6.0");
+
+   errcode = sqlite3_step(stmt_select_mod_time);
+
+   if(errcode != SQLITE_DONE && errcode != SQLITE_ROW) {
+      sqlite3_finalize(stmt_select_mod_time);
+      sqlite3_finalize(stmt_update_mod_time);
+      throw std::runtime_error(FMTNS::format("Cannot select version records to update mod_time ({:s})", sqlite3_errstr(errcode)));
+   }
+
+   //
+   // Walk all version records and update mod_time from the
+   // file_clock value to a time_t.
+   // 
+   // This loop should run on the same operating system type and
+   // in the same time zone that were used to create initial time
+   // stamps (e.g. updating Linux time stamps on Windows will
+   // create a mess).
+   //
+   while(errcode == SQLITE_ROW) {
+      int64_t rowid = sqlite3_column_int64(stmt_select_mod_time, 0);
+      int64_t mod_time = sqlite3_column_int64(stmt_select_mod_time, 1);
+
+      fit::sqlite_stmt_binder_t update_mod_time_stmt(stmt_update_mod_time, "update mod_time"sv);
+
+      std::chrono::file_clock::time_point mod_time_fc{std::chrono::seconds(mod_time)};
+
+      // see file_tracker_t::file_time_to_time_t
+      #if defined(_MSC_VER) || (defined(__GNUC__) && __GNUC__ >= 13)
+      update_mod_time_stmt.bind_param(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::clock_cast<std::chrono::utc_clock>(mod_time_fc).time_since_epoch()).count());
+      #else
+      update_mod_time_stmt.bind_param(std::chrono::system_clock::to_time_t(std::chrono::file_clock::to_sys(mod_time_fc))));
+      #endif
+
+      update_mod_time_stmt.bind_param(rowid);
+
+      if((errcode = sqlite3_step(stmt_update_mod_time)) != SQLITE_DONE) {
+         sqlite3_finalize(stmt_select_mod_time);
+         sqlite3_finalize(stmt_update_mod_time);
+         throw std::runtime_error(FMTNS::format("Cannot update mod_time in a version record {:d} ({:d})"sv, rowid, errcode));
+      }
+
+      record_count++;
+
+      if(record_count % 1'000 == 0)
+         putc('.', stdout);
+
+      if(record_count % 50'000 == 0)
+         putc('\n', stdout);
+
+      errcode = sqlite3_step(stmt_select_mod_time);
+   }
+
+   if(record_count && record_count % 50'000)
+      putc('\n', stdout);
+
+   if(errcode != SQLITE_DONE) {
+      sqlite3_finalize(stmt_select_mod_time);
+      sqlite3_finalize(stmt_update_mod_time);
+      throw std::runtime_error(FMTNS::format("Failed to select all version records to update mod_time ({:s})", sqlite3_errstr(errcode)));
+   }
+
+   if((errcode = sqlite3_finalize(stmt_select_mod_time)) != SQLITE_OK) {
+      sqlite3_finalize(stmt_update_mod_time);
+      throw std::runtime_error("Cannot finalize a SQLite statment to select mod_time ("s + sqlite3_errstr(errcode) + ")");
+   }
+
+   if((errcode = sqlite3_finalize(stmt_update_mod_time)) != SQLITE_OK)
+      throw std::runtime_error("Cannot finalize SQLite statment to update mod_time ("s + sqlite3_errstr(errcode) + ")");
+
+   //
+   // Update `upgrades` and `PRAGMA user_version`
+   //
+   if(sqlite3_exec(file_scan_db, "CREATE TABLE IF NOT EXISTS upgrades ("
+                                 "  upgrade_from INTEGER NOT NULL PRIMARY KEY,"
+                                 "  upgrade_to INTEGER NOT NULL,"
+                                 "  upgrade_time INTEGER NOT NULL)", nullptr, nullptr, &errmsg) != SQLITE_OK)
+      throw std::runtime_error(FMTNS::format("Cannot create table 'upgrades' ({:s})"sv, std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get()));
+
+   if(sqlite3_exec(file_scan_db, "INSERT INTO upgrades ("
+                                 "   upgrade_from,"
+                                 "   upgrade_to,"
+                                 "   upgrade_time"
+                                 ") VALUES ("
+                                 "   (select user_version from pragma_user_version()),"
+                                 "   60,"
+                                 "   CAST(strftime('%s', 'now') AS INTEGER))", nullptr, nullptr, &errmsg) != SQLITE_OK)
+      throw std::runtime_error(FMTNS::format("Cannot update version to 6.0 in 'upgrades' ({:s})"sv, std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get()));
+
+   if(sqlite3_exec(file_scan_db, "PRAGMA user_version=60", nullptr, nullptr, &errmsg) != SQLITE_OK)
+      throw std::runtime_error(FMTNS::format("Cannot update version to 6.0 in 'user_version' ({:s})"sv, std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get()));
+
+   print_stream.info("Updated %" PRIu64 " records in %.3lf minutes",
+                        record_count,
+                        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-start_time).count()/1000./60.);
+}
+
 }
 
 int main(int argc, char *argv[])
@@ -698,8 +825,22 @@ int main(int argc, char *argv[])
 
       std::unique_ptr<sqlite3, sqlite3_database_deleter_t> file_scan_db(fit::open_sqlite_database(options, schema_version, print_stream));
 
-      if(schema_version != fit::DB_SCHEMA_VERSION)
+      if(options.upgrade_schema_to_v60) {
+         if(schema_version != 50)
+            throw std::runtime_error(FMTNS::format("--upgrade-schema=6.0 cannot be used against database schema {:s}"sv, fit::schema_version_string(schema_version)));
+
+         fit::update_schema_from_v50(file_scan_db.get(), print_stream);
+
+         // finish the upgrade process without doing anything else
+         return EXIT_SUCCESS;
+      }
+
+      if(schema_version != fit::DB_SCHEMA_VERSION) {
+         if(schema_version == 50)
+            throw std::runtime_error("See section Upgrading Database v5.0 to v6.0 in README.md");
+
          throw std::runtime_error(FMTNS::format("Database must be upgraded from v{:s} to v{:s}"sv, fit::schema_version_string(schema_version), fit::schema_version_string(fit::DB_SCHEMA_VERSION)));
+      }
 
       int64_t scan_id = 0;
       
