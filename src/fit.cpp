@@ -384,8 +384,15 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
 {
    sqlite3 *file_scan_db = nullptr;
 
-   if(SQLITE_VERSION_NUMBER != sqlite3_libversion_number())
-      throw std::runtime_error("SQLite header and library versions don't match");
+   if(SQLITE_VERSION_NUMBER != sqlite3_libversion_number()) {
+      // check if the major version component of SQLite used in a build is the same as in the shared library
+      if(SQLITE_VERSION_NUMBER/1'000'000 != sqlite3_libversion_number()/1'000'000)
+         throw std::runtime_error(FMTNS::format("Major version of SQLite used in a build ({:d}) must be the same as in the runtime version ({:d})"sv, SQLITE_VERSION_NUMBER, sqlite3_libversion_number()));
+
+      // check that the runtime version is older than the one used in a build (on a chance that it may misinterpret arguments from newer source)
+      if(SQLITE_VERSION_NUMBER/1'000 > sqlite3_libversion_number()/1'000)
+         throw std::runtime_error(FMTNS::format("SQLite version used in a build ({:d}) cannot be greater than the runtime version ({:d})"sv, SQLITE_VERSION_NUMBER, sqlite3_libversion_number()));
+   }
 
    // 1 - serialized, 2 - multi-threaded
    if(sqlite3_threadsafe() != 2 && sqlite3_threadsafe() != 1)
