@@ -155,6 +155,8 @@ options_t parse_options(int argc, char *argv[])
       if(*(argv[i]+1) == '-') {
          if(!strcmp(argv[i]+2, "upgrade-schema=6.0"))
             options.upgrade_schema_to_v60 = true;
+         else if(!strcmp(argv[i]+2, "help"))
+            options.print_usage = true;
          else
             throw std::runtime_error(FMTNS::format("Invalid long option {:s}", argv[i]));
       }
@@ -271,7 +273,7 @@ options_t parse_options(int argc, char *argv[])
                options.print_usage = true;
                break;
             default:
-               throw std::runtime_error("Unknown option: " + std::string(argv[i]));
+               throw std::runtime_error(FMTNS::format("Unknown option: {:s}", argv[i]));
          }
       }
 
