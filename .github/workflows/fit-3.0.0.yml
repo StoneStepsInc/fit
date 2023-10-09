@@ -14,7 +14,7 @@ name: fit 3.0.0
 on: workflow_dispatch
 
 env:
-  VERSION: 2.1.0
+  VERSION: 3.0.0
   BUILD_NUMBER: ${{ github.run_number }}
 
 jobs:
