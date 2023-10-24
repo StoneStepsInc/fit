@@ -1,11 +1,11 @@
 #!/bin/bash
 
-PKG_VER=0.27.5
+PKG_VER=0.28.0
 PKG_REV=%~1
 
 EXIV2_FNAME=exiv2-$PKG_VER-Source.tar.gz
 EXIV2_DNAME=exiv2-$PKG_VER-Source
-EXIV2_SHA256=35a58618ab236a901ca4928b0ad8b31007ebdc0386d904409d825024e45ea6e2
+EXIV2_SHA256=89af3b5ef7277753ef7a7b5374ae017c6b9e304db3b688f1948e73e103491f3d
 
 curl --location --output $EXIV2_FNAME https://github.com/Exiv2/exiv2/releases/download/v$PKG_VER/$EXIV2_FNAME
 
@@ -21,15 +21,17 @@ tar xzf $EXIV2_FNAME
 
 rm -f $EXIV2_FNAME
 
-patch -p1 --unified --directory $EXIV2_DNAME --input ../exiv2-c++17.patch
+patch -p1 --unified --directory $EXIV2_DNAME --input ../exiv2-suppress-warnings.patch
 
 cmake -S $EXIV2_DNAME -B exiv2/Release \
     -DCMAKE_BUILD_TYPE=Release \
     -DBUILD_SHARED_LIBS=OFF \
     -DEXIV2_ENABLE_WEBREADY=OFF \
     -DEXIV2_ENABLE_CURL=OFF \
+    -DEXIV2_ENABLE_BROTLI=OFF \
+    -DEXIV2_ENABLE_INIH=OFF \
+    -DEXIV2_ENABLE_VIDEO=ON \
     -DEXIV2_ENABLE_XMP=ON \
-    -DEXIV2_ENABLE_SSH=OFF \
     -DEXIV2_BUILD_SAMPLES=OFF \
     -DEXIV2_BUILD_EXIV2_COMMAND=OFF \
     -DEXIV2_BUILD_UNIT_TESTS=OFF \

@@ -21,7 +21,7 @@ endif
 SRCS := fit.cpp file_tree_walker.cpp file_tracker.cpp exif_reader.cpp \
         print_stream.cpp sqlite.cpp unicode.cpp
 
-LIBS := sqlite3 pthread stdc++fs exiv2 exiv2-xmp expat z fmt
+LIBS := sqlite3 pthread stdc++fs exiv2 expat z fmt
 
 ifdef NO_SSE_AVX
 SRCS += sha256/sha256.c
