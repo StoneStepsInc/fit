@@ -70,10 +70,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>psapi.lib;ws2_32.lib;shell32.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
-    <PreLinkEvent>
-      <Command>copy /Y $(zLibDir)lib\$(Platform)\$(Configuration)\*.pdb $(OutDir)
-copy /Y $(LibExpatDir)lib\$(Platform)\$(Configuration)\*.pdb $(OutDir)</Command>
-    </PreLinkEvent>
+    <PreLinkEvent />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -93,10 +90,7 @@ copy /Y $(LibExpatDir)lib\$(Platform)\$(Configuration)\*.pdb $(OutDir)</Command>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>psapi.lib;ws2_32.lib;shell32.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
-    <PreLinkEvent>
-      <Command>copy /Y $(zLibDir)lib\$(Platform)\$(Configuration)\*.pdb $(OutDir)
-</Command>
-    </PreLinkEvent>
+    <PreLinkEvent />
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\exif_reader.cpp" />
