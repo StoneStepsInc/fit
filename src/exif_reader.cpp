@@ -150,12 +150,12 @@ void exif_reader_t::fmt_exif_byte(const Exiv2::DataValue& exif_value, const char
    size_t slen;
    char8_t buf[128];
 
-   slen = snprintf(reinterpret_cast<char*>(buf), sizeof(buf), format, static_cast<T>(exif_value.toLong(0)));
+   slen = snprintf(reinterpret_cast<char*>(buf), sizeof(buf), format, static_cast<T>(exif_value.toUint32(0)));
 
    // append additional bytes until we run out of values or buffer is full
    for(size_t i = 1; i < exif_value.count() && slen < sizeof(buf)-1; i++) {
       *(buf+slen++) = ' ';
-      slen += snprintf(reinterpret_cast<char*>(buf)+slen, sizeof(buf)-slen, format, static_cast<T>(exif_value.toLong(static_cast<long>(i))));
+      slen += snprintf(reinterpret_cast<char*>(buf)+slen, sizeof(buf)-slen, format, static_cast<T>(exif_value.toUint32(i)));
    }
 
    // if snprintf indicated truncation, replace last 3 characters with `...` (there's a null character from snprintf)
@@ -347,16 +347,16 @@ rapidjson::Value exif_reader_t::get_rational_array(const Exiv2::ValueType<T>& ex
    return rational_parts;
 }
 
-void exif_reader_t::update_exiv2_json(rapidjson::Document& exiv2_json, std::optional<int> ifdId, std::optional<uint16_t> tagId, const char *family_name, const std::string& group_name, const std::string& tag_name, const Exiv2::Value& exif_value, const field_bitset_t& field_bitset)
+void exif_reader_t::update_exiv2_json(rapidjson::Document& exiv2_json, std::optional<Exiv2::IfdId> ifdId, std::optional<uint16_t> tagId, const char *family_name, const std::string& group_name, const std::string& tag_name, const Exiv2::Value& exif_value, const field_bitset_t& field_bitset)
 {
-   if(ifdId == 1 /* Image */) {
+   if(ifdId == Exiv2::IfdId::ifd0Id /* Image */) {
       // skip original uninterpreted XML packet with XMP values
       if(tagId == EXIF_TAG_XML_PACKET)
          return;
    }
 
-   if(ifdId == 5 /* EXIF */) {
-      // original uninterpreted maker notes block
+   if(ifdId == Exiv2::IfdId::exifId) {
+      // skip original uninterpreted maker notes block
       if(tagId == EXIF_TAG_MAKER_NOTE)
          return;
    }
@@ -365,7 +365,7 @@ void exif_reader_t::update_exiv2_json(rapidjson::Document& exiv2_json, std::opti
       rapidjson::Pointer json_pointer(get_exiv2_json_path(family_name, group_name, tag_name));
 
       // process specific fields that require special handling
-      if(ifdId == 5 /* EXIF */) {
+      if(ifdId == Exiv2::IfdId::exifId) {
          //
          // Exiv2 uses expensive methods to extract user comments (e.g.
          // a couple of substr, find(0)) and won't trim the whitespace,
@@ -447,14 +447,14 @@ void exif_reader_t::update_exiv2_json(rapidjson::Document& exiv2_json, std::opti
             case Exiv2::TypeId::unsignedShort:
                [[ fallthrough ]];
             case Exiv2::TypeId::unsignedLong:
-               json_pointer.Set(exiv2_json, static_cast<uint64_t>(exif_value.toLong(static_cast<long>(0))));
+               json_pointer.Set(exiv2_json, static_cast<uint64_t>(exif_value.toUint32(static_cast<long>(0))));
                break;
             case Exiv2::TypeId::signedByte:
                [[ fallthrough ]];
             case Exiv2::TypeId::signedShort:
                [[ fallthrough ]];
             case Exiv2::TypeId::signedLong:
-               json_pointer.Set(exiv2_json, static_cast<int64_t>(exif_value.toLong(static_cast<long>(0))));
+               json_pointer.Set(exiv2_json, static_cast<int64_t>(exif_value.toInt64(static_cast<long>(0))));
                break;
             case Exiv2::TypeId::signedRational:
                json_pointer.Set(exiv2_json, get_rational_array(static_cast<const Exiv2::ValueType<Exiv2::Rational>&>(exif_value), 0));
@@ -495,7 +495,7 @@ void exif_reader_t::update_exiv2_json(rapidjson::Document& exiv2_json, std::opti
                      [[ fallthrough ]];
                   case Exiv2::TypeId::unsignedLong:
                      // EXIF's unsigned long is 32 bits and JSON numbers are 53 bits
-                     value_array.PushBack(static_cast<uint64_t>(exif_value.toLong(static_cast<long>(i))), rapidjson_mem_pool);
+                     value_array.PushBack(static_cast<uint32_t>(exif_value.toUint32(static_cast<long>(i))), rapidjson_mem_pool);
                      break;
                   case Exiv2::TypeId::signedByte:
                      [[ fallthrough ]];
@@ -503,7 +503,7 @@ void exif_reader_t::update_exiv2_json(rapidjson::Document& exiv2_json, std::opti
                      [[ fallthrough ]];
                   case Exiv2::TypeId::signedLong:
                      // EXIF's long is 32 bits and JSON numbers are 53 bits
-                     value_array.PushBack(static_cast<int64_t>(exif_value.toLong(static_cast<long>(i))), rapidjson_mem_pool);
+                     value_array.PushBack(static_cast<int64_t>(exif_value.toUint32(static_cast<long>(i))), rapidjson_mem_pool);
                      break;
                   case Exiv2::TypeId::signedRational:
                      value_array.PushBack(get_rational_array(static_cast<const Exiv2::ValueType<Exiv2::Rational>&>(exif_value), i), rapidjson_mem_pool);
@@ -539,24 +539,10 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
       if(options.exiv2_json)
          exiv2_json.emplace(&rapidjson_mem_pool);
 
-      //
-      // Exiv2 handles wide characters in a way that may fail valid paths.
-      // For example, in `FileIo::setPath`, in basicio.cpp, there's code
-      // like this:
-      // 
-      //     void FileIo::setPath(const std::wstring& wpath)
-      //     {   ...
-      //         std::string path;
-      //         path.assign(wpath.begin(), wpath.end());
-      // 
-      // , which will take the lower byte of a UCS-2 character instead of
-      // performing proper conversion from UCS-2 to the target character
-      // set.
-      //
 #ifdef _WIN32
-      Exiv2::Image::AutoPtr image = Exiv2::ImageFactory::open(filepath.wstring(), false /* useCurl? */);
+      Exiv2::Image::UniquePtr image = Exiv2::ImageFactory::open(filepath);
 #else
-      Exiv2::Image::AutoPtr image = Exiv2::ImageFactory::open(filepath.string(), false /* useCurl? */);
+      Exiv2::Image::UniquePtr image = Exiv2::ImageFactory::open(filepath.string(), false /* useCurl? */);
 #endif
 
       if(!image)
@@ -597,12 +583,8 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
          // Ignore all IFDs except main image (1), EXIF (5) and GPS (6)
          // if we are not collecting JSON metadata.
          // 
-         // We cannot use enum names here because Exiv2 hides them in the
-         // Exiv2::Internal namespace. See Exiv2::Internal::groupInfo in
-         // tags_int.cpp for IFD numbers and their names.
-         //
          if(!options.exiv2_json) {
-            if(i->ifdId() != 1 && i->ifdId() != 5 && i->ifdId() != 6)
+            if(i->ifdId() != Exiv2::IfdId::ifd0Id && i->ifdId() != Exiv2::IfdId::exifId && i->ifdId() != Exiv2::IfdId::gpsId)
                continue;
          }
 
@@ -618,7 +600,7 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
             field_index.reset();
 
             // GPS tags overlap with ExifTag values and cannot be in the same switch
-            if(i->ifdId() == 6) {
+            if(i->ifdId() == Exiv2::IfdId::gpsId) {
                switch(i->tag()) {
                   case EXIF_TAG_GPS_LATITUDE_REF:
                      field_index = EXIF_FIELD_GPSLatitudeRef;
@@ -655,7 +637,7 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                      // 
                      //     4  7
                      // YYYY:MM:DD
-                     if(exif_value.typeId() != Exiv2::TypeId::asciiString || exif_value.size() < 11 || exif_value.toLong(4) != static_cast<long>(':') || exif_value.toLong(7) != static_cast<long>(':'))
+                     if(exif_value.typeId() != Exiv2::TypeId::asciiString || exif_value.size() < 11 || exif_value.toUint32(4) != static_cast<uint32_t>(':') || exif_value.toUint32(7) != static_cast<uint32_t>(':'))
                         field_index = EXIF_FIELD_GPSDateStamp;
                      else {
                         std::u8string& tstamp = std::get<std::u8string>(exif_fields[EXIF_FIELD_GPSDateStamp] = reinterpret_cast<const char8_t*>(static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str()));
@@ -700,7 +682,7 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                   case EXIF_TAG_DATE_TIME:
                      //     4  7
                      // YYYY:MM:DD HH:MM:SS
-                     if(exif_value.typeId() != Exiv2::TypeId::asciiString || exif_value.size() < 20 || exif_value.toLong(4) != static_cast<long>(':') || exif_value.toLong(7) != static_cast<long>(':'))
+                     if(exif_value.typeId() != Exiv2::TypeId::asciiString || exif_value.size() < 20 || exif_value.toUint32(4) != static_cast<uint32_t>(':') || exif_value.toUint32(7) != static_cast<uint32_t>(':'))
                         field_index = EXIF_FIELD_DateTime;
                      else {
                         // assign a C-string to avoid picking up padding, if there is any
@@ -803,7 +785,7 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                   case EXIF_TAG_DATE_TIME_ORIGINAL:
                      //     4  7
                      // YYYY:MM:DD HH:MM:SS
-                     if(exif_value.typeId() != Exiv2::TypeId::asciiString || exif_value.size() < 20 || exif_value.toLong(4) != static_cast<long>(':') || exif_value.toLong(7) != static_cast<long>(':'))
+                     if(exif_value.typeId() != Exiv2::TypeId::asciiString || exif_value.size() < 20 || exif_value.toUint32(4) != static_cast<uint32_t>(':') || exif_value.toUint32(7) != static_cast<uint32_t>(':'))
                         field_index = EXIF_FIELD_DateTimeOriginal;
                      else {
                         std::u8string& tstamp = std::get<std::u8string>(exif_fields[EXIF_FIELD_DateTimeOriginal] = reinterpret_cast<const char8_t*>(static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str()));
@@ -812,7 +794,7 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                      }
                      break;
                   case EXIF_TAG_DATE_TIME_DIGITIZED:
-                     if(exif_value.typeId() != Exiv2::TypeId::asciiString || exif_value.size() < 20 || exif_value.toLong(4) != static_cast<long>(':') || exif_value.toLong(7) != static_cast<long>(':'))
+                     if(exif_value.typeId() != Exiv2::TypeId::asciiString || exif_value.size() < 20 || exif_value.toUint32(4) != static_cast<uint32_t>(':') || exif_value.toUint32(7) != static_cast<uint32_t>(':'))
                         field_index = EXIF_FIELD_DateTimeDigitized;
                      else {
                         std::u8string& tstamp = std::get<std::u8string>(exif_fields[EXIF_FIELD_DateTimeDigitized] = reinterpret_cast<const char8_t*>(static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str()));
@@ -1123,9 +1105,6 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
       }
 
       return field_bitset;
-   }
-   catch (const Exiv2::AnyError& error) {
-      print_stream.error("Cannot read EXIF for %s (Exiv2: %d, %s)\n", filepath.u8string().c_str(), error.code(), error.what());
    }
    catch (const std::exception& error) {
       print_stream.error("Cannot read EXIF for %s (%s)\n", filepath.u8string().c_str(), error.what());

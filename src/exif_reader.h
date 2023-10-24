@@ -19,6 +19,7 @@
 #include <cstddef>
 
 namespace Exiv2 {
+enum class IfdId : uint32_t;
 class DataValue;
 class Value;
 template <typename T> class ValueType;
@@ -156,7 +157,7 @@ class exif_reader_t {
       template <typename T>
       rapidjson::Value get_rational_array(const Exiv2::ValueType<T>& exif_value, size_t index);
 
-      void update_exiv2_json(rapidjson::Document& exiv2_json, std::optional<int> ifdId, std::optional<uint16_t> tagId, const char *family_name, const std::string& group_name, const std::string& tag_name, const Exiv2::Value& exif_value, const field_bitset_t& field_bitset);
+      void update_exiv2_json(rapidjson::Document& exiv2_json, std::optional<Exiv2::IfdId> ifdId, std::optional<uint16_t> tagId, const char *family_name, const std::string& group_name, const std::string& tag_name, const Exiv2::Value& exif_value, const field_bitset_t& field_bitset);
 
    public:
       exif_reader_t(const options_t& options);

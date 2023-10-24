@@ -71,22 +71,19 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <Library Include="$(ZLibDir)lib\$(Platform)\$(Configuration)\$(ZLibName).lib">
-      <Filter>lib</Filter>
-    </Library>
-    <Library Include="$(SQLiteDir)lib\$(Platform)\$(Configuration)\$(SQLiteLibName).lib">
-      <Filter>lib</Filter>
-    </Library>
-    <Library Include="$(Exiv2Dir)lib\$(Platform)\$(Configuration)\$(Exiv2XMPName).lib">
-      <Filter>lib</Filter>
-    </Library>
-    <Library Include="$(Exiv2Dir)lib\$(Platform)\$(Configuration)\$(Exiv2Name).lib">
-      <Filter>lib</Filter>
-    </Library>
-    <Library Include="$(LibExpatDir)lib\$(Platform)\$(Configuration)\$(LibExpatName).lib">
-      <Filter>lib</Filter>
-    </Library>
     <Library Include="$(IsaLibCryptoDir)lib\$(Platform)\$(Configuration)\$(IsaLibCryptoName).lib">
+      <Filter>lib</Filter>
+    </Library>
+    <Library Include="$(Exiv2Dir)lib\$(Platform)\Debug\$(Exiv2Name).lib">
+      <Filter>lib</Filter>
+    </Library>
+    <Library Include="$(LibExpatDir)lib\$(Platform)\Debug\$(LibExpatName).lib">
+      <Filter>lib</Filter>
+    </Library>
+    <Library Include="$(SQLiteDir)lib\$(Platform)\Debug\$(SQLiteLibName).lib">
+      <Filter>lib</Filter>
+    </Library>
+    <Library Include="$(ZLibDir)lib\$(Platform)\Debug\$(ZLibName).lib">
       <Filter>lib</Filter>
     </Library>
   </ItemGroup>
