@@ -500,7 +500,7 @@ int64_t file_tracker_t::insert_exif_record(const std::u8string& filepath, const 
    return exif_id;
 }
 
-file_tracker_t::find_file_result_t file_tracker_t::select_version_record(const std::u8string& filepath)
+file_tracker_t::find_file_result_t file_tracker_t::select_version_record(const std::u8string& filepath) const
 {
    int errcode = SQLITE_OK;
 
@@ -677,6 +677,12 @@ void file_tracker_t::run(void)
    std::u8string filepath;
 
    filepath.reserve(1024);
+
+   // a file path for querying with an alternative path separator character
+   std::u8string filepath_query;
+
+   if(options.query_path_sep.has_value())
+      filepath_query.reserve(1024);
                
    unsigned char hexhash_file[HASH_HEX_SIZE + 1] = {};      // file hash; should not be accessed if filesize == 0
 
@@ -765,7 +771,13 @@ void file_tracker_t::run(void)
                continue;
             }
 
-            version_record = select_version_record(filepath);
+            if(options.query_path_sep.has_value() && options.query_path_sep.value() != std::filesystem::path::preferred_separator) {
+               // tests show that it's ~15% faster to copy a string and then replace a few characters vs. copying a character at a time (i.e. copy is done a few words at a time)
+               filepath_query = filepath;
+               std::for_each(filepath_query.begin(), filepath_query.end(), [this](char8_t& pc) {if(pc == std::filesystem::path::preferred_separator) pc = options.query_path_sep.value();});
+            }
+
+            version_record = select_version_record(!options.query_path_sep.has_value() ? filepath : filepath_query);
          }
 
          //

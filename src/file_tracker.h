@@ -163,7 +163,7 @@ class file_tracker_t {
 
       int64_t insert_exif_record(const std::u8string& filepath, const std::vector<exif::field_value_t>& exif_fields, const exif::field_bitset_t& field_bitset);
 
-      find_file_result_t select_version_record(const std::u8string& filepath);
+      find_file_result_t select_version_record(const std::u8string& filepath) const;
 
       int64_t insert_version_record(const std::u8string& filepath, int64_t file_id, int64_t version, int64_t filesize, const std::filesystem::directory_entry& dir_entry, unsigned char hexhash_file[], std::optional<int64_t> exif_id);
 

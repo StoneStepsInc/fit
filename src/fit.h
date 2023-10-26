@@ -36,6 +36,8 @@ struct options_t {
    bool exiv2_json = false;
    bool upgrade_schema_to_v60 = false;
 
+   std::optional<char8_t> query_path_sep;
+
    std::u8string scan_message;
    std::u8string log_file;
    std::optional<std::u8string> EXIF_exts;

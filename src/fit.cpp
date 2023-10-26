@@ -124,6 +124,7 @@ void print_usage(void)
    fputs("    -a           - skip restricted access directories\n", stdout);
    fputs("    -X           - list of EXIF file extensions (default: .jpg.cr2.dng.nef.tif.heif.webp)\n", stdout);
    fputs("    -J           - store EXIF obtained from Exiv2 as JSON\n", stdout);
+   fputs("    -S           - a path separator for querying the database (default: none, Windows, POSIX)\n", stdout);
    fputs("    -?           - this help\n", stdout);
 
    fputc('\n', stdout);
@@ -268,6 +269,22 @@ options_t parse_options(int argc, char *argv[])
                options.mb_hash_max = atoi(argv[++i]);
                break;
    #endif
+            case 'S':
+               if(i+1 == argc || *(argv[i+1]) == '-')
+                  throw std::runtime_error("Missing query path separator value");
+
+               if(*reinterpret_cast<const char8_t*>(argv[++i]) == u8'W')
+                  options.query_path_sep = u8'\\';
+               else if(*reinterpret_cast<const char8_t*>(argv[i]) == u8'w')
+                  options.query_path_sep = u8'\\';
+               else if(*reinterpret_cast<const char8_t*>(argv[i]) == u8'P')
+                  options.query_path_sep = u8'/';
+               else if(*reinterpret_cast<const char8_t*>(argv[i]) == u8'p')
+                  options.query_path_sep = u8'/';
+               else
+                  throw std::runtime_error("Query path separator value must be Windows or POSIX");
+               
+               break;
             case 'h':
             case '?':
                options.print_usage = true;
@@ -310,6 +327,13 @@ void verify_options(options_t& options)
 
    if(options.progress_interval < 0)
       throw std::runtime_error("Invalid progress reporting interval");
+
+   if(options.query_path_sep.has_value() && !options.verify_files)
+      throw std::runtime_error("A query path separator may only be specified when verifying files");
+
+   // ignore the native path separator for the current platform
+   if(options.query_path_sep.value() == std::filesystem::path::preferred_separator)
+      options.query_path_sep.reset();
 
    // db_path
    if(options.db_path.empty())

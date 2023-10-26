@@ -128,6 +128,18 @@ modes and are as follows:
     will be indicated by errors reporting that too many files are
     open.
 
+  * `-S Windows | POSIX`
+
+    A path separator to be used to query the database when verifying
+    files. This option is intended for verifying files locally on a
+    different platform. For example, a scan performed on Windows may
+    be verified on a Samba server running on Linux via local file
+    paths.
+
+    Note that absolute paths cannot be verified this way because
+    drive letters or leading path separators will fail to match
+    when queried on different platforms.
+
 ## Scanning a File Tree
 
 Scanning a file tree without the `-v` option will record computed
