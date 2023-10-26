@@ -26,7 +26,7 @@ void print_stream_t::print(FILE *stream, const char *prefix, const char *fmt, va
    va_list ap;
 
    va_copy(ap, valist);
-   vfprintf(stream, fmt, valist);
+   vfprintf(stream, fmt, ap);
    va_end(ap);
 
    fputc('\n', stream);
@@ -42,7 +42,7 @@ void print_stream_t::print(FILE *stream, const char *prefix, const char *fmt, va
       fputs("] ", print_stream);
 
       va_copy(ap, valist);
-      vfprintf(print_stream, fmt, valist);
+      vfprintf(print_stream, fmt, ap);
       va_end(ap);
 
       fputc('\n', print_stream);
