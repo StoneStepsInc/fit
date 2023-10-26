@@ -609,7 +609,7 @@ statement because each time stamp must be adjusted according
 to the time zone settings. A special upgrade mode option is
 available in `fit` to perform this upgrade.
 
-Note that due to potential number of records that musy be
+Note that due to potential number of records that must be
 updated, SQL transactions are not used for this update. Make
 sure to create a copy of the database file before running
 this upgrade, in case if the upgrade fails. If any errors
@@ -617,7 +617,9 @@ are reported after the upgrade has started, the database
 will become unusable because it will be hard to distinguish
 updated time stamps from the original ones.
 
-Run this command to upgrade the database schema v5.0 to v6.0:
+Run this command to upgrade the database schema v5.0 to v6.0.
+Make sure to run this command on the same operating system as
+was used for original scans.
 
     fit --upgrade-schema=6.0 -b c:\path\to\database\file
 
