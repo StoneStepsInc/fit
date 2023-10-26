@@ -332,7 +332,7 @@ void verify_options(options_t& options)
       throw std::runtime_error("A query path separator may only be specified when verifying files");
 
    // ignore the native path separator for the current platform
-   if(options.query_path_sep.value() == std::filesystem::path::preferred_separator)
+   if(options.query_path_sep.has_value() && options.query_path_sep.value() == std::filesystem::path::preferred_separator)
       options.query_path_sep.reset();
 
    // db_path
