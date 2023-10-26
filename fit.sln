@@ -10,7 +10,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "devops", "devops", "{373C68
 		devops\check-sha256.bat = devops\check-sha256.bat
 		devops\Dockerfile.fedora = devops\Dockerfile.fedora
 		devops\Dockerfile.ubuntu = devops\Dockerfile.ubuntu
-		devops\exiv2-c++17.patch = devops\exiv2-c++17.patch
 		devops\get-exiv2 = devops\get-exiv2
 		devops\get-fmt = devops\get-fmt
 		devops\get-isa-l_crypto = devops\get-isa-l_crypto
