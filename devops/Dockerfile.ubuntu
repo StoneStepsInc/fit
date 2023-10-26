@@ -9,7 +9,7 @@ RUN apt-get install -y cmake patch curl unzip make g++ libsqlite3-dev libexpat1-
 # additional isa-l_crypto dependencies
 RUN apt-get install -y  nasm libtool autoconf automake
 
-COPY get-isa-l_crypto get-exiv2 exiv2-c++17.patch get-fmt /root/
+COPY get-isa-l_crypto get-exiv2 exiv2-suppress-warnings.patch get-fmt /root/
 
 WORKDIR /root
 
