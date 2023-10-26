@@ -69,22 +69,43 @@
     <Filter Include="src">
       <UniqueIdentifier>{8e7febfd-c757-43f3-a731-284da0b7f470}</UniqueIdentifier>
     </Filter>
+    <Filter Include="lib\Debug">
+      <UniqueIdentifier>{93541502-3032-4419-9e35-4098cd5718b9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="lib\Release">
+      <UniqueIdentifier>{7854fb00-0d78-40f1-b21c-874198ac087e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <Library Include="$(IsaLibCryptoDir)lib\$(Platform)\$(Configuration)\$(IsaLibCryptoName).lib">
-      <Filter>lib</Filter>
-    </Library>
     <Library Include="$(Exiv2Dir)lib\$(Platform)\Debug\$(Exiv2Name).lib">
-      <Filter>lib</Filter>
+      <Filter>lib\Debug</Filter>
     </Library>
     <Library Include="$(LibExpatDir)lib\$(Platform)\Debug\$(LibExpatName).lib">
-      <Filter>lib</Filter>
+      <Filter>lib\Debug</Filter>
     </Library>
     <Library Include="$(SQLiteDir)lib\$(Platform)\Debug\$(SQLiteLibName).lib">
-      <Filter>lib</Filter>
+      <Filter>lib\Debug</Filter>
     </Library>
     <Library Include="$(ZLibDir)lib\$(Platform)\Debug\$(ZLibName).lib">
-      <Filter>lib</Filter>
+      <Filter>lib\Debug</Filter>
+    </Library>
+    <Library Include="$(IsaLibCryptoDir)lib\$(Platform)\Debug\$(IsaLibCryptoName).lib">
+      <Filter>lib\Debug</Filter>
+    </Library>
+    <Library Include="$(Exiv2Dir)lib\$(Platform)\Release\$(Exiv2Name).lib">
+      <Filter>lib\Release</Filter>
+    </Library>
+    <Library Include="$(IsaLibCryptoDir)lib\$(Platform)\Release\$(IsaLibCryptoName).lib">
+      <Filter>lib\Release</Filter>
+    </Library>
+    <Library Include="$(LibExpatDir)lib\$(Platform)\Release\$(LibExpatName).lib">
+      <Filter>lib\Release</Filter>
+    </Library>
+    <Library Include="$(SQLiteDir)lib\$(Platform)\Release\$(SQLiteLibName).lib">
+      <Filter>lib\Release</Filter>
+    </Library>
+    <Library Include="$(ZLibDir)lib\$(Platform)\Release\$(ZLibName).lib">
+      <Filter>lib\Release</Filter>
     </Library>
   </ItemGroup>
 </Project>
