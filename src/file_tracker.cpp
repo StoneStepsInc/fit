@@ -749,10 +749,10 @@ void file_tracker_t::run(void)
                progress_info.failed_files++;
 
                //
-               // Windows may store file paths with invalid UCS-2 characters,
+               // Windows may store file paths with invalid UTF-16 characters,
                // which fail to convert to UTF-8 paths. For example, a file
-               // path may have a code point `\x1F7FB` in it, which doesn't
-               // have any Unicode character assigned and cannot be converted
+               // path may have a UCS-2 code that represents and incomplete
+               // surrogate pair, such as `\xD83D`, which cannot be converted
                // to a UTF-8 string.
                //
                // Use a crude ASCII conversion and replace all non-ASCII
@@ -764,9 +764,9 @@ void file_tracker_t::run(void)
                std::u16string filepath_u16 = dir_entry.value().path().u16string();
                std::transform(filepath_u16.begin(), filepath_u16.end(),
                                  std::back_inserter(filepath),
-                                 [] (char16_t chr) -> char {return (chr >= ' ' && chr < '\x7f' ? static_cast<char>(chr) : '?');});
+                                 [] (char16_t chr) -> char {return (chr >= u' ' && chr < u'\x7f' ? static_cast<char>(chr) : '?');});
 
-               print_stream.error("Cannot process a path with invalid UTF-16 characters (%s) %s", error.what(), filepath.c_str());
+               print_stream.error("Cannot convert path to UTF-8 (%s) %s", error.what(), filepath.c_str());
                files_lock.lock();
                continue;
             }
@@ -996,7 +996,7 @@ void file_tracker_t::run(void)
             std::u16string filepath_u16 = dir_entry.value().path().u16string();
             std::transform(filepath_u16.begin(), filepath_u16.end(),
                               std::back_inserter(filepath),
-                              [] (char16_t chr) -> char {return (chr >= ' ' && chr < '\x7f' ? static_cast<char>(chr) : '?');});
+                              [] (char16_t chr) -> char {return (chr >= u' ' && chr < u'\x7f' ? static_cast<char>(chr) : '?');});
          }
 
          print_stream.error("Cannot process file %s (%s)", filepath.c_str(), error.what());
