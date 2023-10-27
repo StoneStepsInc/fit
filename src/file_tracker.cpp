@@ -402,10 +402,7 @@ file_tracker_t::mb_file_hasher_t::param_tuple_t file_tracker_t::open_file(find_f
    if(!file)
       throw std::runtime_error(FMTNS::format("Cannot open file ({:s}) {:s}", strerror(errno), u8tosv_t(dir_entry.path().u8string())));
 
-   //
-   // Need to make sure the reference is preserved, so we update the
-   // actual file size value passed into this function.
-   // 
+   // FILE*, file_size, version_record, dir_entry, file_read_error_t
    return std::make_tuple(std::move(file), 0, std::move(version_record), std::move(dir_entry), std::nullopt);
 }
 
@@ -749,6 +746,17 @@ void file_tracker_t::run(void)
                progress_info.failed_files++;
 
                //
+               // TODO: This should be compiled conditionally for Windows. On
+               // Linux invalid characters in file paths will be handled in
+               // some other way. Currently observed behavior is to replace
+               // invalid characters with U+FFFD (e.g. mounting an NTFS volume
+               // with paths containing invalid characters), which which fails
+               // when trying to open such file, not here. Need to collect more
+               // info on how invalid code unit sequences are handled on Linux
+               // (different file systems, etc).
+               //
+
+               //
                // Windows may store file paths with invalid UTF-16 characters,
                // which fail to convert to UTF-8 paths. For example, a file
                // path may have a UCS-2 code that represents and incomplete
@@ -985,6 +993,8 @@ void file_tracker_t::run(void)
       }
       catch (const std::exception& error) {
          progress_info.failed_files++;
+
+         // see TODO where filepath is assigned
 
          //
          // filepath is empty when the directory entry has a path that
