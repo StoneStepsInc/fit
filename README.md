@@ -637,22 +637,20 @@ Interrupting the upgrade process will render database unusable.
 
 ### Windows
 
-Current source requires Visual Studio 2019 to build. It uses
-Nuget package for database access, reading EXIF and computing
-SHA-256 hashes.
+Current source requires Visual Studio 2022 to build. The project
+is set up to use Nuget packages for all dependencies.
 
 ### Linux
 
-Current source compiles on Linux, but very little testing was
+Current source compiles on Linux, but very little testing is
 done to verify the results.
 
-A few development packages need to be installed (e.g. `sqlite-devel`
-on Fedora). See Docker files in `devops` for a list of packages
-required to build on various Linux flavors.
+For a list of packages required to build the project on some
+of the Linux flavors, see Docker files in the `devops` directory.
 
-Libraries that are not available as development packages can be
-obtained with `get-*` scripts from the `devops` directory, such
-as `devops/get-isa-l_crypto`.
+Dependencies that are not available as development packages can
+be obtained with `get-*` scripts from the `devops` directory,
+such as `devops/get-isa-l_crypto`.
 
 ## License
 
