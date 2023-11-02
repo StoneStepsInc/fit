@@ -17,7 +17,7 @@ FROM
     scansets
     JOIN versions ON version_id = versions.rowid 
     JOIN files ON file_id = files.rowid 
-WHERE scan_id = coalesce(@BASE_SCAN_ID, @SCAN_ID-1, (select MAX(rowid) FROM scans), 0)
+WHERE scan_id = coalesce(@BASE_SCAN_ID, @SCAN_ID-1, (select MAX(rowid) FROM scans)-1, 0)
     AND file_id not IN (
         SELECT
             file_id
@@ -25,6 +25,6 @@ WHERE scan_id = coalesce(@BASE_SCAN_ID, @SCAN_ID-1, (select MAX(rowid) FROM scan
             scansets
             JOIN versions on version_id = versions.rowid
         WHERE
-            scan_id = coalesce(@SCAN_ID, (select MAX(rowid) FROM scans)-1, 0)
+            scan_id = coalesce(@SCAN_ID, (select MAX(rowid) FROM scans), 0)
     )
 ORDER BY path
