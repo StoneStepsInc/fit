@@ -60,10 +60,11 @@ static constexpr const size_t HASH_HEX_SIZE = HASH_BIN_SIZE * 2;
 static constexpr std::string_view HASH_TYPE = "SHA256";
 #endif
 
-file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info, print_stream_t& print_stream) :
+file_tracker_t::file_tracker_t(const options_t& options, std::optional<int64_t>& scan_id, std::optional<int64_t>& last_scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info, print_stream_t& print_stream) :
       options(options),
       print_stream(print_stream),
       scan_id(scan_id),
+      last_scan_id(last_scan_id),
       hash_type(HASH_TYPE),
       file_buffer(new unsigned char[options.buffer_size]),
       files(files),
@@ -94,103 +95,112 @@ file_tracker_t::file_tracker_t(const options_t& options, int64_t scan_id, std::q
    if((errcode = sqlite3_busy_handler(file_scan_db, sqlite_busy_handler_cb, nullptr)) != SQLITE_OK)
       throw std::runtime_error(sqlite3_errstr(errcode));
 
-   //
-   // insert statement for new file records                  1    2     3
-   //
-   std::string_view sql_insert_file = "INSERT INTO files (name, ext, path) VALUES (?, ?, ?)"sv;
+   if(scan_id.has_value()) {
+      //
+      // insert statement for new file records                  1    2     3
+      //
+      std::string_view sql_insert_file = "INSERT INTO files (name, ext, path) VALUES (?, ?, ?)"sv;
 
-   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_file.data(), (int) sql_insert_file.length()+1, &stmt_insert_file, nullptr)) != SQLITE_OK)
-      print_stream.error("Cannot prepare a SQLite statement to insert a file (%s)", sqlite3_errstr(errcode));
+      if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_file.data(), (int) sql_insert_file.length()+1, &stmt_insert_file, nullptr)) != SQLITE_OK)
+         print_stream.error("Cannot prepare a SQLite statement to insert a file (%s)", sqlite3_errstr(errcode));
 
-   //
-   // insert statement for new file version records                   1        2         3           4          5          6     7        8
-   //
-   std::string_view sql_insert_version = "INSERT INTO versions (file_id, version, mod_time, entry_size, read_size, hash_type, hash, exif_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"sv;
+      //
+      // insert statement for new file version records                   1        2         3           4          5          6     7        8
+      //
+      std::string_view sql_insert_version = "INSERT INTO versions (file_id, version, mod_time, entry_size, read_size, hash_type, hash, exif_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"sv;
 
-   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_version.data(), (int) sql_insert_version.length()+1, &stmt_insert_version, nullptr)) != SQLITE_OK)
-      print_stream.error("Cannot prepare a SQLite statement to insert a file version (%s)", sqlite3_errstr(errcode));
+      if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_version.data(), (int) sql_insert_version.length()+1, &stmt_insert_version, nullptr)) != SQLITE_OK)
+         print_stream.error("Cannot prepare a SQLite statement to insert a file version (%s)", sqlite3_errstr(errcode));
 
-   if((errcode = sqlite3_bind_text(stmt_insert_version, 6, hash_type.data(), static_cast<int>(hash_type.size()), SQLITE_TRANSIENT)) != SQLITE_OK)
-      print_stream.error("Cannot bind a hash type for a SQLite statement to insert a file version (%s)", sqlite3_errstr(errcode));
+      if((errcode = sqlite3_bind_text(stmt_insert_version, 6, hash_type.data(), static_cast<int>(hash_type.size()), SQLITE_TRANSIENT)) != SQLITE_OK)
+         print_stream.error("Cannot bind a hash type for a SQLite statement to insert a file version (%s)", sqlite3_errstr(errcode));
+   }
 
-   //
-   // select statement to look-up files by their path
-   // 
-   // The results are sorted by version and then by scan_id to take
-   // advantage of the (version_id, scan_id) index, which offers
-   // better performance than (scan_id, version_id). Versions may
-   // stay the same between subsequent scans, but a version cannot
-   // increase without scan_id increasing as well (i.e. different
-   // versions cannot have the same scan_id), so we always end up
-   // with the latest version and scan_id at the top.
-   // 
-   // parameters:                                                                                                                                                                                                            1
-   // columns:                                    0         1          2     3               4        5        6
-   std::string_view sql_find_file = "SELECT version, mod_time, hash_type, hash, versions.rowid, file_id, scan_id FROM versions JOIN files ON file_id = files.rowid JOIN scansets ON version_id = versions.rowid WHERE path = ? ORDER BY version DESC, scan_id DESC LIMIT 1"sv;
+   if(last_scan_id.has_value()) {
+      //
+      // select statement to look-up files by their path
+      // 
+      // The results are sorted by version and then by scan_id to take
+      // advantage of the (version_id, scan_id) index, which offers
+      // better performance than (scan_id, version_id). Versions may
+      // stay the same between subsequent scans, but a version cannot
+      // increase without scan_id increasing as well (i.e. different
+      // versions cannot have the same scan_id), so we always end up
+      // with the latest version and scan_id at the top.
+      // 
+      // columns:                                       0         1          2     3               4        5        6
+      std::string_view sql_find_version = "SELECT version, mod_time, hash_type, hash, versions.rowid, file_id, scan_id "
+                                          "FROM versions JOIN files ON file_id = files.rowid JOIN scansets ON version_id = versions.rowid "
+      // parameters:                                    1
+                                          "WHERE path = ? ORDER BY version DESC, scan_id DESC LIMIT 1"sv;
 
-   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_find_file.data(), (int) sql_find_file.length()+1, &stmt_find_file, nullptr)) != SQLITE_OK)
-      print_stream.error("Cannot prepare a SQLite statement to find a file version (%s)", sqlite3_errstr(errcode));
+      if((errcode = sqlite3_prepare_v2(file_scan_db, sql_find_version.data(), (int) sql_find_version.length()+1, &stmt_find_version, nullptr)) != SQLITE_OK)
+         print_stream.error("Cannot prepare a SQLite statement to find a file version (%s)", sqlite3_errstr(errcode));
+   }
 
-   //
-   // insert statement for scanset file records                            1           2
-   //
-   std::string_view sql_insert_scanset_file = "INSERT INTO scansets (scan_id, version_id) VALUES (?, ?)"sv;
+   if(scan_id.has_value()) {
+      //
+      // insert statement for scanset file records                            1           2
+      //
+      std::string_view sql_insert_scanset_file = "INSERT INTO scansets (scan_id, version_id) VALUES (?, ?)"sv;
 
-   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_scanset_file.data(), (int) sql_insert_scanset_file.length()+1, &stmt_insert_scanset_file, nullptr)) != SQLITE_OK)
-      print_stream.error("Cannot prepare a SQLite statement to insert a scanset file (%s)", sqlite3_errstr(errcode));
+      if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_scanset_file.data(), (int) sql_insert_scanset_file.length()+1, &stmt_insert_scanset_file, nullptr)) != SQLITE_OK)
+         print_stream.error("Cannot prepare a SQLite statement to insert a scanset file (%s)", sqlite3_errstr(errcode));
 
-   if((errcode = sqlite3_bind_int64(stmt_insert_scanset_file, 1, scan_id)) != SQLITE_OK)
-      print_stream.error("Cannot bind a scan ID for a SQLite statement to insert a scanset file (%s)", sqlite3_errstr(errcode));
+      if((errcode = sqlite3_bind_int64(stmt_insert_scanset_file, 1, scan_id.value())) != SQLITE_OK)
+         print_stream.error("Cannot bind a scan ID for a SQLite statement to insert a scanset file (%s)", sqlite3_errstr(errcode));
 
-   //
-   // insert statement for EXIF records
-   //
-   std::string sql_insert_exif = "INSERT INTO exif ("
-                                      "BitsPerSample,Compression,DocumentName,ImageDescription,Make,Model,Orientation,SamplesPerPixel,"
-                                      "Software,DateTime,Artist,Copyright,ExposureTime,FNumber,ExposureProgram,ISOSpeedRatings,"
-                                      "TimeZoneOffset,SensitivityType,ISOSpeed,DateTimeOriginal,DateTimeDigitized,OffsetTime,OffsetTimeOriginal,OffsetTimeDigitized,"
-                                      "ShutterSpeedValue,ApertureValue,SubjectDistance,BrightnessValue,ExposureBiasValue,MaxApertureValue,MeteringMode,LightSource,"
-                                      "Flash,FocalLength,UserComment,SubsecTime,SubSecTimeOriginal,SubSecTimeDigitized,FlashpixVersion,FlashEnergy,"
-                                      "SubjectLocation,ExposureIndex,SensingMethod,SceneType,ExposureMode,WhiteBalance,DigitalZoomRatio,FocalLengthIn35mmFilm,"
-                                      "SceneCaptureType,SubjectDistanceRange,ImageUniqueID,CameraOwnerName,BodySerialNumber,LensSpecification,LensMake,LensModel,"
-                                      "LensSerialNumber,GPSLatitudeRef,GPSLatitude,GPSLongitudeRef,GPSLongitude,GPSAltitudeRef,GPSAltitude,GPSTimeStamp,"
-                                      "GPSSpeedRef,GPSSpeed,GPSDateStamp,XMPxmpRating,Exiv2Json) "
-                                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, "
-                                         "?, ?, ?, ?, ?, ?, ?, ?, "
-                                         "?, ?, ?, ?, ?, ?, ?, ?, "
-                                         "?, ?, ?, ?, ?, ?, ?, ?, "
-                                         "?, ?, ?, ?, ?, ?, ?, ?, "
-                                         "?, ?, ?, ?, ?, ?, ?, ?, "
-                                         "?, ?, ?, ?, ?, ?, ?, ?, "
-                                         "?, ?, ?, ?, ?, ?, ?, ?, "
-                                         "?, ?, ?, ?, ?)";
+      //
+      // insert statement for EXIF records
+      //
+      std::string sql_insert_exif = "INSERT INTO exif ("
+                                         "BitsPerSample,Compression,DocumentName,ImageDescription,Make,Model,Orientation,SamplesPerPixel,"
+                                         "Software,DateTime,Artist,Copyright,ExposureTime,FNumber,ExposureProgram,ISOSpeedRatings,"
+                                         "TimeZoneOffset,SensitivityType,ISOSpeed,DateTimeOriginal,DateTimeDigitized,OffsetTime,OffsetTimeOriginal,OffsetTimeDigitized,"
+                                         "ShutterSpeedValue,ApertureValue,SubjectDistance,BrightnessValue,ExposureBiasValue,MaxApertureValue,MeteringMode,LightSource,"
+                                         "Flash,FocalLength,UserComment,SubsecTime,SubSecTimeOriginal,SubSecTimeDigitized,FlashpixVersion,FlashEnergy,"
+                                         "SubjectLocation,ExposureIndex,SensingMethod,SceneType,ExposureMode,WhiteBalance,DigitalZoomRatio,FocalLengthIn35mmFilm,"
+                                         "SceneCaptureType,SubjectDistanceRange,ImageUniqueID,CameraOwnerName,BodySerialNumber,LensSpecification,LensMake,LensModel,"
+                                         "LensSerialNumber,GPSLatitudeRef,GPSLatitude,GPSLongitudeRef,GPSLongitude,GPSAltitudeRef,GPSAltitude,GPSTimeStamp,"
+                                         "GPSSpeedRef,GPSSpeed,GPSDateStamp,XMPxmpRating,Exiv2Json) "
+                                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, "
+                                            "?, ?, ?, ?, ?, ?, ?, ?, "
+                                            "?, ?, ?, ?, ?, ?, ?, ?, "
+                                            "?, ?, ?, ?, ?, ?, ?, ?, "
+                                            "?, ?, ?, ?, ?, ?, ?, ?, "
+                                            "?, ?, ?, ?, ?, ?, ?, ?, "
+                                            "?, ?, ?, ?, ?, ?, ?, ?, "
+                                            "?, ?, ?, ?, ?, ?, ?, ?, "
+                                            "?, ?, ?, ?, ?)";
 
-   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_exif.c_str(), (int) sql_insert_exif.length()+1, &stmt_insert_exif, nullptr)) != SQLITE_OK)
-      print_stream.error("Cannot prepare a SQLite statement to insert an EXIF record (%s)", sqlite3_errstr(errcode));
+      if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_exif.c_str(), (int) sql_insert_exif.length()+1, &stmt_insert_exif, nullptr)) != SQLITE_OK)
+         print_stream.error("Cannot prepare a SQLite statement to insert an EXIF record (%s)", sqlite3_errstr(errcode));
 
-   //
-   // SQLite transaction statements
-   //
-   std::string_view sql_begin_txn = "BEGIN DEFERRED TRANSACTION"sv;
+      //
+      // SQLite transaction statements
+      //
+      std::string_view sql_begin_txn = "BEGIN DEFERRED TRANSACTION"sv;
 
-   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_begin_txn.data(), (int) sql_begin_txn.length()+1, &stmt_begin_txn, nullptr)) != SQLITE_OK)
-      print_stream.error("Cannot prepare a SQLite statement to begin a transaction (%s)", sqlite3_errstr(errcode));
+      if((errcode = sqlite3_prepare_v2(file_scan_db, sql_begin_txn.data(), (int) sql_begin_txn.length()+1, &stmt_begin_txn, nullptr)) != SQLITE_OK)
+         print_stream.error("Cannot prepare a SQLite statement to begin a transaction (%s)", sqlite3_errstr(errcode));
 
-   std::string_view sql_commit_txn = "COMMIT TRANSACTION"sv;
+      std::string_view sql_commit_txn = "COMMIT TRANSACTION"sv;
 
-   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_commit_txn.data(), (int) sql_commit_txn.length()+1, &stmt_commit_txn, nullptr)) != SQLITE_OK)
-      print_stream.error("Cannot prepare a SQLite statement to commit a transaction (%s)", sqlite3_errstr(errcode));
+      if((errcode = sqlite3_prepare_v2(file_scan_db, sql_commit_txn.data(), (int) sql_commit_txn.length()+1, &stmt_commit_txn, nullptr)) != SQLITE_OK)
+         print_stream.error("Cannot prepare a SQLite statement to commit a transaction (%s)", sqlite3_errstr(errcode));
 
-   std::string_view sql_rollback_txn = "ROLLBACK TRANSACTION"sv;
+      std::string_view sql_rollback_txn = "ROLLBACK TRANSACTION"sv;
 
-   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_rollback_txn.data(), (int) sql_rollback_txn.length()+1, &stmt_rollback_txn, nullptr)) != SQLITE_OK)
-      print_stream.error("Cannot prepare a SQLite statement to roll back a transaction (%s)", sqlite3_errstr(errcode));
+      if((errcode = sqlite3_prepare_v2(file_scan_db, sql_rollback_txn.data(), (int) sql_rollback_txn.length()+1, &stmt_rollback_txn, nullptr)) != SQLITE_OK)
+         print_stream.error("Cannot prepare a SQLite statement to roll back a transaction (%s)", sqlite3_errstr(errcode));
+   }
 }
 
 file_tracker_t::file_tracker_t(file_tracker_t&& other) :
       options(other.options),
       print_stream(other.print_stream),
-      scan_id(other.scan_id),
+      scan_id(std::move(other.scan_id)),
+      last_scan_id(std::move(other.last_scan_id)),
       hash_type(other.hash_type),
       file_buffer(std::move(other.file_buffer)),
       files(other.files),
@@ -202,7 +212,7 @@ file_tracker_t::file_tracker_t(file_tracker_t&& other) :
       stmt_insert_version(other.stmt_insert_version),
       stmt_insert_scanset_file(other.stmt_insert_scanset_file),
       stmt_insert_exif(other.stmt_insert_exif),
-      stmt_find_file(other.stmt_find_file),
+      stmt_find_version(other.stmt_find_version),
       stmt_begin_txn(other.stmt_begin_txn),
       stmt_commit_txn(other.stmt_commit_txn),
       stmt_rollback_txn(other.stmt_rollback_txn),
@@ -219,7 +229,7 @@ file_tracker_t::file_tracker_t(file_tracker_t&& other) :
    other.stmt_insert_scanset_file = nullptr;
    other.stmt_insert_exif = nullptr;
 
-   other.stmt_find_file = nullptr;
+   other.stmt_find_version = nullptr;
 
    other.stmt_begin_txn = nullptr;
    other.stmt_commit_txn = nullptr;
@@ -230,9 +240,9 @@ file_tracker_t::~file_tracker_t(void)
 {
    int errcode = SQLITE_OK;
 
-   if(stmt_find_file) {
-      if((errcode = sqlite3_finalize(stmt_find_file)) != SQLITE_OK)
-         print_stream.error("Cannot finalize SQLite statment to find a file (%s)", sqlite3_errstr(errcode));
+   if(stmt_find_version) {
+      if((errcode = sqlite3_finalize(stmt_find_version)) != SQLITE_OK)
+         print_stream.error("Cannot finalize SQLite statment to find a file version (%s)", sqlite3_errstr(errcode));
    }
 
    if(stmt_insert_file) {
@@ -501,18 +511,18 @@ file_tracker_t::find_file_result_t file_tracker_t::select_version_record(const s
 {
    int errcode = SQLITE_OK;
 
-   unsigned char hexhash_field[HASH_HEX_SIZE + 1] = {};      // database hash; should no be accessed if hash_field_is_null is false
+   unsigned char hexhash_field[HASH_HEX_SIZE + 1] = {};      // database hash; should not be accessed if hash_field_is_null is true
 
    //
    // Attempt to find the file by its relative path first. For
    // files with multiple versions, always select the latest
    // version.
    //
-   sqlite_stmt_binder_t find_file_stmt(stmt_find_file, "find file"sv);
+   sqlite_stmt_binder_t find_version_stmt(stmt_find_version, "find version"sv);
 
-   find_file_stmt.bind_param(filepath);
+   find_version_stmt.bind_param(filepath);
 
-   errcode = sqlite3_step(stmt_find_file);
+   errcode = sqlite3_step(stmt_find_version);
 
    if(errcode != SQLITE_DONE && errcode != SQLITE_ROW)
       throw std::runtime_error(FMTNS::format("SQLite select failed for {:s} ({:s})", u8tosv_t(filepath), sqlite3_errstr(errcode)));
@@ -521,30 +531,30 @@ file_tracker_t::find_file_result_t file_tracker_t::select_version_record(const s
    if(errcode != SQLITE_ROW)
       return find_file_result_t{std::nullopt};
 
-   int64_t version = sqlite3_column_int64(stmt_find_file, 0);
+   int64_t version = sqlite3_column_int64(stmt_find_version, 0);
 
-   int64_t mod_time = sqlite3_column_int64(stmt_find_file, 1);
+   int64_t mod_time = sqlite3_column_int64(stmt_find_version, 1);
 
-   std::string hash_type(reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 2)), sqlite3_column_bytes(stmt_find_file, 2));
+   std::string hash_type(reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_version, 2)), sqlite3_column_bytes(stmt_find_version, 2));
 
-   bool hash_field_is_null = sqlite3_column_type(stmt_find_file, 3) == SQLITE_NULL;
+   bool hash_field_is_null = sqlite3_column_type(stmt_find_version, 3) == SQLITE_NULL;
 
-   int64_t version_id = sqlite3_column_int64(stmt_find_file, 4);
+   int64_t version_id = sqlite3_column_int64(stmt_find_version, 4);
 
-   int64_t file_id = sqlite3_column_int64(stmt_find_file, 5);
+   int64_t file_id = sqlite3_column_int64(stmt_find_version, 5);
 
-   int64_t scanset_scan_id = sqlite3_column_int64(stmt_find_file, 6);
+   int64_t scanset_scan_id = sqlite3_column_int64(stmt_find_version, 6);
 
    if(!hash_field_is_null) {
       // hold onto the column hash value
       if(hash_type == HASH_TYPE) {
-         if(sqlite3_column_bytes(stmt_find_file, 3) != HASH_HEX_SIZE)
+         if(sqlite3_column_bytes(stmt_find_version, 3) != HASH_HEX_SIZE)
             throw std::runtime_error(FMTNS::format("Bad hash size for {:s} ({:s})", u8tosv_t(filepath), sqlite3_errstr(errcode)));
 
-         memcpy(hexhash_field, reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 3)), HASH_HEX_SIZE);
+         memcpy(hexhash_field, reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_version, 3)), HASH_HEX_SIZE);
       }
       else
-         throw std::runtime_error("Unknown hash type: "s + reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_file, 2)));
+         throw std::runtime_error("Unknown hash type: "s + reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_version, 2)));
    }
 
    //
@@ -554,7 +564,7 @@ file_tracker_t::find_file_result_t file_tracker_t::select_version_record(const s
    // resource deadlocks, which are reported immediately and without
    // calling the busy handler.
    //
-   find_file_stmt.reset();
+   find_version_stmt.reset();
 
    return find_file_result_t{std::make_tuple(
             version,
@@ -785,7 +795,9 @@ void file_tracker_t::run(void)
                std::for_each(filepath_query.begin(), filepath_query.end(), [this](char8_t& pc) {if(pc == std::filesystem::path::preferred_separator) pc = options.query_path_sep.value();});
             }
 
-            version_record = select_version_record(!options.query_path_sep.has_value() ? filepath : filepath_query);
+            // there can be no version records without a previous scan
+            if(last_scan_id.has_value())
+               version_record = select_version_record(!options.query_path_sep.has_value() ? filepath : filepath_query);
          }
 
          //
@@ -801,7 +813,8 @@ void file_tracker_t::run(void)
             // in the database.
             // 
             if(dir_entry.has_value()) {
-               if(!options.verify_files && options.skip_hash_mod_time && version_record.has_value()
+               // last_scan_id must be checked to avoid picking up a time stamp of a deleted file in one of the past versions
+               if(!options.verify_files && options.skip_hash_mod_time && version_record.has_value() && version_record.scanset_scan_id() == last_scan_id.value()
                      && version_record.mod_time() == static_cast<int64_t>(file_time_to_time_t(dir_entry.value().last_write_time()))) {
                   hash_match = true;
                }
@@ -816,8 +829,8 @@ void file_tracker_t::run(void)
 
             //
             // Need to set these for options.skip_hash_mod_time==true, when
-            // we avoid hashing, so they are never restored after multi-buffer
-            // hashing nor inserted because hash_match==true.
+            // we avoid hashing, which means they are never restored after
+            // multi-buffer hashing returns.
             //
             if(version_record.has_value()) {
                version = version_record.version();
@@ -904,8 +917,17 @@ void file_tracker_t::run(void)
                   filepath = dir_entry.value().path().lexically_relative(options.base_path).u8string();
 #endif
 
-               // consider a NULL hash field as a match for zero-length files
-               hash_match = version_record.has_value() && ((filesize == 0 && !version_record.hexhash().has_value()) || memcmp(hexhash_file, version_record.hexhash().value().data(), HASH_HEX_SIZE) == 0);
+               //
+               // Only consider a version record if it was included in the
+               // last scan. Otherwise, this record describes a file that
+               // was deleted since the scan ID in the version record.
+               // 
+               // Within a suitable version record, consider a NULL hash
+               // field as a match for zero-length files.
+               //
+               hash_match = version_record.has_value() && version_record.scanset_scan_id() == last_scan_id.value() &&
+                              ((filesize == 0 && !version_record.hexhash().has_value()) ||
+                                 memcmp(hexhash_file, version_record.hexhash().value().data(), HASH_HEX_SIZE) == 0);
             }
 
             //
@@ -926,12 +948,12 @@ void file_tracker_t::run(void)
             if(!options.verify_files && !file_id.has_value())
                file_id = insert_file_record(filepath, dir_entry.value());
 
-            // if there's no version record or the hash didn't match, we need to insert a new one
+            // hash_match == false if there's no version record, or it's not from the last scan or the hash didn't match
             if(!hash_match) {
                // handle the mismatched hash based on whether we are verifying or scanning
                if(options.verify_files) {
-                  // differentiate between new, modified and changed files
-                  if(!version_record.has_value()) {
+                  // differentiate between new, modified and changed files (a scanned file with a version in scan 1and no version in scan 2, is a new file)
+                  if(!version_record.has_value() || (last_scan_id.has_value() && version_record.scanset_scan_id() != last_scan_id.value())) {
                      progress_info.new_files++;
                      print_stream.info(   "new file: %s", filepath.c_str());
                   }

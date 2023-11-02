@@ -605,7 +605,38 @@ int64_t insert_scan_record(const options_t& options, sqlite3 *file_scan_db)
    return scan_id;
 }
 
-int64_t select_last_scan_id(const options_t& options, sqlite3 *file_scan_db)
+std::optional<int64_t> select_last_scan_id(const options_t& options, sqlite3 *file_scan_db)
+{
+   std::optional<int64_t> scan_id;
+
+   int errcode = SQLITE_OK;
+
+   sqlite3_stmt *stmt_last_scan = nullptr;
+
+   std::string_view sql_last_scan = "SELECT scans.rowid FROM scans ORDER BY scans.rowid DESC LIMIT 1"sv;
+
+   // SQLite docs say there's a small performance gain if the null terminator is included in length
+   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_last_scan.data(), (int) sql_last_scan.length()+1, &stmt_last_scan, nullptr)) != SQLITE_OK)
+      throw std::runtime_error("Cannot prepare a SQL statement to find the last scan ("s + sqlite3_errstr(errcode) + ")");
+
+   errcode = sqlite3_step(stmt_last_scan);
+
+   if(errcode != SQLITE_DONE && errcode != SQLITE_ROW)
+      throw std::runtime_error("Cannot find the last scan in the database");
+
+   if(errcode == SQLITE_ROW)
+      scan_id = sqlite3_column_int64(stmt_last_scan, 0);
+
+   if((errcode = sqlite3_reset(stmt_last_scan)) != SQLITE_OK)
+      throw std::runtime_error("Cannot reset the SQL statement to find the last scan ("s + sqlite3_errstr(errcode) + ")");
+
+   if((errcode = sqlite3_finalize(stmt_last_scan)) != SQLITE_OK)
+      throw std::runtime_error("Cannot finalize the SQL statement to find the last scan ("s + sqlite3_errstr(errcode) + ")");
+
+   return scan_id;
+}
+
+int64_t select_scan_id_for_update(const options_t& options, sqlite3 *file_scan_db)
 {
    std::u8string scan_options;
    std::optional<int64_t> scan_id;
@@ -625,7 +656,7 @@ int64_t select_last_scan_id(const options_t& options, sqlite3 *file_scan_db)
 
    // if there's any error, hold onto it, so we can finalize the statement
    if(errcode != SQLITE_DONE && errcode != SQLITE_ROW)
-      select_error.emplace("SQLite select the last scan "s + " (" + sqlite3_errstr(errcode) + ")");
+      select_error.emplace("Cannot select the last scan "s + " (" + sqlite3_errstr(errcode) + ")");
    else {
       if(errcode == SQLITE_ROW) {
          scan_id = sqlite3_column_int64(stmt_last_scan, 0);
@@ -643,7 +674,7 @@ int64_t select_last_scan_id(const options_t& options, sqlite3 *file_scan_db)
    // error out if we didn't find the last scan
    if(!scan_id.has_value()) {
       if(!select_error.has_value())
-         throw std::runtime_error("Cannot find the last scan in the database");
+         throw std::runtime_error("Cannot update the last scan (none is found in the database)");
       else
          throw select_error.value();
    }
@@ -875,13 +906,23 @@ int main(int argc, char *argv[])
          throw std::runtime_error(FMTNS::format("Database must be upgraded from v{:s} to v{:s}"sv, fit::schema_version_string(schema_version), fit::schema_version_string(fit::DB_SCHEMA_VERSION)));
       }
 
-      int64_t scan_id = 0;
+      std::optional<int64_t> scan_id;
+      std::optional<int64_t> last_scan_id;
       
-      if(!options.verify_files) {
-         if(!options.update_last_scanset)
+      if(options.verify_files) {
+         last_scan_id = fit::select_last_scan_id(options, file_scan_db.get());
+
+         if(!last_scan_id.has_value())
+            throw std::runtime_error("Cannot verify files without a previous scan (none is found in the database)");
+      }
+      else {
+         if(options.update_last_scanset)
+            last_scan_id = scan_id = fit::select_scan_id_for_update(options, file_scan_db.get());
+         else {
+            last_scan_id = fit::select_last_scan_id(options, file_scan_db.get());
+
             scan_id = fit::insert_scan_record(options, file_scan_db.get());
-         else
-            scan_id = fit::select_last_scan_id(options, file_scan_db.get());
+         }
       }
 
       std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
@@ -901,7 +942,7 @@ int main(int argc, char *argv[])
       fit::file_tree_walker_t::initialize(print_stream);
 
       try {
-         fit::file_tree_walker_t file_tree_walker(options, scan_id, print_stream);
+         fit::file_tree_walker_t file_tree_walker(options, scan_id, last_scan_id, print_stream);
 
          if(options.recursive_scan)
             file_tree_walker.walk_tree<std::filesystem::recursive_directory_iterator>();

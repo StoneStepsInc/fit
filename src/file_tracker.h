@@ -59,7 +59,7 @@ class file_tracker_t {
    private:
       static constexpr const int DB_BUSY_TIMEOUT = 1000;
 
-      // same field order as in the select statement (stmt_find_file)
+      // same field order as in the select statement (stmt_find_version)
       typedef std::tuple<int64_t, int64_t, std::string, std::optional<std::string>, int64_t, int64_t, int64_t> version_record_t;
 
       //
@@ -123,7 +123,9 @@ class file_tracker_t {
 
       print_stream_t& print_stream;
 
-      int64_t scan_id;
+      std::optional<int64_t> scan_id;
+
+      std::optional<int64_t> last_scan_id;
 
       const std::string_view hash_type;
 
@@ -152,7 +154,7 @@ class file_tracker_t {
       sqlite3_stmt *stmt_insert_scanset_file = nullptr;
       sqlite3_stmt *stmt_insert_exif = nullptr;
 
-      sqlite3_stmt *stmt_find_file = nullptr;
+      sqlite3_stmt *stmt_find_version = nullptr;
 
       sqlite3_stmt *stmt_begin_txn = nullptr;
       sqlite3_stmt *stmt_commit_txn = nullptr;
@@ -193,7 +195,7 @@ class file_tracker_t {
       static bool set_sqlite_journal_mode(sqlite3 *file_scan_db, print_stream_t& print_stream);
 
    public:
-      file_tracker_t(const options_t& options, int64_t scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info, print_stream_t& print_stream);
+      file_tracker_t(const options_t& options, std::optional<int64_t>& scan_id, std::optional<int64_t>& last_scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info, print_stream_t& print_stream);
 
       file_tracker_t(file_tracker_t&& other);
 
