@@ -9,12 +9,12 @@
 # which means that this file needs to be renamed when the version
 # is changed, so the run number starts a new sequence.
 #
-name: fit 3.0.0
+name: fit 3.1.0
 
 on: workflow_dispatch
 
 env:
-  VERSION: 3.0.0
+  VERSION: 3.1.0
   BUILD_NUMBER: ${{ github.run_number }}
 
 jobs:
