@@ -161,6 +161,14 @@ class file_tracker_t {
       sqlite3_stmt *stmt_rollback_txn = nullptr;
 
    private:
+      void init_scan_db_conn(void);
+
+      void init_new_scan_stmts(void);
+
+      void init_transaction_stmts(void);
+
+      void init_last_scan_stmts(void);
+
       int64_t insert_file_record(const std::u8string& filepath, const std::filesystem::directory_entry& dir_entry);
 
       int64_t insert_exif_record(const std::u8string& filepath, const std::vector<exif::field_value_t>& exif_fields, const exif::field_bitset_t& field_bitset);

@@ -76,123 +76,14 @@ file_tracker_t::file_tracker_t(const options_t& options, std::optional<int64_t>&
       , mb_hasher(*this, options.buffer_size, options.mb_hash_max)
 #endif
 {
-   int errcode = SQLITE_OK;
+   init_scan_db_conn();
 
-   if((errcode = sqlite3_open_v2(reinterpret_cast<const char*>(options.db_path.u8string().c_str()), &file_scan_db, SQLITE_OPEN_READWRITE, nullptr)) != SQLITE_OK)
-      throw std::runtime_error(sqlite3_errstr(errcode));
-
-   if(!set_sqlite_journal_mode(file_scan_db, print_stream))
-      print_stream.warning("Cannot set SQlite journal mode to WAL (will run slower)");
-
-   //
-   // SQLite keeps calling sqlite_busy_handler_cb for this amount
-   // of time while record storage is locked and after SQLITE_BUSY
-   // is returned.
-   //
-   if((errcode = sqlite3_busy_timeout(file_scan_db, DB_BUSY_TIMEOUT)) != SQLITE_OK)
-      throw std::runtime_error(sqlite3_errstr(errcode));
-
-   if((errcode = sqlite3_busy_handler(file_scan_db, sqlite_busy_handler_cb, nullptr)) != SQLITE_OK)
-      throw std::runtime_error(sqlite3_errstr(errcode));
+   if(last_scan_id.has_value())
+      init_last_scan_stmts();
 
    if(scan_id.has_value()) {
-      //
-      // insert statement for new file records                  1    2     3
-      //
-      std::string_view sql_insert_file = "INSERT INTO files (name, ext, path) VALUES (?, ?, ?)"sv;
-
-      if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_file.data(), (int) sql_insert_file.length()+1, &stmt_insert_file, nullptr)) != SQLITE_OK)
-         print_stream.error("Cannot prepare a SQLite statement to insert a file (%s)", sqlite3_errstr(errcode));
-
-      //
-      // insert statement for new file version records                   1        2         3           4          5          6     7        8
-      //
-      std::string_view sql_insert_version = "INSERT INTO versions (file_id, version, mod_time, entry_size, read_size, hash_type, hash, exif_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"sv;
-
-      if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_version.data(), (int) sql_insert_version.length()+1, &stmt_insert_version, nullptr)) != SQLITE_OK)
-         print_stream.error("Cannot prepare a SQLite statement to insert a file version (%s)", sqlite3_errstr(errcode));
-
-      if((errcode = sqlite3_bind_text(stmt_insert_version, 6, hash_type.data(), static_cast<int>(hash_type.size()), SQLITE_TRANSIENT)) != SQLITE_OK)
-         print_stream.error("Cannot bind a hash type for a SQLite statement to insert a file version (%s)", sqlite3_errstr(errcode));
-   }
-
-   if(last_scan_id.has_value()) {
-      //
-      // select statement to look-up files by their path
-      // 
-      // The results are sorted by version and then by scan_id to take
-      // advantage of the (version_id, scan_id) index, which offers
-      // better performance than (scan_id, version_id). Versions may
-      // stay the same between subsequent scans, but a version cannot
-      // increase without scan_id increasing as well (i.e. different
-      // versions cannot have the same scan_id), so we always end up
-      // with the latest version and scan_id at the top.
-      // 
-      // columns:                                       0         1          2     3               4        5        6
-      std::string_view sql_find_version = "SELECT version, mod_time, hash_type, hash, versions.rowid, file_id, scan_id "
-                                          "FROM versions JOIN files ON file_id = files.rowid JOIN scansets ON version_id = versions.rowid "
-      // parameters:                                    1
-                                          "WHERE path = ? ORDER BY version DESC, scan_id DESC LIMIT 1"sv;
-
-      if((errcode = sqlite3_prepare_v2(file_scan_db, sql_find_version.data(), (int) sql_find_version.length()+1, &stmt_find_version, nullptr)) != SQLITE_OK)
-         print_stream.error("Cannot prepare a SQLite statement to find a file version (%s)", sqlite3_errstr(errcode));
-   }
-
-   if(scan_id.has_value()) {
-      //
-      // insert statement for scanset file records                            1           2
-      //
-      std::string_view sql_insert_scanset_file = "INSERT INTO scansets (scan_id, version_id) VALUES (?, ?)"sv;
-
-      if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_scanset_file.data(), (int) sql_insert_scanset_file.length()+1, &stmt_insert_scanset_file, nullptr)) != SQLITE_OK)
-         print_stream.error("Cannot prepare a SQLite statement to insert a scanset file (%s)", sqlite3_errstr(errcode));
-
-      if((errcode = sqlite3_bind_int64(stmt_insert_scanset_file, 1, scan_id.value())) != SQLITE_OK)
-         print_stream.error("Cannot bind a scan ID for a SQLite statement to insert a scanset file (%s)", sqlite3_errstr(errcode));
-
-      //
-      // insert statement for EXIF records
-      //
-      std::string sql_insert_exif = "INSERT INTO exif ("
-                                         "BitsPerSample,Compression,DocumentName,ImageDescription,Make,Model,Orientation,SamplesPerPixel,"
-                                         "Software,DateTime,Artist,Copyright,ExposureTime,FNumber,ExposureProgram,ISOSpeedRatings,"
-                                         "TimeZoneOffset,SensitivityType,ISOSpeed,DateTimeOriginal,DateTimeDigitized,OffsetTime,OffsetTimeOriginal,OffsetTimeDigitized,"
-                                         "ShutterSpeedValue,ApertureValue,SubjectDistance,BrightnessValue,ExposureBiasValue,MaxApertureValue,MeteringMode,LightSource,"
-                                         "Flash,FocalLength,UserComment,SubsecTime,SubSecTimeOriginal,SubSecTimeDigitized,FlashpixVersion,FlashEnergy,"
-                                         "SubjectLocation,ExposureIndex,SensingMethod,SceneType,ExposureMode,WhiteBalance,DigitalZoomRatio,FocalLengthIn35mmFilm,"
-                                         "SceneCaptureType,SubjectDistanceRange,ImageUniqueID,CameraOwnerName,BodySerialNumber,LensSpecification,LensMake,LensModel,"
-                                         "LensSerialNumber,GPSLatitudeRef,GPSLatitude,GPSLongitudeRef,GPSLongitude,GPSAltitudeRef,GPSAltitude,GPSTimeStamp,"
-                                         "GPSSpeedRef,GPSSpeed,GPSDateStamp,XMPxmpRating,Exiv2Json) "
-                                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, "
-                                            "?, ?, ?, ?, ?, ?, ?, ?, "
-                                            "?, ?, ?, ?, ?, ?, ?, ?, "
-                                            "?, ?, ?, ?, ?, ?, ?, ?, "
-                                            "?, ?, ?, ?, ?, ?, ?, ?, "
-                                            "?, ?, ?, ?, ?, ?, ?, ?, "
-                                            "?, ?, ?, ?, ?, ?, ?, ?, "
-                                            "?, ?, ?, ?, ?, ?, ?, ?, "
-                                            "?, ?, ?, ?, ?)";
-
-      if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_exif.c_str(), (int) sql_insert_exif.length()+1, &stmt_insert_exif, nullptr)) != SQLITE_OK)
-         print_stream.error("Cannot prepare a SQLite statement to insert an EXIF record (%s)", sqlite3_errstr(errcode));
-
-      //
-      // SQLite transaction statements
-      //
-      std::string_view sql_begin_txn = "BEGIN DEFERRED TRANSACTION"sv;
-
-      if((errcode = sqlite3_prepare_v2(file_scan_db, sql_begin_txn.data(), (int) sql_begin_txn.length()+1, &stmt_begin_txn, nullptr)) != SQLITE_OK)
-         print_stream.error("Cannot prepare a SQLite statement to begin a transaction (%s)", sqlite3_errstr(errcode));
-
-      std::string_view sql_commit_txn = "COMMIT TRANSACTION"sv;
-
-      if((errcode = sqlite3_prepare_v2(file_scan_db, sql_commit_txn.data(), (int) sql_commit_txn.length()+1, &stmt_commit_txn, nullptr)) != SQLITE_OK)
-         print_stream.error("Cannot prepare a SQLite statement to commit a transaction (%s)", sqlite3_errstr(errcode));
-
-      std::string_view sql_rollback_txn = "ROLLBACK TRANSACTION"sv;
-
-      if((errcode = sqlite3_prepare_v2(file_scan_db, sql_rollback_txn.data(), (int) sql_rollback_txn.length()+1, &stmt_rollback_txn, nullptr)) != SQLITE_OK)
-         print_stream.error("Cannot prepare a SQLite statement to roll back a transaction (%s)", sqlite3_errstr(errcode));
+      init_new_scan_stmts();
+      init_transaction_stmts();
    }
 }
 
@@ -284,6 +175,144 @@ file_tracker_t::~file_tracker_t(void)
       if((errcode = sqlite3_close(file_scan_db)) != SQLITE_OK)
          print_stream.error("Failed to close the SQLite database (%s)", sqlite3_errstr(errcode));
    }
+}
+
+void file_tracker_t::init_scan_db_conn(void)
+{
+   int errcode = SQLITE_OK;
+
+   if((errcode = sqlite3_open_v2(reinterpret_cast<const char*>(options.db_path.u8string().c_str()), &file_scan_db, SQLITE_OPEN_READWRITE, nullptr)) != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errstr(errcode));
+
+   if(!set_sqlite_journal_mode(file_scan_db, print_stream))
+      print_stream.warning("Cannot set SQlite journal mode to WAL (will run slower)");
+
+   //
+   // SQLite keeps calling sqlite_busy_handler_cb for this amount
+   // of time while record storage is locked and after SQLITE_BUSY
+   // is returned.
+   //
+   if((errcode = sqlite3_busy_timeout(file_scan_db, DB_BUSY_TIMEOUT)) != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errstr(errcode));
+
+   if((errcode = sqlite3_busy_handler(file_scan_db, sqlite_busy_handler_cb, nullptr)) != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errstr(errcode));
+}
+
+void file_tracker_t::init_new_scan_stmts(void)
+{
+   int errcode = SQLITE_OK;
+
+   //
+   // insert statement for new file records                  1    2     3
+   //
+   std::string_view sql_insert_file = "INSERT INTO files (name, ext, path) VALUES (?, ?, ?)"sv;
+
+   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_file.data(), (int) sql_insert_file.length()+1, &stmt_insert_file, nullptr)) != SQLITE_OK)
+      print_stream.error("Cannot prepare a SQLite statement to insert a file (%s)", sqlite3_errstr(errcode));
+
+   //
+   // insert statement for new file version records                   1        2         3           4          5          6     7        8
+   //
+   std::string_view sql_insert_version = "INSERT INTO versions (file_id, version, mod_time, entry_size, read_size, hash_type, hash, exif_id) "
+                                          "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"sv;
+
+   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_version.data(), (int) sql_insert_version.length()+1, &stmt_insert_version, nullptr)) != SQLITE_OK)
+      print_stream.error("Cannot prepare a SQLite statement to insert a file version (%s)", sqlite3_errstr(errcode));
+
+   if((errcode = sqlite3_bind_text(stmt_insert_version, 6, hash_type.data(), static_cast<int>(hash_type.size()), SQLITE_TRANSIENT)) != SQLITE_OK)
+      print_stream.error("Cannot bind a hash type for a SQLite statement to insert a file version (%s)", sqlite3_errstr(errcode));
+
+   //
+   // insert statement for scanset file records                            1           2
+   //
+   std::string_view sql_insert_scanset_file = "INSERT INTO scansets (scan_id, version_id) VALUES (?, ?)"sv;
+
+   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_scanset_file.data(), (int) sql_insert_scanset_file.length()+1, &stmt_insert_scanset_file, nullptr)) != SQLITE_OK)
+      print_stream.error("Cannot prepare a SQLite statement to insert a scanset file (%s)", sqlite3_errstr(errcode));
+
+   if((errcode = sqlite3_bind_int64(stmt_insert_scanset_file, 1, scan_id.value())) != SQLITE_OK)
+      print_stream.error("Cannot bind a scan ID for a SQLite statement to insert a scanset file (%s)", sqlite3_errstr(errcode));
+
+   //
+   // insert statement for EXIF records
+   //
+   std::string_view sql_insert_exif = "INSERT INTO exif ("
+                                       "BitsPerSample,Compression,DocumentName,ImageDescription,Make,Model,Orientation,SamplesPerPixel,"
+                                       "Software,DateTime,Artist,Copyright,ExposureTime,FNumber,ExposureProgram,ISOSpeedRatings,"
+                                       "TimeZoneOffset,SensitivityType,ISOSpeed,DateTimeOriginal,DateTimeDigitized,OffsetTime,OffsetTimeOriginal,OffsetTimeDigitized,"
+                                       "ShutterSpeedValue,ApertureValue,SubjectDistance,BrightnessValue,ExposureBiasValue,MaxApertureValue,MeteringMode,LightSource,"
+                                       "Flash,FocalLength,UserComment,SubsecTime,SubSecTimeOriginal,SubSecTimeDigitized,FlashpixVersion,FlashEnergy,"
+                                       "SubjectLocation,ExposureIndex,SensingMethod,SceneType,ExposureMode,WhiteBalance,DigitalZoomRatio,FocalLengthIn35mmFilm,"
+                                       "SceneCaptureType,SubjectDistanceRange,ImageUniqueID,CameraOwnerName,BodySerialNumber,LensSpecification,LensMake,LensModel,"
+                                       "LensSerialNumber,GPSLatitudeRef,GPSLatitude,GPSLongitudeRef,GPSLongitude,GPSAltitudeRef,GPSAltitude,GPSTimeStamp,"
+                                       "GPSSpeedRef,GPSSpeed,GPSDateStamp,XMPxmpRating,Exiv2Json) "
+                                       "VALUES (?, ?, ?, ?, ?, ?, ?, ?, "
+                                                "?, ?, ?, ?, ?, ?, ?, ?, "
+                                                "?, ?, ?, ?, ?, ?, ?, ?, "
+                                                "?, ?, ?, ?, ?, ?, ?, ?, "
+                                                "?, ?, ?, ?, ?, ?, ?, ?, "
+                                                "?, ?, ?, ?, ?, ?, ?, ?, "
+                                                "?, ?, ?, ?, ?, ?, ?, ?, "
+                                                "?, ?, ?, ?, ?, ?, ?, ?, "
+                                                "?, ?, ?, ?, ?)"sv;
+
+   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_exif.data(), (int) sql_insert_exif.length()+1, &stmt_insert_exif, nullptr)) != SQLITE_OK)
+      print_stream.error("Cannot prepare a SQLite statement to insert an EXIF record (%s)", sqlite3_errstr(errcode));
+}
+
+void file_tracker_t::init_transaction_stmts(void)
+{
+   int errcode = SQLITE_OK;
+
+   //
+   // SQLite transaction statements
+   //
+   std::string_view sql_begin_txn = "BEGIN DEFERRED TRANSACTION"sv;
+
+   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_begin_txn.data(), (int) sql_begin_txn.length()+1, &stmt_begin_txn, nullptr)) != SQLITE_OK)
+      print_stream.error("Cannot prepare a SQLite statement to begin a transaction (%s)", sqlite3_errstr(errcode));
+
+   std::string_view sql_commit_txn = "COMMIT TRANSACTION"sv;
+
+   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_commit_txn.data(), (int) sql_commit_txn.length()+1, &stmt_commit_txn, nullptr)) != SQLITE_OK)
+      print_stream.error("Cannot prepare a SQLite statement to commit a transaction (%s)", sqlite3_errstr(errcode));
+
+   std::string_view sql_rollback_txn = "ROLLBACK TRANSACTION"sv;
+
+   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_rollback_txn.data(), (int) sql_rollback_txn.length()+1, &stmt_rollback_txn, nullptr)) != SQLITE_OK)
+      print_stream.error("Cannot prepare a SQLite statement to roll back a transaction (%s)", sqlite3_errstr(errcode));
+}
+
+void file_tracker_t::init_last_scan_stmts(void)
+{
+   int errcode = SQLITE_OK;
+
+   //
+   // select statement to look-up files by their path
+   // 
+   // The results are sorted by version and then by scan_id to take
+   // advantage of the (version_id, scan_id) index, which offers
+   // better performance than (scan_id, version_id). Versions may
+   // stay the same between subsequent scans, but a version cannot
+   // increase without scan_id increasing as well (i.e. different
+   // versions cannot have the same scan_id), so we always end up
+   // with the latest version and scan_id at the top.
+   // 
+   // The last scan ID is not included in the query because it will
+   // make it impossible to select a past version of a file that
+   // was deleted in the last scan and will require more complex
+   // handling to select a file by path and find the last available
+   // version, so it can be incremented.
+   // 
+   // columns:                                       0         1          2     3               4        5        6
+   std::string_view sql_find_version = "SELECT version, mod_time, hash_type, hash, versions.rowid, file_id, scan_id "
+                                       "FROM versions JOIN files ON file_id = files.rowid JOIN scansets ON version_id = versions.rowid "
+   // parameters:                                    1
+                                       "WHERE path = ? ORDER BY version DESC, scan_id DESC LIMIT 1"sv;
+
+   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_find_version.data(), (int) sql_find_version.length()+1, &stmt_find_version, nullptr)) != SQLITE_OK)
+      print_stream.error("Cannot prepare a SQLite statement to find a file version (%s)", sqlite3_errstr(errcode));
 }
 
 time_t file_tracker_t::file_time_to_time_t(const std::chrono::file_clock::time_point& file_time)
