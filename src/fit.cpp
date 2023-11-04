@@ -113,18 +113,18 @@ void print_usage(void)
    fputs("    -r           - recursive scan\n", stdout);
    fputs("    -v           - verify scanned files against database entries\n", stdout);
 #ifndef NO_SSE_AVX
-   fputs("    -H           - multi-buffer hash maximum (default: 8, min: 1, max: 32)\n", stdout);
+   fputs("    -H number    - multi-buffer hash maximum (default: 8, min: 1, max: 32)\n", stdout);
 #endif
-   fputs("    -t           - file hasher thread count (default: 4, min: 1, max: 64)\n", stdout);
+   fputs("    -t number    - file hasher thread count (default: 4, min: 1, max: 64)\n", stdout);
    fputs("    -s size      - file buffer size (default: 524288, min: 512, max: 16777216)\n", stdout);
    fputs("    -i seconds   - progress reporting interval (default: 10, min: 1)\n", stdout);
    fputs("    -w           - skip hashing for files with same last-modified time\n", stdout);
    fputs("    -u           - continue last scan (update last scanset)\n", stdout);
    fputs("    -l path      - log file path\n", stdout);
    fputs("    -a           - skip restricted access directories\n", stdout);
-   fputs("    -X           - list of EXIF file extensions (default: .jpg.cr2.dng.nef.tif.heif.webp)\n", stdout);
+   fputs("    -X [ext,..]  - EXIF file extensions (default: .jpg.cr2.dng.nef.tif.heif.webp, none: no EXIF)\n", stdout);
    fputs("    -J           - store EXIF obtained from Exiv2 as JSON\n", stdout);
-   fputs("    -S           - a path separator for querying the database (default: none, Windows, POSIX)\n", stdout);
+   fputs("    -S kind      - path separator kind for querying the database (default: none, Windows, POSIX)\n", stdout);
    fputs("    -?           - this help\n", stdout);
 
    fputc('\n', stdout);
@@ -285,7 +285,7 @@ options_t parse_options(int argc, char *argv[])
                else if(*reinterpret_cast<const char8_t*>(argv[i]) == u8'p')
                   options.query_path_sep = u8'/';
                else
-                  throw std::runtime_error("Query path separator value must be Windows or POSIX");
+                  throw std::runtime_error("Query path separator kind must be Windows or POSIX");
                
                break;
             case 'h':
