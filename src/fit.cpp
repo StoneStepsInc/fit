@@ -266,6 +266,9 @@ options_t parse_options(int argc, char *argv[])
                break;
    #ifndef NO_SSE_AVX
             case 'H':
+               if(i+1 == argc || *(argv[i+1]) == '-')
+                  throw std::runtime_error("Missing multi-buffer hash maximum value");
+
                options.mb_hash_max = atoi(argv[++i]);
                break;
    #endif
