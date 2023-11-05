@@ -18,4 +18,4 @@ WHERE
 GROUP BY
     exif.Model COLLATE NOCASE, exif.FocalLength
 ORDER BY
-    COUNT(exif_id) DESC
+    Model, COUNT(exif_id) DESC
