@@ -222,6 +222,8 @@ set of scan buffers.
 
 Using more threads increases parallelism, but also increases
 contention for shared resources, such as disk and database.
+In general, 1-2 threads will work better for magnetic drives
+and 8-16 threads will work better for solid state drives.
 
 Keeping the SQLite database on a different disk from the one
 being scanned should be the default approach because otherwise
