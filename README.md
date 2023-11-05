@@ -145,22 +145,31 @@ modes and are as follows:
 Scanning a file tree without the `-v` option will record computed
 checksums in the specified SQLite database.
 
-Multiple directories may be recorded in the same SQLite database
-via multiple scans. For example, for a drive that stores pictures
-and videos in separate root folders, such as `X:\Pictures` and
-`X:\Videos`, scanning those folders individually avoids scanning
-system folders `System Volume Information` and `$RECICLE.BIN`,
-if `-d X:\` was used.
+Multiple directories may be specified in a single scan, so they
+are recorded in the same scan in the SQLite database. For example,
+for a drive that stores pictures and videos in separate root
+folders, such as `X:\Pictures` and `X:\Videos`, scanning those
+folders as `-d X:\Pictures -d X:\Videos` avoids scanning system
+folders `X:\System Volume Information` and `X:\$RECICLE.BIN`, if
+`-d X:\` was used.
 
-Each file tree scan is recorded separately in the SQLite database
-and may be accompanied by a text message using the `-m` option,
-which may be useful when reviewing scan records later.
+Alternatively, an existing scan may be updated via `-u`, with
+some restrictions, which may be useful for splitting long scans.
+See `-u` option for more details.
+
+Note that scanning a file tree multiple times without `-u` or
+`-w` option will record multiple independent scans, which may
+yield unexpected results during verifiction. For example, if
+`X:\Pictures` and `X:\Videos` are scanned independently, in
+this order, and then when `X:\` is being verified, all files
+from `X:\Pictures` will be reported as new files because they
+were not present in the last scan of `X:\Videos`.
 
 ## Verifying a File Tree
 
 Scanning a file tree with the `-v` option will compare computed
 checksums against those stored in the SQLite database during the
-scan phase.
+last scan.
 
 Files with mismatching or missing checksums will be reported with
 three labels:
