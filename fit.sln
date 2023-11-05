@@ -45,7 +45,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{7A08580E-D448-4CA2-859F-D4CCD7D5A533}"
 	ProjectSection(SolutionItems) = preProject
 		.github\workflows\build-ci-images.yml = .github\workflows\build-ci-images.yml
-		.github\workflows\fit-3.0.0.yml = .github\workflows\fit-3.0.0.yml
+		.github\workflows\fit-3.1.0.yml = .github\workflows\fit-3.1.0.yml
 	EndProjectSection
 EndProject
 Global
