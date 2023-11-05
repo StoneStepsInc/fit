@@ -984,16 +984,16 @@ void file_tracker_t::run(void)
                   // differentiate between new, modified and changed files (a scanned file with a version in scan 1and no version in scan 2, is a new file)
                   if(!version_record.has_value() || (last_scan_id.has_value() && version_record.scanset_scan_id() != last_scan_id.value())) {
                      progress_info.new_files++;
-                     print_stream.info(   "new file: %s", filepath.c_str());
+                     print_stream.warning(   "new file: %s", filepath.c_str());
                   }
                   else {
                      if(version_record.mod_time() != static_cast<int64_t>(file_time_to_time_t(dir_entry.value().last_write_time()))) {
                         progress_info.modified_files++;
-                        print_stream.info("modified: %s", filepath.c_str());
+                        print_stream.warning("modified: %s", filepath.c_str());
                      }
                      else {
                         progress_info.changed_files++;
-                        print_stream.info("changed : %s", filepath.c_str());
+                        print_stream.warning("changed : %s", filepath.c_str());
                      }
                   }
                }
