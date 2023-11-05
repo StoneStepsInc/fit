@@ -877,6 +877,7 @@ int main(int argc, char *argv[])
       std::unique_ptr<FILE, fit::file_handle_deleter_t> log_file;
 
       if(!options.log_file.empty()) {
+         // open the log file in binary mode, where supported, so character encoding is preserved
          log_file.reset(fopen(reinterpret_cast<const char*>(options.log_file.c_str()), "ab"));
 
          if(!log_file)

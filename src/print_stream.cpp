@@ -21,7 +21,7 @@ print_stream_t::~print_stream_t(void)
 
 void print_stream_t::print(FILE *stream, const char *prefix, const char *fmt, va_list valist)
 {
-   std::lock_guard<std::mutex> lock(print_mtx);
+   std::unique_lock<std::mutex> lock(print_mtx);
 
    va_list ap;
 
@@ -47,6 +47,12 @@ void print_stream_t::print(FILE *stream, const char *prefix, const char *fmt, va
 
       fputc('\n', print_stream);
    }
+
+   lock.unlock();
+
+   // flush log file on one thread to allow tailing it from another session
+   if(print_stream && lock.try_lock())
+      fflush(print_stream);
 }
 
 void print_stream_t::info(const char *fmt, ...)
