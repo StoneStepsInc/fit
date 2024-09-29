@@ -931,10 +931,14 @@ void file_tracker_t::run(void)
 
                if(version_record.has_value()) {
                   version = version_record.version();
-
                   version_id = version_record.version_id();
-
                   file_id = version_record.file_id();
+               }
+               else {
+                  // there will be no version record for files scanned for the first time
+                  version = 0;
+                  version_id = std::nullopt;
+                  file_id = std::nullopt;
                }
 
                dir_entry = std::move(std::get<3>(args.value()));
