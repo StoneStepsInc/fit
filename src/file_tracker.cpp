@@ -424,7 +424,7 @@ void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& 
    }
 }
 #else
-file_tracker_t::mb_file_hasher_t::param_tuple_t file_tracker_t::open_file(find_file_result_t&& version_record, std::filesystem::directory_entry&& dir_entry) const
+file_tracker_t::mb_file_hasher_t::param_tuple_t file_tracker_t::open_file(version_record_result_t&& version_record, std::filesystem::directory_entry&& dir_entry) const
 {
    //
    // The narrow character version of fopen will fail to open files
@@ -536,7 +536,7 @@ int64_t file_tracker_t::insert_exif_record(const std::u8string& filepath, const 
    return exif_id;
 }
 
-file_tracker_t::find_file_result_t file_tracker_t::select_version_record(const std::u8string& filepath) const
+file_tracker_t::version_record_result_t file_tracker_t::select_version_record(const std::u8string& filepath) const
 {
    int errcode = SQLITE_OK;
 
@@ -558,7 +558,7 @@ file_tracker_t::find_file_result_t file_tracker_t::select_version_record(const s
 
    // if we found a file record, get the columns we need
    if(errcode != SQLITE_ROW)
-      return find_file_result_t{std::nullopt};
+      return version_record_result_t{std::nullopt};
 
    int64_t version = sqlite3_column_int64(stmt_find_version, 0);
 
@@ -595,7 +595,7 @@ file_tracker_t::find_file_result_t file_tracker_t::select_version_record(const s
    //
    find_version_stmt.reset();
 
-   return find_file_result_t{std::make_tuple(
+   return version_record_result_t{std::make_tuple(
             version,
             mod_time,
             hash_type,
@@ -729,7 +729,7 @@ void file_tracker_t::run(void)
 
       std::optional<std::filesystem::directory_entry> dir_entry;
 
-      find_file_result_t version_record;
+      version_record_result_t version_record;
 
       if(files.empty()) {
 #ifdef NO_SSE_AVX

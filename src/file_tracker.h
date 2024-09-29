@@ -66,14 +66,14 @@ class file_tracker_t {
       // A wrapper for the file version select statement result tuple,
       // which provides meaningful names to numbered column identifiers.
       //
-      struct find_file_result_t {
+      struct version_record_result_t {
          std::optional<version_record_t> version_record;
 
-         find_file_result_t(void) : version_record(std::nullopt) {}
-         find_file_result_t(std::optional<version_record_t>&& other) : version_record(std::move(other)) {}
-         find_file_result_t(find_file_result_t&& other) noexcept : version_record(std::move(other.version_record)) {}
+         version_record_result_t(void) : version_record(std::nullopt) {}
+         version_record_result_t(std::optional<version_record_t>&& other) : version_record(std::move(other)) {}
+         version_record_result_t(version_record_result_t&& other) noexcept : version_record(std::move(other.version_record)) {}
 
-         find_file_result_t& operator = (find_file_result_t&& other) noexcept {version_record = std::move(other.version_record); return *this;}
+         version_record_result_t& operator = (version_record_result_t&& other) noexcept {version_record = std::move(other.version_record); return *this;}
 
          bool has_value(void) const {return version_record.has_value();}
 
@@ -110,7 +110,7 @@ class file_tracker_t {
       };
 
 #ifndef NO_SSE_AVX
-      typedef mb_hasher_t<mb_sha256_traits, file_tracker_t, std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t, find_file_result_t, std::filesystem::directory_entry, std::optional<file_read_error_t>> mb_file_hasher_t;
+      typedef mb_hasher_t<mb_sha256_traits, file_tracker_t, std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t, version_record_result_t, std::filesystem::directory_entry, std::optional<file_read_error_t>> mb_file_hasher_t;
 
       static constexpr const size_t HASH_BIN_SIZE = mb_file_hasher_t::traits::HASH_SIZE;
       static constexpr const size_t HASH_HEX_SIZE = HASH_BIN_SIZE * 2;
@@ -173,7 +173,7 @@ class file_tracker_t {
 
       int64_t insert_exif_record(const std::u8string& filepath, const std::vector<exif::field_value_t>& exif_fields, const exif::field_bitset_t& field_bitset);
 
-      find_file_result_t select_version_record(const std::u8string& filepath) const;
+      version_record_result_t select_version_record(const std::u8string& filepath) const;
 
       int64_t insert_version_record(const std::u8string& filepath, int64_t file_id, int64_t version, int64_t filesize, const std::filesystem::directory_entry& dir_entry, unsigned char hexhash_file[], std::optional<int64_t> exif_id);
 
@@ -192,7 +192,7 @@ class file_tracker_t {
       static time_t file_time_to_time_t(const std::chrono::file_clock::time_point& file_time);
 
 #ifndef NO_SSE_AVX
-      mb_file_hasher_t::param_tuple_t open_file(find_file_result_t&& version_record, std::filesystem::directory_entry&& dir_entry) const;
+      mb_file_hasher_t::param_tuple_t open_file(version_record_result_t&& version_record, std::filesystem::directory_entry&& dir_entry) const;
       bool read_file(unsigned char *file_buffer, size_t buf_size, size_t& data_size, mb_file_hasher_t::param_tuple_t& args) const noexcept;
 #endif
 
