@@ -55,7 +55,7 @@ using namespace std::literals::string_literals;
 namespace fit {
 
 static const char *title = "File Integrity Tracker";
-static const char *version = "3.1.0+" STR_BUILD_NUMBER(BUILD_NUMBER);
+static const char *version = "3.2.0+" STR_BUILD_NUMBER(BUILD_NUMBER);
 static const char *copyright = "Copyright (c) 2023 Stone Steps Inc.";
 
 //
@@ -122,7 +122,7 @@ void print_usage(void)
    fputs("    -u           - continue last scan (update last scanset)\n", stdout);
    fputs("    -l path      - log file path\n", stdout);
    fputs("    -a           - skip restricted access directories\n", stdout);
-   fputs("    -X [ext,..]  - EXIF file extensions (default: .jpg.cr2.dng.nef.tif.heif.webp, none: no EXIF)\n", stdout);
+   fputs("    -X [ext,...] - EXIF file extensions (default: .jpg.cr2.dng.nef.tif.heif.webp, none: no EXIF)\n", stdout);
    fputs("    -J           - store EXIF obtained from Exiv2 as JSON\n", stdout);
    fputs("    -S kind      - path separator kind for querying the database (default: none, Windows, POSIX)\n", stdout);
    fputs("    -?           - this help\n", stdout);
