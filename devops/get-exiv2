@@ -1,13 +1,13 @@
 #!/bin/bash
 
-PKG_VER=0.28.0
+PKG_VER=0.28.3
 PKG_REV=%~1
 
 EXIV2_FNAME=exiv2-$PKG_VER-Source.tar.gz
 EXIV2_DNAME=exiv2-$PKG_VER-Source
-EXIV2_SHA256=89af3b5ef7277753ef7a7b5374ae017c6b9e304db3b688f1948e73e103491f3d
+EXIV2_SHA256=1315e17d454bf4da3cc0edb857b1d2c143670f3485b537d0f946d9ed31d87b70
 
-curl --location --output $EXIV2_FNAME https://github.com/Exiv2/exiv2/releases/download/v$PKG_VER/$EXIV2_FNAME
+curl --location --output $EXIV2_FNAME https://github.com/Exiv2/exiv2/archive/refs/tags/v%PKG_VER%.tar.gz
 
 echo "$EXIV2_SHA256  $EXIV2_FNAME" | sha256sum --check
 
@@ -36,7 +36,8 @@ cmake -S $EXIV2_DNAME -B exiv2/Release \
     -DEXIV2_BUILD_EXIV2_COMMAND=OFF \
     -DEXIV2_BUILD_UNIT_TESTS=OFF \
     -DEXIV2_BUILD_FUZZ_TESTS=OFF \
-    -DEXIV2_ENABLE_PNG=ON
+    -DEXIV2_ENABLE_PNG=ON \
+    -DEXIV2_ENABLE_FILESYSTEM_ACCESS=ON
 
 cmake --build exiv2/Release
 

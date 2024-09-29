@@ -93,7 +93,7 @@ void mb_hasher_t<mb_hash_traits, T, P...>::submit_job(param_tuple_t (T::*open_jo
       ctx_args = static_cast<ctx_args_t*>(mb_ctxs[free_ctxs.back()].user_data);
 
       // we cannot throw away a bad context, so this becomes an unrecoverable error that will need to be tracked as a bug
-      if(mb_ctxs[ctx_args->id].status != HASH_CTX_STS_COMPLETE || ctx_args->params.has_value())
+      if(mb_ctxs[ctx_args->id].status != ISAL_HASH_CTX_STS_COMPLETE || ctx_args->params.has_value())
          throw std::runtime_error("A free context must be completed and cannot have arguments (" + std::to_string(ctx_args->id) + ")");
 
       ctx_args->params = (data_obj.*open_job)(std::forward<O>(param)...);
@@ -119,7 +119,7 @@ void mb_hasher_t<mb_hash_traits, T, P...>::submit_job(param_tuple_t (T::*open_jo
       typename mb_hash_traits::HASH_CTX *mb_ctx_ptr = &mb_ctxs.emplace_back();
 
       // sets mb_ctx_ptr->status to HASH_CTX_STS_COMPLETE
-      hash_ctx_init(mb_ctx_ptr);
+      isal_hash_ctx_init(mb_ctx_ptr);
 
       // store a pointer to the corresponding data context
       mb_ctx_ptr->user_data = ctx_args;
@@ -139,6 +139,8 @@ std::optional<typename mb_hasher_t<mb_hash_traits, T, P...>::param_tuple_t> mb_h
 
    size_t last_block_done = 0;
 
+   int isal_error = ISAL_CRYPTO_ERR_NONE;
+
    while (mb_ctx_ptr || !last_block_done) {
       if(mb_ctx_ptr) {
          // always process the immediate context for as long as we have it
@@ -146,7 +148,8 @@ std::optional<typename mb_hasher_t<mb_hash_traits, T, P...>::param_tuple_t> mb_h
 
          moredata = (data_obj.*ctx_args->get_data)(ctx_args->buffer, buf_size, data_size, ctx_args->params.value());
 
-         mb_ctx_ptr = mb_hash_traits::ctx_mgr_submit(&mb_ctx_mgr, mb_ctx_ptr, ctx_args->buffer, static_cast<uint32_t>(data_size), moredata ? HASH_UPDATE : HASH_LAST);
+         if((isal_error = mb_hash_traits::ctx_mgr_submit(&mb_ctx_mgr, mb_ctx_ptr, &mb_ctx_ptr, ctx_args->buffer, static_cast<uint32_t>(data_size), moredata ? ISAL_HASH_UPDATE : ISAL_HASH_LAST)) != ISAL_CRYPTO_ERR_NONE)
+            throw std::runtime_error(FMTNS::format("Cannot submit a hash job {:s} ({:d})", std::to_string(ctx_args->id), isal_error));
 
          ctx_args->processed_size += data_size;
 
@@ -166,7 +169,7 @@ std::optional<typename mb_hasher_t<mb_hash_traits, T, P...>::param_tuple_t> mb_h
 
          ctx_args_t *ctx_args = static_cast<ctx_args_t*>(mb_ctx_ptr->user_data);
 
-         if(mb_ctx_ptr->status != HASH_CTX_STS_COMPLETE || !ctx_args->params.has_value() || ctx_args->processed_size)
+         if(mb_ctx_ptr->status != ISAL_HASH_CTX_STS_COMPLETE || !ctx_args->params.has_value() || ctx_args->processed_size)
             throw std::runtime_error("Got a bad pending state for a hash job " + std::to_string(ctx_args->id));
 
          moredata = (data_obj.*ctx_args->get_data)(ctx_args->buffer, buf_size, data_size, ctx_args->params.value());
@@ -177,7 +180,8 @@ std::optional<typename mb_hasher_t<mb_hash_traits, T, P...>::param_tuple_t> mb_h
          // to handle these cases gracefully, but caller should discard the
          // resulting hash.
          //
-         mb_ctx_ptr = mb_hash_traits::ctx_mgr_submit(&mb_ctx_mgr, mb_ctx_ptr, ctx_args->buffer, static_cast<uint32_t>(data_size), moredata ? HASH_FIRST : HASH_ENTIRE);
+         if((isal_error = mb_hash_traits::ctx_mgr_submit(&mb_ctx_mgr, mb_ctx_ptr, &mb_ctx_ptr, ctx_args->buffer, static_cast<uint32_t>(data_size), moredata ? ISAL_HASH_FIRST : ISAL_HASH_ENTIRE)) != ISAL_CRYPTO_ERR_NONE)
+            throw std::runtime_error(FMTNS::format("Cannot submit a hash job {:s} ({:d})", std::to_string(ctx_args->id), isal_error));
 
          ctx_args->processed_size += data_size;
 
@@ -186,17 +190,17 @@ std::optional<typename mb_hasher_t<mb_hash_traits, T, P...>::param_tuple_t> mb_h
       }
       else {
          // finally, see if we can flush a context to continue
-         if((mb_ctx_ptr = mb_hash_traits::ctx_mgr_flush(&mb_ctx_mgr)) == nullptr)
+         if(mb_hash_traits::ctx_mgr_flush(&mb_ctx_mgr, &mb_ctx_ptr) || mb_ctx_ptr == nullptr)
             throw std::runtime_error("Got a null flushed context while processing hash jobs");
       }
 
       if(mb_ctx_ptr) {
          ctx_args_t *ctx_args = static_cast<ctx_args_t*>(mb_ctx_ptr->user_data);
 
-         if(mb_ctx_ptr->error != HASH_CTX_ERROR_NONE)
+         if(mb_ctx_ptr->error != ISAL_HASH_CTX_ERROR_NONE)
             throw std::runtime_error("Got a context with an error (" + std::to_string(mb_ctx_ptr->error) + ") for a hash job " + std::to_string(ctx_args->id));
 
-         if(mb_ctx_ptr->status == HASH_CTX_STS_COMPLETE) {
+         if(mb_ctx_ptr->status == ISAL_HASH_CTX_STS_COMPLETE) {
             ctx_args->processed_size = 0;
             std::optional<param_tuple_t> params = std::move(ctx_args->params);
             ctx_args->params.reset();
@@ -209,10 +213,10 @@ std::optional<typename mb_hasher_t<mb_hash_traits, T, P...>::param_tuple_t> mb_h
       }
    }
 
-   while((mb_ctx_ptr = mb_hash_traits::ctx_mgr_flush(&mb_ctx_mgr)) != nullptr) {
+   while((isal_error = mb_hash_traits::ctx_mgr_flush(&mb_ctx_mgr, &mb_ctx_ptr)) == ISAL_CRYPTO_ERR_NONE && mb_ctx_ptr != nullptr) {
       ctx_args_t *ctx_args = static_cast<ctx_args_t*>(mb_ctx_ptr->user_data);
 
-      if(mb_ctx_ptr->error != HASH_CTX_ERROR_NONE)
+      if(mb_ctx_ptr->error != ISAL_HASH_CTX_ERROR_NONE)
          throw std::runtime_error("Got a flushed context with an error (" + std::to_string(mb_ctx_ptr->error) + ") for a hash job " + std::to_string(ctx_args->id));
 
       //
@@ -220,7 +224,7 @@ std::optional<typename mb_hasher_t<mb_hash_traits, T, P...>::param_tuple_t> mb_h
       // (i.e. they will not be returned again if flushed again). Hold
       // onto these contexts in the order we got them from flush.
       //
-      if(mb_ctx_ptr->status != HASH_CTX_STS_COMPLETE)
+      if(mb_ctx_ptr->status != ISAL_HASH_CTX_STS_COMPLETE)
          flushed_ctxs.push(mb_ctx_ptr);
       else {
          ctx_args->processed_size = 0;
@@ -234,7 +238,10 @@ std::optional<typename mb_hasher_t<mb_hash_traits, T, P...>::param_tuple_t> mb_h
       }
    }
 
-   throw std::runtime_error("Got a null flushed context while finalizing hash jobs");
+   if(isal_error != ISAL_CRYPTO_ERR_NONE)
+      throw std::runtime_error(FMTNS::format("Cannot flush a hash job ({:d})", isal_error));
+   else
+      throw std::runtime_error("Got a null flushed context while finalizing hash jobs");
 }
 
 template <typename mb_hash_traits, typename T, typename ... P>
