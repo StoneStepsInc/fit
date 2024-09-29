@@ -52,7 +52,7 @@ jobs:
 
     steps:
     - name: Checkout source
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
       # use the command line to build an image, which is more descriptive than the action
     - name: Build ${{ matrix.linux-flavor }} image
@@ -60,7 +60,7 @@ jobs:
         docker build --file devops/Dockerfile.${{ matrix.linux-flavor }} --tag ${{ format(env.CI_BLD_IMG_NAME_FMT, env.CI_BLD_IMG_REG, env.CI_BLD_IMG_OWNER) }} devops
 
     - name: Docker login
-      uses: docker/login-action@v2.0.0
+      uses: docker/login-action@v3
       with:
         registry: ${{ env.CI_BLD_IMG_REG }}
         username: ${{ github.actor }}

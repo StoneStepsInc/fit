@@ -34,7 +34,7 @@ jobs:
     
     steps:
     - name: Checkout source
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Restore Nuget packages
       run: nuget restore
@@ -67,7 +67,7 @@ jobs:
         7z a fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.windows.x64.zip fit-${{ env.VERSION }}-windows
 
     - name: Upload Windows package
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: fit-${{ env.VERSION }}-windows
         path: fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.windows.x64.zip
@@ -91,7 +91,7 @@ jobs:
 
     steps:
     - name: Checkout source
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up SHA-256
       run: |
@@ -112,7 +112,7 @@ jobs:
         tar czf fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.${{ matrix.linux-flavor }}.x64.tar.gz fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}
 
     - name: Upload ${{ matrix.linux-flavor }} package
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}
         path: fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.${{ matrix.linux-flavor }}.x64.tar.gz
@@ -131,52 +131,22 @@ jobs:
       draft-release-upload-url: ${{ steps.draft-release.outputs.upload_url }}
 
     steps:
-    - name: Create a draft release
-      id: draft-release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      # without `name` downloads all artifacts
       with:
-        tag_name: ${{ env.VERSION }}
-        release_name: fit ${{ env.VERSION }}
-        draft: true
-
-  #
-  # Upload all artifacts as draft release assets
-  #
-  upload-release-assets:
-    name: Upload release assets
-    runs-on: ubuntu-22.04
-
-    needs:
-    - create-draft-release
-
-    strategy:
-      matrix:
-       build-flavor:
-       - fedora
-       - ubuntu
-       - windows
-       include:
-       - asset-content-type: application/gzip
-         asset-ext: tar.gz
-       - build-flavor: windows
-         asset-content-type: application/zip
-         asset-ext: zip
-
-    steps:
-    - name: Download ${{ matrix.build-flavor }} package
-      uses: actions/download-artifact@v3
-      with:
-        name: fit-${{ env.VERSION }}-${{ matrix.build-flavor }}
         path: .
 
-    - name: Add ${{ matrix.build-flavor }} package
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # create an draft release and upload build artifacts
+    - name: Create a draft release
+      uses: softprops/action-gh-release@v2
       with:
-        upload_url: ${{ needs.create-draft-release.outputs.draft-release-upload-url }} 
-        asset_path: fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.${{ matrix.build-flavor }}.x64.${{ matrix.asset-ext }}
-        asset_name: fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.${{ matrix.build-flavor }}.x64.${{ matrix.asset-ext }}
-        asset_content_type: ${{ matrix.asset-content-type }}
+        token : ${{ secrets.GITHUB_TOKEN }}
+        tag_name: ${{ env.VERSION }}
+        target_commitish: ${{ github.ref_name }}
+        name: fit ${{ env.VERSION }}
+        draft: true
+        files: |
+          fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.fedora.x64.tar.gz
+          fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.ubuntu.x64.tar.gz
+          fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.windows.x64.zip
