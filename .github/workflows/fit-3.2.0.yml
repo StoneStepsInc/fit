@@ -136,6 +136,8 @@ jobs:
       # without `name` downloads all artifacts
       with:
         path: .
+        # collect all artifacts in the same directory identified by `path`
+        merge-multiple: true
 
       # create an draft release and upload build artifacts
     - name: Create a draft release
