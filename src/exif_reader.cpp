@@ -309,8 +309,6 @@ void exif_reader_t::initialize(print_stream_t& print_stream)
 {
    if(!Exiv2::XmpParser::initialize())
       throw std::runtime_error("Cannot initialize the XMP parser library in Exiv2");
-
-   Exiv2::enableBMFF();
 }
 
 void exif_reader_t::cleanup(print_stream_t& print_stream) noexcept
