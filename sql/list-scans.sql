@@ -6,6 +6,7 @@
 SELECT
   scans.rowid AS scan_id,
   datetime(MAX(scan_time), 'unixepoch') AS scan_time,
+  datetime(MAX(completed_time), 'unixepoch') AS completed_time,
   MAX(app_version) AS app_version,
   COUNT(version_id) AS file_count,
   COUNT(exif_id) AS EXIF_count,
@@ -17,8 +18,8 @@ SELECT
   MAX(message) AS message
 FROM 
   scans
-  JOIN scansets ON scan_id = scans.rowid
-  JOIN versions ON version_id = versions.rowid 
+  LEFT JOIN scansets ON scan_id = scans.rowid
+  LEFT JOIN versions ON version_id = versions.rowid 
 GROUP BY
     scans.rowid
 ORDER BY
