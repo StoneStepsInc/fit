@@ -959,7 +959,8 @@ void file_tracker_t::run(void)
                //
                hash_match = version_record.has_value() && version_record.scanset_scan_id() == base_scan_id.value() &&
                               ((filesize == 0 && !version_record.hexhash().has_value()) ||
-                                 memcmp(hexhash_file, version_record.hexhash().value().data(), HASH_HEX_SIZE) == 0);
+                                 (version_record.hexhash().has_value() && 
+                                    memcmp(hexhash_file, version_record.hexhash().value().data(), HASH_HEX_SIZE) == 0));
             }
 
             //
