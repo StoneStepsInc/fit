@@ -9,7 +9,7 @@ SELECT
     file_id,
     version,
     path,
-    mod_time,
+    datetime(mod_time, 'unixepoch') AS mod_time,
     entry_size,
     hash_type,
     hash
