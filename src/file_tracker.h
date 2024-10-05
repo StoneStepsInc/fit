@@ -149,16 +149,16 @@ class file_tracker_t {
 #endif
       sqlite3 *file_scan_db = nullptr;
 
-      sqlite3_stmt *stmt_insert_file = nullptr;
-      sqlite3_stmt *stmt_insert_version = nullptr;
-      sqlite3_stmt *stmt_insert_scanset_file = nullptr;
-      sqlite3_stmt *stmt_insert_exif = nullptr;
+      sqlite_stmt_t stmt_insert_file;
+      sqlite_stmt_t stmt_insert_version;
+      sqlite_stmt_t stmt_insert_scanset_file;
+      sqlite_stmt_t stmt_insert_exif;
 
-      sqlite3_stmt *stmt_find_file_version = nullptr;
+      sqlite_stmt_t stmt_find_file_version;
 
-      sqlite3_stmt *stmt_begin_txn = nullptr;
-      sqlite3_stmt *stmt_commit_txn = nullptr;
-      sqlite3_stmt *stmt_rollback_txn = nullptr;
+      sqlite_stmt_t stmt_begin_txn;
+      sqlite_stmt_t stmt_commit_txn;
+      sqlite_stmt_t stmt_rollback_txn;
 
    private:
       void init_scan_db_conn(void);
@@ -173,7 +173,7 @@ class file_tracker_t {
 
       int64_t insert_exif_record(const std::u8string& filepath, const std::vector<exif::field_value_t>& exif_fields, const exif::field_bitset_t& field_bitset);
 
-      version_record_result_t select_version_record(const std::u8string& filepath) const;
+      version_record_result_t select_version_record(const std::u8string& filepath);
 
       int64_t insert_version_record(const std::u8string& filepath, int64_t file_id, int64_t version, int64_t filesize, const std::filesystem::directory_entry& dir_entry, unsigned char hexhash_file[], std::optional<int64_t> exif_id);
 
