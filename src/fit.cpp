@@ -460,7 +460,7 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
             schema_version = sqlite3_column_int(user_version_stmt, 0);
 
          if((errcode = user_version_stmt.finalize()) != SQLITE_OK)
-            fprintf(stderr, "Cannot finalize SQLite statment for a database schema version (%s)", sqlite3_errstr(errcode));
+            fprintf(stderr, "Cannot finalize SQLite statement for a database schema version (%s)", sqlite3_errstr(errcode));
       }
       else {
          if(options.verify_files)
@@ -616,7 +616,7 @@ int64_t insert_scan_record(const options_t& options, sqlite3 *file_scan_db)
    }
 
    if((errcode = sqlite3_finalize(stmt_insert_scan)) != SQLITE_OK)
-      throw std::runtime_error("Cannot finalize SQLite statment to insert a scan record ("s + sqlite3_errstr(errcode) + ")");
+      throw std::runtime_error("Cannot finalize SQLite statement to insert a scan record ("s + sqlite3_errstr(errcode) + ")");
 
    return scan_id;
 }
@@ -887,11 +887,11 @@ void update_schema_from_v50(sqlite3 *file_scan_db, print_stream_t& print_stream)
 
    if((errcode = sqlite3_finalize(stmt_select_mod_time)) != SQLITE_OK) {
       sqlite3_finalize(stmt_update_mod_time);
-      throw std::runtime_error("Cannot finalize a SQLite statment to select mod_time ("s + sqlite3_errstr(errcode) + ")");
+      throw std::runtime_error("Cannot finalize a SQLite statement to select mod_time ("s + sqlite3_errstr(errcode) + ")");
    }
 
    if((errcode = sqlite3_finalize(stmt_update_mod_time)) != SQLITE_OK)
-      throw std::runtime_error("Cannot finalize SQLite statment to update mod_time ("s + sqlite3_errstr(errcode) + ")");
+      throw std::runtime_error("Cannot finalize SQLite statement to update mod_time ("s + sqlite3_errstr(errcode) + ")");
 
    //
    // Update `upgrades` and `PRAGMA user_version`

@@ -132,47 +132,47 @@ file_tracker_t::~file_tracker_t(void)
 
    if(stmt_find_last_version) {
       if((errcode = stmt_find_last_version.finalize()) != SQLITE_OK)
-         print_stream.error("Cannot finalize SQLite statment to find the last file version (%s)", sqlite3_errstr(errcode));
+         print_stream.error("Cannot finalize SQLite statement to find the last file version (%s)", sqlite3_errstr(errcode));
    }
 
    if(stmt_find_scan_version) {
       if((errcode = stmt_find_scan_version.finalize()) != SQLITE_OK)
-         print_stream.error("Cannot finalize SQLite statment to find the base file version (%s)", sqlite3_errstr(errcode));
+         print_stream.error("Cannot finalize SQLite statement to find the base file version (%s)", sqlite3_errstr(errcode));
    }
 
    if(stmt_insert_file) {
       if((errcode = stmt_insert_file.finalize()) != SQLITE_OK)
-         print_stream.error("Cannot finalize SQLite statment to insert a file (%s)", sqlite3_errstr(errcode));
+         print_stream.error("Cannot finalize SQLite statement to insert a file (%s)", sqlite3_errstr(errcode));
    }
 
    if(stmt_insert_version) {
       if((errcode = stmt_insert_version.finalize()) != SQLITE_OK)
-         print_stream.error("Cannot finalize SQLite statment to insert a version (%s)", sqlite3_errstr(errcode));
+         print_stream.error("Cannot finalize SQLite statement to insert a version (%s)", sqlite3_errstr(errcode));
    }
 
    if(stmt_insert_scanset_entry) {
       if((errcode = stmt_insert_scanset_entry.finalize()) != SQLITE_OK)
-         print_stream.error("Cannot finalize SQLite statment to insert a scanset file (%s)", sqlite3_errstr(errcode));
+         print_stream.error("Cannot finalize SQLite statement to insert a scanset file (%s)", sqlite3_errstr(errcode));
    }
 
    if(stmt_insert_exif) {
       if((errcode = stmt_insert_exif.finalize()) != SQLITE_OK)
-         print_stream.error("Cannot finalize SQLite statment to insert an EXIF record (%s)", sqlite3_errstr(errcode));
+         print_stream.error("Cannot finalize SQLite statement to insert an EXIF record (%s)", sqlite3_errstr(errcode));
    }
 
    if(stmt_begin_txn) {
       if((errcode = stmt_begin_txn.finalize()) != SQLITE_OK)
-         print_stream.error("Cannot finalize SQLite statment to begin a transaction (%s)", sqlite3_errstr(errcode));
+         print_stream.error("Cannot finalize SQLite statement to begin a transaction (%s)", sqlite3_errstr(errcode));
    }
 
    if(stmt_commit_txn) {
       if((errcode = stmt_commit_txn.finalize()) != SQLITE_OK)
-         print_stream.error("Cannot finalize SQLite statment to commit a transaction (%s)", sqlite3_errstr(errcode));
+         print_stream.error("Cannot finalize SQLite statement to commit a transaction (%s)", sqlite3_errstr(errcode));
    }
 
    if(stmt_rollback_txn) {
       if((errcode = stmt_rollback_txn.finalize()) != SQLITE_OK)
-         print_stream.error("Cannot finalize SQLite statment to rollback a transaction (%s)", sqlite3_errstr(errcode));
+         print_stream.error("Cannot finalize SQLite statement to rollback a transaction (%s)", sqlite3_errstr(errcode));
    }
 
    if(file_scan_db) {
@@ -404,7 +404,7 @@ bool file_tracker_t::set_sqlite_journal_mode(sqlite3 *file_scan_db, print_stream
    bool have_wal = journal_mode && !strcmp(journal_mode, "wal");
 
    if((errcode = journal_mode_stmt.finalize()) != SQLITE_OK)
-      print_stream.warning("Cannot finalize SQLite statment for setting journal mode to WAL (%s)", sqlite3_errstr(errcode));
+      print_stream.warning("Cannot finalize SQLite statement for setting journal mode to WAL (%s)", sqlite3_errstr(errcode));
 
    return have_wal;
 }
