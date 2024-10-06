@@ -2,7 +2,7 @@ diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
 index 41a672e89..3de4fec56 100644
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
-@@ -166,6 +166,9 @@ set_target_properties( exiv2lib PROPERTIES
+@@ -163,6 +163,9 @@ set_target_properties( exiv2lib PROPERTIES
      COMPILE_FLAGS ${EXTRA_COMPILE_FLAGS}
  )
  
