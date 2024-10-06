@@ -716,9 +716,9 @@ std::u8string select_scan_options(int64_t scan_id, sqlite3 *file_scan_db)
    return scan_options;
 }
 
-int64_t select_base_scan_for_update(int64_t scan_id, sqlite3 *file_scan_db)
+std::optional<int64_t> select_base_scan_for_update(int64_t scan_id, sqlite3 *file_scan_db)
 {
-   int64_t base_scan_id;
+   std::optional<int64_t> base_scan_id;
 
    int errcode = SQLITE_OK;
 
@@ -735,11 +735,8 @@ int64_t select_base_scan_for_update(int64_t scan_id, sqlite3 *file_scan_db)
 
    errcode = sqlite3_step(stmt_base_scan);
 
-   // cannot update the last scan without a previous one
-   if(errcode != SQLITE_ROW)
-      throw std::runtime_error("Cannot select base scan for update "s + " (" + sqlite3_errstr(errcode) + ")");
-
-   base_scan_id = sqlite3_column_int64(stmt_base_scan, 0);
+   if(errcode == SQLITE_ROW)
+      base_scan_id = sqlite3_column_int64(stmt_base_scan, 0);
 
    base_scan_stmt.release();
 
@@ -749,10 +746,10 @@ int64_t select_base_scan_for_update(int64_t scan_id, sqlite3 *file_scan_db)
    return base_scan_id;
 }
 
-int64_t select_scan_id_for_update(const options_t& options, int64_t scan_id, sqlite3 *file_scan_db)
+std::optional<int64_t> select_scan_for_update(const options_t& options, int64_t scan_id, sqlite3 *file_scan_db)
 {
    std::u8string scan_options;
-   int64_t base_scan_id;
+   std::optional<int64_t> base_scan_id;
 
    base_scan_id = select_base_scan_for_update(scan_id, file_scan_db);
    scan_options = select_scan_options(scan_id, file_scan_db);
@@ -1029,7 +1026,7 @@ int main(int argc, char *argv[])
 
             // set the current scan to the one we found (last scan at this point) and find a previous scan to use as a base scan
             scan_id = base_scan_id.value();
-            base_scan_id = fit::select_scan_id_for_update(options, base_scan_id.value(), file_scan_db.get());
+            base_scan_id = fit::select_scan_for_update(options, base_scan_id.value(), file_scan_db.get());
          }
       }
 
