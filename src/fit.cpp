@@ -685,39 +685,68 @@ std::tuple<std::optional<int64_t>, bool> select_base_scan_id(const options_t& op
    return std::make_tuple(scan_id, completed_scan);
 }
 
-std::tuple<int64_t, std::u8string> select_previous_scan_options(int64_t scan_id, sqlite3 *file_scan_db)
+std::u8string select_scan_options(int64_t scan_id, sqlite3 *file_scan_db)
 {
    std::u8string scan_options;
-   int64_t base_scan_id;
 
    int errcode = SQLITE_OK;
 
-   sqlite_stmt_t stmt_last_scan("last scan options"sv);
+   sqlite_stmt_t stmt_last_scan("scan options"sv);
 
-   // no need to check for a completed scan because we would keep trying to complete the last one until it is done (i.e. only the last one can be incomplete)
-   std::string_view sql_last_scan = "SELECT rowid, options FROM scans WHERE scans.rowid < ? ORDER BY rowid DESC LIMIT 1"sv;
+   std::string_view sql_last_scan = "SELECT options FROM scans WHERE scans.rowid = ?"sv;
 
    stmt_last_scan.prepare(file_scan_db, sql_last_scan);
 
-   sqlite_stmt_binder_t last_scan_stmt(stmt_last_scan, "last scan options"sv);
+   sqlite_stmt_binder_t last_scan_stmt(stmt_last_scan, "scan options"sv);
 
    last_scan_stmt.bind_param(scan_id);
 
    errcode = sqlite3_step(stmt_last_scan);
 
-   // cannot update the last scan without a previous one
    if(errcode != SQLITE_ROW)
-      throw std::runtime_error("Cannot select last scan options "s + " (" + sqlite3_errstr(errcode) + ")");
+      throw std::runtime_error(FMTNS::format("Cannot select scan {:d} options ({:s})", scan_id, sqlite3_errstr(errcode)));
 
-   base_scan_id = sqlite3_column_int64(stmt_last_scan, 0);
-   scan_options.assign(reinterpret_cast<const char8_t*>(sqlite3_column_text(stmt_last_scan, 1)), sqlite3_column_bytes(stmt_last_scan, 1));
+   scan_options.assign(reinterpret_cast<const char8_t*>(sqlite3_column_text(stmt_last_scan, 0)), sqlite3_column_bytes(stmt_last_scan, 0));
 
    last_scan_stmt.release();
 
    if((errcode = stmt_last_scan.finalize()) != SQLITE_OK)
-      throw std::runtime_error("Cannot finalize a last scan options statment ("s + sqlite3_errstr(errcode) + ")");
+      throw std::runtime_error("Cannot finalize scan options statement ("s + sqlite3_errstr(errcode) + ")");
 
-   return std::make_tuple(base_scan_id, scan_options);
+   return scan_options;
+}
+
+int64_t select_base_scan_for_update(int64_t scan_id, sqlite3 *file_scan_db)
+{
+   int64_t base_scan_id;
+
+   int errcode = SQLITE_OK;
+
+   sqlite_stmt_t stmt_base_scan("base scan for update"sv);
+
+   // no need to check for a completed scan because we would keep trying to complete the last one until it is done (i.e. only the last one can be incomplete)
+   std::string_view sql_last_scan = "SELECT rowid FROM scans WHERE scans.rowid < ? ORDER BY rowid DESC LIMIT 1"sv;
+
+   stmt_base_scan.prepare(file_scan_db, sql_last_scan);
+
+   sqlite_stmt_binder_t base_scan_stmt(stmt_base_scan, "base scan for update"sv);
+
+   base_scan_stmt.bind_param(scan_id);
+
+   errcode = sqlite3_step(stmt_base_scan);
+
+   // cannot update the last scan without a previous one
+   if(errcode != SQLITE_ROW)
+      throw std::runtime_error("Cannot select base scan for update "s + " (" + sqlite3_errstr(errcode) + ")");
+
+   base_scan_id = sqlite3_column_int64(stmt_base_scan, 0);
+
+   base_scan_stmt.release();
+
+   if((errcode = stmt_base_scan.finalize()) != SQLITE_OK)
+      throw std::runtime_error("Cannot finalize a base scan for update statement ("s + sqlite3_errstr(errcode) + ")");
+
+   return base_scan_id;
 }
 
 int64_t select_scan_id_for_update(const options_t& options, int64_t scan_id, sqlite3 *file_scan_db)
@@ -725,7 +754,8 @@ int64_t select_scan_id_for_update(const options_t& options, int64_t scan_id, sql
    std::u8string scan_options;
    int64_t base_scan_id;
 
-   std::tie(base_scan_id, scan_options) = select_previous_scan_options(scan_id, file_scan_db);
+   base_scan_id = select_base_scan_for_update(scan_id, file_scan_db);
+   scan_options = select_scan_options(scan_id, file_scan_db);
 
    //
    // Make sure last scan was created with exact same options, in the
