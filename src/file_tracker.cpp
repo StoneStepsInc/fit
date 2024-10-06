@@ -60,11 +60,11 @@ static constexpr const size_t HASH_HEX_SIZE = HASH_BIN_SIZE * 2;
 static constexpr std::string_view HASH_TYPE = "SHA256";
 #endif
 
-file_tracker_t::file_tracker_t(const options_t& options, std::optional<int64_t>& scan_id, std::optional<int64_t>& last_scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info, print_stream_t& print_stream) :
+file_tracker_t::file_tracker_t(const options_t& options, std::optional<int64_t>& scan_id, std::optional<int64_t>& base_scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info, print_stream_t& print_stream) :
       options(options),
       print_stream(print_stream),
       scan_id(scan_id),
-      last_scan_id(last_scan_id),
+      base_scan_id(base_scan_id),
       hash_type(HASH_TYPE),
       file_buffer(new unsigned char[options.buffer_size]),
       files(files),
@@ -78,8 +78,8 @@ file_tracker_t::file_tracker_t(const options_t& options, std::optional<int64_t>&
 {
    init_scan_db_conn();
 
-   if(last_scan_id.has_value())
-      init_last_scan_stmts();
+   if(base_scan_id.has_value())
+      init_base_scan_stmts();
 
    if(scan_id.has_value()) {
       init_new_scan_stmts();
@@ -91,7 +91,7 @@ file_tracker_t::file_tracker_t(file_tracker_t&& other) :
       options(other.options),
       print_stream(other.print_stream),
       scan_id(std::move(other.scan_id)),
-      last_scan_id(std::move(other.last_scan_id)),
+      base_scan_id(std::move(other.base_scan_id)),
       hash_type(other.hash_type),
       file_buffer(std::move(other.file_buffer)),
       files(other.files),
@@ -103,7 +103,7 @@ file_tracker_t::file_tracker_t(file_tracker_t&& other) :
       stmt_insert_version(other.stmt_insert_version),
       stmt_insert_scanset_file(other.stmt_insert_scanset_file),
       stmt_insert_exif(other.stmt_insert_exif),
-      stmt_find_version(other.stmt_find_version),
+      stmt_find_file_version(other.stmt_find_file_version),
       stmt_begin_txn(other.stmt_begin_txn),
       stmt_commit_txn(other.stmt_commit_txn),
       stmt_rollback_txn(other.stmt_rollback_txn),
@@ -120,7 +120,7 @@ file_tracker_t::file_tracker_t(file_tracker_t&& other) :
    other.stmt_insert_scanset_file = nullptr;
    other.stmt_insert_exif = nullptr;
 
-   other.stmt_find_version = nullptr;
+   other.stmt_find_file_version = nullptr;
 
    other.stmt_begin_txn = nullptr;
    other.stmt_commit_txn = nullptr;
@@ -131,9 +131,9 @@ file_tracker_t::~file_tracker_t(void)
 {
    int errcode = SQLITE_OK;
 
-   if(stmt_find_version) {
-      if((errcode = sqlite3_finalize(stmt_find_version)) != SQLITE_OK)
-         print_stream.error("Cannot finalize SQLite statment to find a file version (%s)", sqlite3_errstr(errcode));
+   if(stmt_find_file_version) {
+      if((errcode = sqlite3_finalize(stmt_find_file_version)) != SQLITE_OK)
+         print_stream.error("Cannot finalize SQLite statment to find the base file version (%s)", sqlite3_errstr(errcode));
    }
 
    if(stmt_insert_file) {
@@ -284,7 +284,7 @@ void file_tracker_t::init_transaction_stmts(void)
       print_stream.error("Cannot prepare a SQLite statement to roll back a transaction (%s)", sqlite3_errstr(errcode));
 }
 
-void file_tracker_t::init_last_scan_stmts(void)
+void file_tracker_t::init_base_scan_stmts(void)
 {
    int errcode = SQLITE_OK;
 
@@ -302,17 +302,25 @@ void file_tracker_t::init_last_scan_stmts(void)
    // The last scan ID is not included in the query because it will
    // make it impossible to select a past version of a file that
    // was deleted in the last scan and will require more complex
-   // handling to select a file by path and find the last available
+   // logic to select a file by path and find the last available
    // version, so it can be incremented.
    // 
-   // columns:                                       0         1          2     3               4        5        6
-   std::string_view sql_find_version = "SELECT version, mod_time, hash_type, hash, versions.rowid, file_id, scan_id "
+   // Note that version data is only usable if the version scan ID
+   // is the same as either scan_id (current scan) or base_scan_id,
+   // depending on what is being evaluated. However, file_id can
+   // always be used because there is only one file path that can
+   // possibly exist for all and any versions of each file (i.e.
+   // a file record cannot exist without a version record and if
+   // there's any version record, there will be a file record).
+   // 
+   // columns:                                            0         1          2     3               4        5        6
+   std::string_view sql_find_file_version = "SELECT version, mod_time, hash_type, hash, versions.rowid, file_id, scan_id "
                                        "FROM versions JOIN files ON file_id = files.rowid JOIN scansets ON version_id = versions.rowid "
    // parameters:                                    1
                                        "WHERE path = ? ORDER BY version DESC, scan_id DESC LIMIT 1"sv;
 
-   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_find_version.data(), (int) sql_find_version.length()+1, &stmt_find_version, nullptr)) != SQLITE_OK)
-      print_stream.error("Cannot prepare a SQLite statement to find a file version (%s)", sqlite3_errstr(errcode));
+   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_find_file_version.data(), (int) sql_find_file_version.length()+1, &stmt_find_file_version, nullptr)) != SQLITE_OK)
+      throw std::runtime_error(FMTNS::format("Cannot prepare a SQLite statement to find the base file version ({:s})", sqlite3_errstr(errcode)));
 }
 
 time_t file_tracker_t::file_time_to_time_t(const std::chrono::file_clock::time_point& file_time)
@@ -541,6 +549,8 @@ file_tracker_t::version_record_result_t file_tracker_t::select_version_record(co
    int errcode = SQLITE_OK;
 
    unsigned char hexhash_field[HASH_HEX_SIZE + 1] = {};      // database hash; should not be accessed if hash_field_is_null is true
+
+   sqlite3_stmt *stmt_find_version = stmt_find_file_version;
 
    //
    // Attempt to find the file by its relative path first. For
@@ -789,8 +799,8 @@ void file_tracker_t::run(void)
                // Linux invalid characters in file paths will be handled in
                // some other way. Currently observed behavior is to replace
                // invalid characters with U+FFFD (e.g. mounting an NTFS volume
-               // with paths containing invalid characters), which which fails
-               // when trying to open such file, not here. Need to collect more
+               // with paths containing invalid characters), which fails when
+               // trying to open such file, not here. Need to collect more
                // info on how invalid code unit sequences are handled on Linux
                // (different file systems, etc).
                //
@@ -824,16 +834,15 @@ void file_tracker_t::run(void)
                std::for_each(filepath_query.begin(), filepath_query.end(), [this](char8_t& pc) {if(pc == std::filesystem::path::preferred_separator) pc = options.query_path_sep.value();});
             }
 
-            // there can be no version records without a previous scan
-            if(last_scan_id.has_value())
+            // attempt to find a version record for the file in question if there is a scan provided
+            if(base_scan_id.has_value())
                version_record = select_version_record(!options.query_path_sep.has_value() ? filepath : filepath_query);
          }
 
          //
          // Skip all file processing if we are updating the last scanset and
-         // found a file version record with the same scan number as we have
-         // in this file tracker instance, which is set to the last scan
-         // number if options.update_last_scanset is true.
+         // found a file version record with the current scan number in this
+         // file tracker instance (scan_id).
          //
          if(!options.update_last_scanset || !version_record.has_value() || version_record.scanset_scan_id() != scan_id) {
             //
@@ -842,8 +851,8 @@ void file_tracker_t::run(void)
             // in the database.
             // 
             if(dir_entry.has_value()) {
-               // last_scan_id must be checked to avoid picking up a time stamp of a deleted file in one of the past versions
-               if(!options.verify_files && options.skip_hash_mod_time && version_record.has_value() && version_record.scanset_scan_id() == last_scan_id.value()
+               // base_scan_id must be checked to avoid picking up a time stamp of a deleted file in one of the past versions
+               if(!options.verify_files && options.skip_hash_mod_time && version_record.has_value() && version_record.scanset_scan_id() == base_scan_id.value()
                      && version_record.mod_time() == static_cast<int64_t>(file_time_to_time_t(dir_entry.value().last_write_time()))) {
                   hash_match = true;
                }
@@ -952,13 +961,13 @@ void file_tracker_t::run(void)
 
                //
                // Only consider a version record if it was included in the
-               // last scan. Otherwise, this record describes a file that
-               // was deleted since the scan ID in the version record.
+               // base scan. Otherwise, this record describes a file that
+               // was deleted before the base scan.
                // 
                // Within a suitable version record, consider a NULL hash
                // field as a match for zero-length files.
                //
-               hash_match = version_record.has_value() && version_record.scanset_scan_id() == last_scan_id.value() &&
+               hash_match = version_record.has_value() && version_record.scanset_scan_id() == base_scan_id.value() &&
                               ((filesize == 0 && !version_record.hexhash().has_value()) ||
                                  memcmp(hexhash_file, version_record.hexhash().value().data(), HASH_HEX_SIZE) == 0);
             }
@@ -985,8 +994,8 @@ void file_tracker_t::run(void)
             if(!hash_match) {
                // handle the mismatched hash based on whether we are verifying or scanning
                if(options.verify_files) {
-                  // differentiate between new, modified and changed files (a scanned file with a version in scan 1and no version in scan 2, is a new file)
-                  if(!version_record.has_value() || (last_scan_id.has_value() && version_record.scanset_scan_id() != last_scan_id.value())) {
+                  // differentiate between new, modified and changed files (a scanned file with a version in scan 1 and no version in a base scan 2, is a new file)
+                  if(!version_record.has_value() || (base_scan_id.has_value() && version_record.scanset_scan_id() != base_scan_id.value())) {
                      progress_info.new_files++;
                      print_stream.warning(   "new file: %s", filepath.c_str());
                   }
@@ -1044,7 +1053,7 @@ void file_tracker_t::run(void)
          // Update stats for processed files
          //
          progress_info.processed_files++;
-         progress_info.processed_size += options.skip_hash_mod_time ? dir_entry.value().file_size() : filesize;
+         progress_info.processed_size += options.skip_hash_mod_time || options.update_last_scanset ? dir_entry.value().file_size() : filesize;
       }
       catch (const std::exception& error) {
          progress_info.failed_files++;

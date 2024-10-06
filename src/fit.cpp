@@ -87,8 +87,10 @@ static const char *copyright = "Copyright (c) 2023 Stone Steps Inc.";
 //   v5.0   Added Exiv2Json to exif
 // 
 //   v6.0   File time stamps are in time_t now (no schema changes)
+// 
+//   v7.0   Added scans.completed_time
 //
-static const int DB_SCHEMA_VERSION = 60;
+static const int DB_SCHEMA_VERSION = 70;
 
 std::atomic<bool> abort_scan = false;
 
@@ -518,6 +520,7 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
          if(sqlite3_exec(file_scan_db, "CREATE TABLE scans ("
                                           "app_version TEXT NOT NULL,"
                                           "scan_time INTEGER NOT NULL,"
+                                          "completed_time INTEGER NULL,"
                                           "base_path TEXT,"
                                           "options TEXT NOT NULL,"
                                           "message TEXT);", nullptr, nullptr, &errmsg) != SQLITE_OK)
@@ -571,7 +574,7 @@ int64_t insert_scan_record(const options_t& options, sqlite3 *file_scan_db)
    sqlite3_stmt *stmt_insert_scan = nullptr;
 
    //                                                               1          2          4        6        7
-   std::string_view sql_insert_scan = "insert into scans (app_version, scan_time, base_path, options, message) values (?, ?, ?, ?, ?)"sv;
+   std::string_view sql_insert_scan = "INSERT INTO scans (app_version, scan_time, base_path, options, message) VALUES (?, ?, ?, ?, ?)"sv;
 
    // SQLite docs say there's a small performance gain if the null terminator is included in length
    if((errcode = sqlite3_prepare_v2(file_scan_db, sql_insert_scan.data(), (int) sql_insert_scan.length()+1, &stmt_insert_scan, nullptr)) != SQLITE_OK)
@@ -608,79 +611,102 @@ int64_t insert_scan_record(const options_t& options, sqlite3 *file_scan_db)
    return scan_id;
 }
 
-std::optional<int64_t> select_last_scan_id(const options_t& options, sqlite3 *file_scan_db)
+void complete_scan_record(int64_t scan_id, sqlite3 *file_scan_db)
+{
+   int errcode = SQLITE_OK;
+
+   sqlite_stmt_t stmt_complete_scan("complete scan"sv);
+
+   //                                                                    1               2
+   std::string_view sql_complete_scan = "UPDATE scans SET completed_time=? WHERE rowid = ? AND completed_time is NULL"sv;
+
+   stmt_complete_scan.prepare(file_scan_db, sql_complete_scan);
+
+   sqlite_stmt_binder_t complete_scan_stmt(stmt_complete_scan, "complete scan"sv);
+
+   complete_scan_stmt.bind_param(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
+   complete_scan_stmt.bind_param(scan_id);
+
+   errcode = sqlite3_step(stmt_complete_scan);
+
+   if(errcode != SQLITE_DONE)
+      throw std::runtime_error(FMTNS::format("Cannot complete the scan ({:s})", sqlite3_errstr(errcode)));
+
+   int updated_scans = sqlite3_changes(file_scan_db);
+
+   if(updated_scans != 1)
+      throw std::runtime_error("Cannot complete the scan");
+}
+
+std::tuple<std::optional<int64_t>, bool> select_base_scan_id(const options_t& options, sqlite3 *file_scan_db)
 {
    std::optional<int64_t> scan_id;
+   bool completed_scan = false;
 
    int errcode = SQLITE_OK;
 
-   sqlite3_stmt *stmt_last_scan = nullptr;
+   sqlite_stmt_t stmt_base_scan("select base scan"sv);
 
-   std::string_view sql_last_scan = "SELECT scans.rowid FROM scans ORDER BY scans.rowid DESC LIMIT 1"sv;
+   std::string_view sql_base_scan = "SELECT scans.rowid, completed_time FROM scans ORDER BY scans.rowid DESC LIMIT 1"sv;
 
-   // SQLite docs say there's a small performance gain if the null terminator is included in length
-   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_last_scan.data(), (int) sql_last_scan.length()+1, &stmt_last_scan, nullptr)) != SQLITE_OK)
-      throw std::runtime_error("Cannot prepare a SQL statement to find the last scan ("s + sqlite3_errstr(errcode) + ")");
+   stmt_base_scan.prepare(file_scan_db, sql_base_scan);
 
-   errcode = sqlite3_step(stmt_last_scan);
+   sqlite_stmt_binder_t base_scan_stmt(stmt_base_scan, "select base scan"sv);
+
+   errcode = sqlite3_step(stmt_base_scan);
 
    if(errcode != SQLITE_DONE && errcode != SQLITE_ROW)
       throw std::runtime_error("Cannot find the last scan in the database");
 
-   if(errcode == SQLITE_ROW)
-      scan_id = sqlite3_column_int64(stmt_last_scan, 0);
+   if(errcode == SQLITE_ROW) {
+      scan_id = sqlite3_column_int64(stmt_base_scan, 0);
+      completed_scan = sqlite3_column_type(stmt_base_scan, 1) != SQLITE_NULL;
+   }
 
-   if((errcode = sqlite3_reset(stmt_last_scan)) != SQLITE_OK)
-      throw std::runtime_error("Cannot reset the SQL statement to find the last scan ("s + sqlite3_errstr(errcode) + ")");
-
-   if((errcode = sqlite3_finalize(stmt_last_scan)) != SQLITE_OK)
-      throw std::runtime_error("Cannot finalize the SQL statement to find the last scan ("s + sqlite3_errstr(errcode) + ")");
-
-   return scan_id;
+   return std::make_tuple(scan_id, completed_scan);
 }
 
-int64_t select_scan_id_for_update(const options_t& options, sqlite3 *file_scan_db)
+std::tuple<int64_t, std::u8string> select_previous_scan_options(int64_t scan_id, sqlite3 *file_scan_db)
 {
    std::u8string scan_options;
-   std::optional<int64_t> scan_id;
-   std::optional<std::runtime_error> select_error;
+   int64_t base_scan_id;
 
    int errcode = SQLITE_OK;
 
-   sqlite3_stmt *stmt_last_scan = nullptr;
+   sqlite_stmt_t stmt_last_scan("last scan options"sv);
 
-   std::string_view sql_last_scan = "SELECT scans.rowid, options FROM scans ORDER BY scans.rowid DESC LIMIT 1"sv;
+   // no need to check for a completed scan because we would keep trying to complete the last one until it is done (i.e. only the last one can be incomplete)
+   std::string_view sql_last_scan = "SELECT rowid, options FROM scans WHERE scans.rowid < ? ORDER BY rowid DESC LIMIT 1"sv;
 
-   // SQLite docs say there's a small performance gain if the null terminator is included in length
-   if((errcode = sqlite3_prepare_v2(file_scan_db, sql_last_scan.data(), (int) sql_last_scan.length()+1, &stmt_last_scan, nullptr)) != SQLITE_OK)
-      throw std::runtime_error("Cannot prepare a last scan statement ("s + sqlite3_errstr(errcode) + ")");
+   stmt_last_scan.prepare(file_scan_db, sql_last_scan);
+
+   sqlite_stmt_binder_t last_scan_stmt(stmt_last_scan, "last scan options"sv);
+
+   last_scan_stmt.bind_param(scan_id);
 
    errcode = sqlite3_step(stmt_last_scan);
 
-   // if there's any error, hold onto it, so we can finalize the statement
-   if(errcode != SQLITE_DONE && errcode != SQLITE_ROW)
-      select_error.emplace("Cannot select the last scan "s + " (" + sqlite3_errstr(errcode) + ")");
-   else {
-      if(errcode == SQLITE_ROW) {
-         scan_id = sqlite3_column_int64(stmt_last_scan, 0);
+   // cannot update the last scan without a previous one
+   if(errcode != SQLITE_ROW)
+      throw std::runtime_error("Cannot select last scan options "s + " (" + sqlite3_errstr(errcode) + ")");
 
-         scan_options.assign(reinterpret_cast<const char8_t*>(sqlite3_column_text(stmt_last_scan, 1)), sqlite3_column_bytes(stmt_last_scan, 1));
-      }
-   }
+   base_scan_id = sqlite3_column_int64(stmt_last_scan, 0);
+   scan_options.assign(reinterpret_cast<const char8_t*>(sqlite3_column_text(stmt_last_scan, 1)), sqlite3_column_bytes(stmt_last_scan, 1));
 
-   if((errcode = sqlite3_reset(stmt_last_scan)) != SQLITE_OK)
-      throw std::runtime_error("Cannot reset a last scan statement ("s + sqlite3_errstr(errcode) + ")");
+   last_scan_stmt.reset();
 
-   if((errcode = sqlite3_finalize(stmt_last_scan)) != SQLITE_OK)
-      throw std::runtime_error("Cannot finalize a last scan statment ("s + sqlite3_errstr(errcode) + ")");
+   if((errcode = stmt_last_scan.finalize()) != SQLITE_OK)
+      throw std::runtime_error("Cannot finalize a last scan options statment ("s + sqlite3_errstr(errcode) + ")");
 
-   // error out if we didn't find the last scan
-   if(!scan_id.has_value()) {
-      if(!select_error.has_value())
-         throw std::runtime_error("Cannot update the last scan (none is found in the database)");
-      else
-         throw select_error.value();
-   }
+   return std::make_tuple(base_scan_id, scan_options);
+}
+
+int64_t select_scan_id_for_update(const options_t& options, int64_t scan_id, sqlite3 *file_scan_db)
+{
+   std::u8string scan_options;
+   int64_t base_scan_id;
+
+   std::tie(base_scan_id, scan_options) = select_previous_scan_options(scan_id, file_scan_db);
 
    //
    // Make sure last scan was created with exact same options, in the
@@ -723,7 +749,7 @@ int64_t select_scan_id_for_update(const options_t& options, sqlite3 *file_scan_d
    if(*optcp || *scncp)
       throw std::runtime_error("Update scan must have the same options as the last scan");
 
-   return scan_id.value();
+   return base_scan_id;
 }
 
 void update_schema_from_v50(sqlite3 *file_scan_db, print_stream_t& print_stream)
@@ -911,21 +937,39 @@ int main(int argc, char *argv[])
       }
 
       std::optional<int64_t> scan_id;
-      std::optional<int64_t> last_scan_id;
+      std::optional<int64_t> base_scan_id;
+      bool completed_scan = false;
       
-      if(options.verify_files) {
-         last_scan_id = fit::select_last_scan_id(options, file_scan_db.get());
+      //
+      // Get the base scan, against which current files will be
+      // compared. For a regular scan, it will be the last scan,
+      // and for a verification scan it can be any scan specified
+      // on the command line, defaulting to the last one. The base
+      // scan can change in case if the last scan is incomplete.
+      //
+      std::tie(base_scan_id, completed_scan) = fit::select_base_scan_id(options, file_scan_db.get());
 
-         if(!last_scan_id.has_value())
-            throw std::runtime_error("Cannot verify files without a previous scan (none is found in the database)");
+      if(options.verify_files) {
+         if(!base_scan_id.has_value())
+            throw std::runtime_error("Cannot verify files without a base scan (none is found in the database)");
+
+         if(!completed_scan)
+            throw std::runtime_error(FMTNS::format("Cannot verify files against an incomplete scan {:d}", base_scan_id.value()));
       }
       else {
-         if(options.update_last_scanset)
-            last_scan_id = scan_id = fit::select_scan_id_for_update(options, file_scan_db.get());
-         else {
-            last_scan_id = fit::select_last_scan_id(options, file_scan_db.get());
+         if(base_scan_id.has_value() && !completed_scan) {
+            options.update_last_scanset = true;
+            options.all += u8" -u";
 
+            print_stream.warning("Continuing interrupted scan %" PRId64 " (forcing -u)", base_scan_id.value());
+         }
+
+         if(!options.update_last_scanset)
             scan_id = fit::insert_scan_record(options, file_scan_db.get());
+         else {
+            // set the current scan to the one we found (last scan at this point) and find a previous scan to use as a base scan
+            scan_id = base_scan_id.value();
+            base_scan_id = fit::select_scan_id_for_update(options, base_scan_id.value(), file_scan_db.get());
          }
       }
 
@@ -946,16 +990,20 @@ int main(int argc, char *argv[])
       fit::file_tree_walker_t::initialize(print_stream);
 
       try {
-         fit::file_tree_walker_t file_tree_walker(options, scan_id, last_scan_id, print_stream);
+         fit::file_tree_walker_t file_tree_walker(options, scan_id, base_scan_id, print_stream);
 
          if(options.recursive_scan)
             file_tree_walker.walk_tree<std::filesystem::recursive_directory_iterator>();
          else
             file_tree_walker.walk_tree<std::filesystem::directory_iterator>();
 
-         std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
+         if(!options.verify_files)
+            fit::complete_scan_record(scan_id.value(), file_scan_db.get());
 
-         fit::close_sqlite_database(file_scan_db.release());
+         if(!options.verify_files)
+            fit::close_sqlite_database(file_scan_db.release());
+
+         std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
 
          //
          // Print scan results and timing

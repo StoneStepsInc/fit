@@ -40,6 +40,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sql", "sql", "{4CCE7C08-066
 		sql\upgrade-db_2.0-3.0.sql = sql\upgrade-db_2.0-3.0.sql
 		sql\upgrade-db_3.0-4.0.sql = sql\upgrade-db_3.0-4.0.sql
 		sql\upgrade-db_4.0-5.0.sql = sql\upgrade-db_4.0-5.0.sql
+		upgrade-db_6.0-7.0.sql = upgrade-db_6.0-7.0.sql
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{7A08580E-D448-4CA2-859F-D4CCD7D5A533}"

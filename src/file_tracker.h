@@ -125,7 +125,7 @@ class file_tracker_t {
 
       std::optional<int64_t> scan_id;
 
-      std::optional<int64_t> last_scan_id;
+      std::optional<int64_t> base_scan_id;
 
       const std::string_view hash_type;
 
@@ -154,7 +154,7 @@ class file_tracker_t {
       sqlite3_stmt *stmt_insert_scanset_file = nullptr;
       sqlite3_stmt *stmt_insert_exif = nullptr;
 
-      sqlite3_stmt *stmt_find_version = nullptr;
+      sqlite3_stmt *stmt_find_file_version = nullptr;
 
       sqlite3_stmt *stmt_begin_txn = nullptr;
       sqlite3_stmt *stmt_commit_txn = nullptr;
@@ -167,7 +167,7 @@ class file_tracker_t {
 
       void init_transaction_stmts(void);
 
-      void init_last_scan_stmts(void);
+      void init_base_scan_stmts(void);
 
       int64_t insert_file_record(const std::u8string& filepath, const std::filesystem::directory_entry& dir_entry);
 
