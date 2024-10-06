@@ -98,6 +98,7 @@ class mb_hasher_t {
       };
 
    private:
+      // the object instance against which open_job and get_data member function pointers will be dereferenced
       const T& data_obj;
 
       size_t buf_size;
