@@ -53,14 +53,14 @@ INSERT INTO upgrades (
   upgrade_time
 ) VALUES (
   (select user_version from pragma_user_version()),
-  50,                                       -- VER_TO
+  70,                                       -- VER_TO
   CAST(strftime('%s', 'now') AS INTEGER)
 );
 
 ALTER TABLE scans ADD COLUMN completed_time INTEGER NULL;
 
 -- cannot obtain scan end time from anywhere, so just update it to the scan time to make it visible
-UPDATE scans SET completed_time=scan_time
+UPDATE scans SET completed_time=scan_time;
 
 --
 -- Set the target database version
