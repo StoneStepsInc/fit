@@ -665,8 +665,12 @@ std::tuple<std::optional<int64_t>, bool> select_base_scan_id(const options_t& op
 
    errcode = sqlite3_step(stmt_base_scan);
 
-   if(errcode != SQLITE_DONE && errcode != SQLITE_ROW)
-      throw std::runtime_error("Cannot find the last scan in the database");
+   if(errcode != SQLITE_DONE && errcode != SQLITE_ROW) {
+      if(options.verify_scan_id.has_value())
+         throw std::runtime_error(FMTNS::format("Cannot find scan {:d} in the database", options.verify_scan_id.value()));
+      else
+         throw std::runtime_error("Cannot find the last scan in the database");
+   }
 
    if(errcode == SQLITE_ROW) {
       scan_id = sqlite3_column_int64(stmt_base_scan, 0);
