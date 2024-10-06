@@ -22,14 +22,14 @@ namespace fit {
 // defined in fit.cpp
 extern std::atomic<bool> abort_scan;
 
-file_tree_walker_t::file_tree_walker_t(const options_t& options, std::optional<int64_t>& scan_id, std::optional<int64_t>& last_scan_id, print_stream_t& print_stream) :
+file_tree_walker_t::file_tree_walker_t(const options_t& options, std::optional<int64_t>& scan_id, std::optional<int64_t>& base_scan_id, print_stream_t& print_stream) :
       options(options),
       print_stream(print_stream),
       scan_id(scan_id),
-      last_scan_id(last_scan_id)
+      base_scan_id(base_scan_id)
 {
    for(size_t i = 0; i < options.thread_count; i++)
-      file_trackers.emplace_back(options, scan_id, last_scan_id, files, files_mtx, progress_info, print_stream);
+      file_trackers.emplace_back(options, scan_id, base_scan_id, files, files_mtx, progress_info, print_stream);
 }
 
 void file_tree_walker_t::initialize(print_stream_t& print_stream)
@@ -118,6 +118,7 @@ void file_tree_walker_t::walk_tree(void)
                }
 
                if(abort_scan) {
+                  interrupted_scan = true;
                   print_stream.info(abort_message);
                   break;
                }
@@ -163,6 +164,7 @@ void file_tree_walker_t::walk_tree(void)
       }
 
       if(abort_scan) {
+         interrupted_scan = true;
          print_stream.info(abort_message);
          break;
       }
@@ -175,6 +177,11 @@ void file_tree_walker_t::walk_tree(void)
    // and wait until they actually stop
    for(size_t i = 0; i < file_trackers.size(); i++)
       file_trackers[i].join();
+}
+
+bool file_tree_walker_t::was_scan_completed(void) const
+{
+   return !interrupted_scan;
 }
 
 uint64_t file_tree_walker_t::get_processed_files(void) const

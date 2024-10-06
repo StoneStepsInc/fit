@@ -204,7 +204,7 @@ class file_tracker_t {
       static bool set_sqlite_journal_mode(sqlite3 *file_scan_db, print_stream_t& print_stream);
 
    public:
-      file_tracker_t(const options_t& options, std::optional<int64_t>& scan_id, std::optional<int64_t>& last_scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info, print_stream_t& print_stream);
+      file_tracker_t(const options_t& options, std::optional<int64_t>& scan_id, std::optional<int64_t>& base_scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info, print_stream_t& print_stream);
 
       file_tracker_t(file_tracker_t&& other);
 

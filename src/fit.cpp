@@ -623,7 +623,7 @@ void complete_scan_record(int64_t scan_id, sqlite3 *file_scan_db)
    sqlite_stmt_t stmt_complete_scan("complete scan"sv);
 
    //                                                                    1               2
-   std::string_view sql_complete_scan = "UPDATE scans SET completed_time=? WHERE rowid = ? AND completed_time is NULL"sv;
+   std::string_view sql_complete_scan = "UPDATE scans SET completed_time=? WHERE rowid = ?"sv;
 
    stmt_complete_scan.prepare(file_scan_db, sql_complete_scan);
 
@@ -635,12 +635,12 @@ void complete_scan_record(int64_t scan_id, sqlite3 *file_scan_db)
    errcode = sqlite3_step(stmt_complete_scan);
 
    if(errcode != SQLITE_DONE)
-      throw std::runtime_error(FMTNS::format("Cannot complete the scan ({:s})", sqlite3_errstr(errcode)));
+      throw std::runtime_error(FMTNS::format("Cannot set completed time for scan {:d} ({:s})", scan_id, sqlite3_errstr(errcode)));
 
    int updated_scans = sqlite3_changes(file_scan_db);
 
    if(updated_scans != 1)
-      throw std::runtime_error("Cannot complete the scan");
+      throw std::runtime_error(FMTNS::format("Cannot set completed time for scan {:d}", scan_id));
 }
 
 std::tuple<std::optional<int64_t>, bool> select_base_scan_id(const options_t& options, sqlite3 *file_scan_db)
@@ -971,7 +971,7 @@ int main(int argc, char *argv[])
             throw std::runtime_error(FMTNS::format("Cannot verify files against an incomplete scan {:d}", base_scan_id.value()));
       }
       else {
-         if(base_scan_id.has_value() && !completed_scan) {
+         if(!options.update_last_scanset && base_scan_id.has_value() && !completed_scan) {
             options.update_last_scanset = true;
             options.all += u8" -u";
 
@@ -981,6 +981,13 @@ int main(int argc, char *argv[])
          if(!options.update_last_scanset)
             scan_id = fit::insert_scan_record(options, file_scan_db.get());
          else {
+            // in this context base_scan_id is expected to contain the last scan (reassigned below)
+            if(!base_scan_id.has_value())
+               throw std::runtime_error("There is no last scan to update");
+
+            if(completed_scan)
+               print_stream.warning("Updating a completed scan %" PRId64 " (completed time will change)", base_scan_id.value());
+
             // set the current scan to the one we found (last scan at this point) and find a previous scan to use as a base scan
             scan_id = base_scan_id.value();
             base_scan_id = fit::select_scan_id_for_update(options, base_scan_id.value(), file_scan_db.get());
@@ -1011,11 +1018,12 @@ int main(int argc, char *argv[])
          else
             file_tree_walker.walk_tree<std::filesystem::directory_iterator>();
 
-         if(!options.verify_files)
-            fit::complete_scan_record(scan_id.value(), file_scan_db.get());
+         if(!options.verify_files) {
+            if(file_tree_walker.was_scan_completed())
+               fit::complete_scan_record(scan_id.value(), file_scan_db.get());
 
-         if(!options.verify_files)
             fit::close_sqlite_database(file_scan_db.release());
+         }
 
          std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
 

@@ -35,7 +35,7 @@ class file_tree_walker_t {
 
       std::optional<int64_t> scan_id;
 
-      std::optional<int64_t> last_scan_id;
+      std::optional<int64_t> base_scan_id;
 
       std::vector<file_tracker_t>   file_trackers;
 
@@ -44,8 +44,10 @@ class file_tree_walker_t {
 
       progress_info_t progress_info;
 
+      bool interrupted_scan = false;
+
    public:
-      file_tree_walker_t(const options_t& options, std::optional<int64_t>& scan_id, std::optional<int64_t>& last_scan_id, print_stream_t& print_stream);
+      file_tree_walker_t(const options_t& options, std::optional<int64_t>& scan_id, std::optional<int64_t>& base_scan_id, print_stream_t& print_stream);
 
       static void initialize(print_stream_t& print_stream);
 
@@ -55,6 +57,8 @@ class file_tree_walker_t {
 
       template <typename dir_iter_t>
       void walk_tree(void);
+
+      bool was_scan_completed(void) const;
 
       uint64_t get_processed_files(void) const;
       uint64_t get_processed_size(void) const;
