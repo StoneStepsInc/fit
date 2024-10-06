@@ -36,6 +36,7 @@ struct options_t {
    bool exiv2_json = false;
    bool upgrade_schema_to_v60 = false;
 
+   std::optional<int> verify_scan_id;
    std::optional<char8_t> query_path_sep;
 
    std::u8string scan_message;

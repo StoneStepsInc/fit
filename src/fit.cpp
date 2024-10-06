@@ -113,7 +113,7 @@ void print_usage(void)
    fputs("    -d path      - directory to scan (may be used multiple times)\n", stdout);
    fputs("    -m message   - optional scan description\n", stdout);
    fputs("    -r           - recursive scan\n", stdout);
-   fputs("    -v           - verify scanned files against database entries\n", stdout);
+   fputs("    -v [scan]    - verify scanned files against last or specified scan (default: last)\n", stdout);
 #ifndef NO_SSE_AVX
    fputs("    -H number    - multi-buffer hash maximum (default: 8, min: 1, max: 32)\n", stdout);
 #endif
@@ -222,6 +222,11 @@ options_t parse_options(int argc, char *argv[])
                break;
             case 'v':
                options.verify_files = true;
+
+               // empty string means the last scan will be verified
+               if(i+1 < argc && *(argv[i+1]) != '-')
+                  options.verify_scan_id = atoi(argv[++i]);
+
                break;
             case 't':
                if(i+1 == argc || *(argv[i+1]) == '-')
@@ -647,11 +652,16 @@ std::tuple<std::optional<int64_t>, bool> select_base_scan_id(const options_t& op
 
    sqlite_stmt_t stmt_base_scan("select base scan"sv);
 
-   std::string_view sql_base_scan = "SELECT scans.rowid, completed_time FROM scans ORDER BY scans.rowid DESC LIMIT 1"sv;
+   std::string_view sql_base_scan = options.verify_scan_id.has_value() ?
+                                       "SELECT scans.rowid, completed_time FROM scans WHERE scans.rowid = ?"sv :
+                                       "SELECT scans.rowid, completed_time FROM scans ORDER BY scans.rowid DESC LIMIT 1"sv;
 
    stmt_base_scan.prepare(file_scan_db, sql_base_scan);
 
    sqlite_stmt_binder_t base_scan_stmt(stmt_base_scan, "select base scan"sv);
+
+   if(options.verify_scan_id.has_value())
+      base_scan_stmt.bind_param(options.verify_scan_id.value());
 
    errcode = sqlite3_step(stmt_base_scan);
 
