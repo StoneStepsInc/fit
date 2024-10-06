@@ -960,8 +960,12 @@ int main(int argc, char *argv[])
       std::tie(base_scan_id, completed_scan) = fit::select_base_scan_id(options, file_scan_db.get());
 
       if(options.verify_files) {
-         if(!base_scan_id.has_value())
-            throw std::runtime_error("Cannot verify files without a base scan (none is found in the database)");
+         if(!base_scan_id.has_value()) {
+            if(options.verify_scan_id.has_value())
+               throw std::runtime_error(FMTNS::format("Cannot verify files without a base scan (scan {:d} is not found)", options.verify_scan_id.value()));
+            else
+               throw std::runtime_error("Cannot verify files without a base scan (none is found)");
+         }
 
          if(!completed_scan)
             throw std::runtime_error(FMTNS::format("Cannot verify files against an incomplete scan {:d}", base_scan_id.value()));
