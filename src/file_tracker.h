@@ -151,10 +151,11 @@ class file_tracker_t {
 
       sqlite_stmt_t stmt_insert_file;
       sqlite_stmt_t stmt_insert_version;
-      sqlite_stmt_t stmt_insert_scanset_file;
+      sqlite_stmt_t stmt_insert_scanset_entry;
       sqlite_stmt_t stmt_insert_exif;
 
-      sqlite_stmt_t stmt_find_file_version;
+      sqlite_stmt_t stmt_find_last_version;
+      sqlite_stmt_t stmt_find_scan_version;
 
       sqlite_stmt_t stmt_begin_txn;
       sqlite_stmt_t stmt_commit_txn;
