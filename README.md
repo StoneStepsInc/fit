@@ -64,9 +64,9 @@ modes and are as follows:
     When this option is used, all other options must be exactly
     the same as was in the original scan, including their order.
 
-    Note that the last scan record is not updated when this option
-    is used and all additionally scanned directories will appear
-    as if they were selected and scanned in the initial run.
+    The scan completion time will be updated after each `-u`
+    run and should not be considered as the scan duration for
+    repeated scans with the `-u` option.
 
   * `-i 10`
 
@@ -98,7 +98,7 @@ modes and are as follows:
     directory names, so some other means need to be used to figure
     which specific directories cannot be accessed.
 
-  * `-X`
+  * `-X .ext[.ext]...`
 
     This option provides a list of EXIF file extensions. The default
     list is `.jpg.jpeg.cr2.dng.nef.tiff.tif.heif.webp`.
@@ -110,12 +110,12 @@ modes and are as follows:
     This option instructs `fit` to store EXIF values obtained from
     the Exiv2 library as JSON in the database.
 
-  * `-t`
+  * `-t 4`
 
     Number of threads used for hashing and updating file information
     in the database. The default value is `4` threads.
 
-  * `-H`
+  * `-H 8`
 
     Maxumum number of multi-buffer hash jobs being performed at the
     same time. Multi-buffer hashing takes advantage of processor
@@ -128,6 +128,9 @@ modes and are as follows:
     will be indicated by errors reporting that too many files are
     open.
 
+    This option is not available if the project is built with the
+    symbol `NO_SSE_AVX` defined.
+
   * `-S Windows | POSIX`
 
     A path separator to be used to query the database when verifying
@@ -139,6 +142,14 @@ modes and are as follows:
     Note that absolute paths cannot be verified this way because
     drive letters or leading path separators will fail to match
     when queried on different platforms.
+
+  * `-v`
+
+    Scans the file tree and reports added, modified or changed
+    files. This option cannot detect removed files.
+
+    If a scan number provided as a value, the file tree will be
+    verified against that scan.
 
 ## Scanning a File Tree
 
@@ -277,14 +288,10 @@ will not apply across all Unicode characters.
 The `scans` table contains a record for each run of `fit`
 without the `-v` option and has the following fields:
 
-  * `rowid` `INTEGER NOT NULL`
+  * `id` `INTEGER NOT NULL PRIMARY KEY`
 
-    SQLite maintains this column automatically and it is not
-    explicitly included in the schema. It has to be included
-    explicitly in the `select` statement to be visible in
-    results. For example:
-
-        select rowid, * from scans;
+    SQLite maintains this column automatically by aliasing
+    `rowid`.
 
   * `app_version` `TEXT NOT NULL`
 
@@ -292,10 +299,17 @@ without the `-v` option and has the following fields:
 
   * `scan_time` `INTEGER NOT NULL`
     
-    Number of seconds since 1970-01-01, UTC. Use this expression
-    to output it as a calendar time in SQLite shell.
+    Number of seconds since 1970-01-01, UTC of the time when the
+    scan was started. Use this expression to output it as a calendar
+    time in SQLite shell.
 
         datetime(scan_time, 'unixepoch')
+
+  * `completed_time` `INTEGER NULL`
+
+    Number of seconds since 1970-01-01, UTC of the time the
+    scan was completed. May be updated by subsequent scans
+    with the `-u` option.
 
   * `base_path` `TEXT`
 
@@ -315,9 +329,9 @@ The `versions` table contains a record per scanned file that has
 a different hash value from the previous version of the same file.
 This table has following fields:
 
-  * `rowid` `INTEGER NOT NULL`
+  * `id` `INTEGER NOT NULL PRIMARY KEY`
 
-    A version record identifier.
+    A version record identifier aliasing `rowid`.
 
   * `file_id` `INTEGER NOT NULL`
 
@@ -376,9 +390,9 @@ This table has following fields:
 The `files` table contains a record per file path. Multiple versions
 of the same file reference the same file record.
 
-  * `rowid` `INTEGER NOT NULL`
+  * `id` `INTEGER NOT NULL PRIMARY KEY`
 
-    A file record identifier.
+    A file record identifier aliasing `rowid`.
 
   * `name` `TEXT NOT NULL`
 
@@ -411,9 +425,9 @@ of the same file reference the same file record.
 The `scansets` table contains a record per scanned file, whether
 there is a new version of the file detected or not.
 
-  * `rowid` `INTEGER NOT NULL`
+  * `id` `INTEGER NOT NULL PRIMARY KEY`
 
-    A scan set record identifier.
+    A scan set record identifier aliasing `rowid`.
 
   * `scan_id` `INTEGER NOT NULL`
 
@@ -521,7 +535,7 @@ but a quick exploratory way to list keys in the `Exiv2Json`
 column for some file name is to run the `list-exiv2json-fields.sql`
 script, as shown below.
 
-    sqlite3 -box -cmd ".param set @FILENAME _MG_2280.CR2" \
+    sqlite3 -box -cmd ".param set @FILEPATH _MG_2280.CR2" \
         sqlite.db < sql\list-exiv2json-fields.sql
 
 Values from the `Exiv2Json` column can be used in SQL just
@@ -567,7 +581,7 @@ follows:
     sqlite3 -line sqlite.db < sql/list-scans.sql
 
 The `-line` switch lists each column on its own line. SQlite has
-a few more output options, such as `-json`.
+a few more output options, such as `-json`, `-csv` or `-box`.
 
 Scripts that require input may be executed as follows:
 
@@ -644,6 +658,30 @@ progress.
 
 Interrupting the upgrade process will render database unusable.
 
+### A note on `id` vs. `rowid`
+
+Prior to v3.2.0, `fit` used `rowid` for all joins between
+entity tables. Given that `fit` never deletes records, using
+`rowid` didn't have any side effects.
+
+That is, if some records are deleted and then `VACUUM` is
+used, `rowid` values may be reassigned to fill gaps in
+`rowid` sequences, which would likely break the referential
+integrity of the database and would make it unusable.
+
+Starting from `fit` v3.2.0, `id` columns are added to alias
+`rowid` columns, which instructs SQLite to respect `rowid`
+values.
+
+Both, `rowid` and `id` can be used interchangeably, so all
+existing SQL scripts will still work, without any changes.
+
+Note, however, that existing databases cannot be updgraded
+to introduce the new primary key column because SQLite
+does not allow adding primary keys to existing tables. The
+existing schema will work as before, as long as no records
+are being deleted.
+
 ## Source
 
 ### Windows
@@ -702,3 +740,9 @@ LICENSE: [MIT](https://github.com/Tencent/rapidjson/blob/master/license.txt)
 Intel's (R) Intelligent Storage Acceleration Library Crypto Version.
 
 LICENSE: [BSD 3-Clause License](https://github.com/intel/isa-l_crypto/blob/master/LICENSE)
+
+#### libfmt
+
+A C++ text formatting library.
+
+LICENSE: https://github.com/fmtlib/fmt/blob/10.x/LICENSE
