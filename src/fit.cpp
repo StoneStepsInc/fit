@@ -703,7 +703,7 @@ std::tuple<int64_t, std::u8string> select_previous_scan_options(int64_t scan_id,
    base_scan_id = sqlite3_column_int64(stmt_last_scan, 0);
    scan_options.assign(reinterpret_cast<const char8_t*>(sqlite3_column_text(stmt_last_scan, 1)), sqlite3_column_bytes(stmt_last_scan, 1));
 
-   last_scan_stmt.reset();
+   last_scan_stmt.release();
 
    if((errcode = stmt_last_scan.finalize()) != SQLITE_OK)
       throw std::runtime_error("Cannot finalize a last scan options statment ("s + sqlite3_errstr(errcode) + ")");

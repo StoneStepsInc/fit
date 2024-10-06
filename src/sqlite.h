@@ -40,6 +40,8 @@ class sqlite_stmt_binder_t {
 
       ~sqlite_stmt_binder_t(void);
 
+      void release(void);
+
       void reset(void);
 
       void skip_param(void);

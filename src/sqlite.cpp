@@ -30,6 +30,14 @@ sqlite_stmt_binder_t::~sqlite_stmt_binder_t(void)
       sqlite3_reset(stmt);
 }
 
+void sqlite_stmt_binder_t::release(void)
+{
+   if(stmt) {
+      reset();
+      stmt = nullptr;
+   }
+}
+
 void sqlite_stmt_binder_t::reset(void)
 {
    if(!stmt)
@@ -147,6 +155,7 @@ int sqlite_stmt_t::prepare(sqlite3 *db, const std::string_view& sql)
    if(stmt)
       throw std::runtime_error(err_reuse_stmt_msg + "(" + name + ")");
 
+   // SQLite docs say there's a small performance gain if the null terminator is included in length
    return sqlite3_prepare_v2(db, sql.data(), static_cast<int>(sql.size()), &stmt, nullptr);
 }
 
