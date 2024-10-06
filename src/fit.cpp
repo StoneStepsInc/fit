@@ -474,6 +474,7 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
 
          // files table
          if(sqlite3_exec(file_scan_db, "CREATE TABLE files ("
+                                          "id INTEGER NOT NULL PRIMARY KEY,"
                                           "name TEXT NOT NULL,"
                                           "ext TEXT NULL,"
                                           "path TEXT NOT NULL);", nullptr, nullptr, &errmsg) != SQLITE_OK)
@@ -484,6 +485,7 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
 
          // versions table
          if(sqlite3_exec(file_scan_db, "CREATE TABLE versions ("
+                                          "id INTEGER NOT NULL PRIMARY KEY,"
                                           "file_id INTEGER NOT NULL,"
                                           "version INTEGER NOT NULL,"
                                           "mod_time INTEGER NOT NULL,"
@@ -502,6 +504,7 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
 
          // exif table
          if(sqlite3_exec(file_scan_db, "CREATE TABLE exif ("
+                                          "id INTEGER NOT NULL PRIMARY KEY,"
                                           "BitsPerSample TEXT NULL,Compression INTEGER NULL,DocumentName TEXT NULL,ImageDescription TEXT NULL,"
                                           "Make TEXT NULL,Model TEXT NULL,Orientation INTEGER NULL,SamplesPerPixel TEXT NULL,"
                                           "Software TEXT NULL,DateTime TEXT NULL,Artist TEXT NULL,Copyright TEXT NULL,"
@@ -523,6 +526,7 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
 
          // scans table
          if(sqlite3_exec(file_scan_db, "CREATE TABLE scans ("
+                                          "id INTEGER NOT NULL PRIMARY KEY,"
                                           "app_version TEXT NOT NULL,"
                                           "scan_time INTEGER NOT NULL,"
                                           "completed_time INTEGER NULL,"
@@ -536,6 +540,7 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
 
          // scansets table
          if(sqlite3_exec(file_scan_db, "CREATE TABLE scansets ("
+                                          "id INTEGER NOT NULL PRIMARY KEY,"
                                           "scan_id INTEGER NOT NULL,"
                                           "version_id INTEGER NOT NULL);", nullptr, nullptr, &errmsg) != SQLITE_OK)
             throw std::runtime_error("Cannot create table 'scansets' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
