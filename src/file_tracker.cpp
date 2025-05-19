@@ -734,6 +734,52 @@ void file_tracker_t::rollback_transaction(const std::u8string& filepath)
       print_stream.error("Cannot rollback a SQLite transaction for %s (%s)", filepath.c_str(), sqlite3_errstr(errcode));
 }
 
+std::u8string file_tracker_t::to_ascii_path(const std::filesystem::path& fspath)
+{
+   #ifdef _WIN32
+   std::u8string filepath;
+
+   std::wstring wfilepath = fspath.native();
+
+   //
+   // Windows may store file paths with invalid UTF-16 characters,
+   // which will fail to convert to UTF-8 paths. For example, a
+   // file path may have a UCS-2 code that represents and incomplete
+   // surrogate pair, such as `\xD83D`, which cannot be converted
+   // to a UTF-8 string.
+   //
+   // Use a crude ASCII conversion and replace all non-ASCII
+   // characters with `?`, just to identify which file we
+   // could not process.
+   //
+   std::transform(wfilepath.begin(), wfilepath.end(),
+                     std::back_inserter(filepath),
+                     [] (wchar_t chr) -> char {return (chr >= L' ' && chr < L'\x7f' ? static_cast<char>(chr) : '?');});
+
+   return filepath;
+   #else
+   //
+   // On Linux, file system drivers handle invalid characters in
+   // file paths by converting them at the interface level using
+   // either the replacement character (U+FFFD) or the question
+   // mark. When more than one of those file names are found in
+   // the same directory, their names may be mangled in some way
+   // or just left alone, and such files may not be accessible
+   // or may produce ambiguous results. For example, file names
+   // L"A_\xD83D_B.txt" and "A_\xD83E_B.txt" will be listed on
+   // Fedora as `A_?_B.txt`, and on Ubuntu as `A__1_B.txt`.
+   // However, Fedora will open one of these files, so its
+   // content can be read, but Ubuntu will fail to open either
+   // of those files, even if one of them is removed. This means
+   // that on Ubuntu we will see file open errors, but on Fedora,
+   // we will scan the same file twice and may fail inserting
+   // file records, depending on the order in which those files
+   // will be processed.
+   //
+   return fspath.u8string();
+   #endif
+}
+
 void file_tracker_t::run(void)
 {
    int errcode = SQLITE_OK;
@@ -813,36 +859,10 @@ void file_tracker_t::run(void)
             catch (const std::exception& error) {
                progress_info.failed_files++;
 
-               //
-               // TODO: This should be compiled conditionally for Windows. On
-               // Linux invalid characters in file paths will be handled in
-               // some other way. Currently observed behavior is to replace
-               // invalid characters with U+FFFD (e.g. mounting an NTFS volume
-               // with paths containing invalid characters), which fails when
-               // trying to open such file, not here. Need to collect more
-               // info on how invalid code unit sequences are handled on Linux
-               // (different file systems, etc).
-               //
-
-               //
-               // Windows may store file paths with invalid UTF-16 characters,
-               // which fail to convert to UTF-8 paths. For example, a file
-               // path may have a UCS-2 code that represents and incomplete
-               // surrogate pair, such as `\xD83D`, which cannot be converted
-               // to a UTF-8 string.
-               //
-               // Use a crude ASCII conversion and replace all non-ASCII
-               // characters with `?`, just to identify which file we
-               // couldn't process.
-               //
+               // clear filepath to indicate that UTF-8 conversion failed
                filepath.clear();
 
-               std::u16string filepath_u16 = dir_entry.value().path().u16string();
-               std::transform(filepath_u16.begin(), filepath_u16.end(),
-                                 std::back_inserter(filepath),
-                                 [] (char16_t chr) -> char {return (chr >= u' ' && chr < u'\x7f' ? static_cast<char>(chr) : '?');});
-
-               print_stream.error("Cannot convert path to UTF-8 (%s) %s", error.what(), filepath.c_str());
+               print_stream.error("Cannot convert a file path to UTF-8 (%s) %s", error.what(), to_ascii_path(dir_entry.value().path()).c_str());
                files_lock.lock();
                continue;
             }
@@ -1078,22 +1098,7 @@ void file_tracker_t::run(void)
       catch (const std::exception& error) {
          progress_info.failed_files++;
 
-         // see TODO where filepath is assigned
-
-         //
-         // filepath is empty when the directory entry has a path that
-         // cannot be converted to UTF-8. Use a crude ASCII conversion
-         // and replace all non-ASCII characters with `?`, just to
-         // identify which file we couldn't process.
-         //
-         if(filepath.empty()) {
-            std::u16string filepath_u16 = dir_entry.value().path().u16string();
-            std::transform(filepath_u16.begin(), filepath_u16.end(),
-                              std::back_inserter(filepath),
-                              [] (char16_t chr) -> char {return (chr >= u' ' && chr < u'\x7f' ? static_cast<char>(chr) : '?');});
-         }
-
-         print_stream.error("Cannot process file %s (%s)", filepath.c_str(), error.what());
+         print_stream.error("Cannot process file \"%s\" (%s)", filepath.c_str(), error.what());
 
          // if we started a transaction, roll it back
          if(!sqlite3_get_autocommit(file_scan_db)) {

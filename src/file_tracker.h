@@ -197,6 +197,8 @@ class file_tracker_t {
       bool read_file(unsigned char *file_buffer, size_t buf_size, size_t& data_size, mb_file_hasher_t::param_tuple_t& args) const noexcept;
 #endif
 
+      static std::u8string to_ascii_path(const std::filesystem::path& fspath);
+
       static int sqlite_busy_handler_cb(void*, int count);
 
       static std::vector<std::u8string> parse_EXIF_exts(const options_t& options);
