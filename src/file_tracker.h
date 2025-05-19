@@ -60,6 +60,7 @@ class file_tracker_t {
       static constexpr const int DB_BUSY_TIMEOUT = 1000;
 
       // same field order as in the select statement (stmt_find_version)
+      // version, mod_time, hash_type, hash, versions.rowid, file_id, scan_id
       typedef std::tuple<int64_t, int64_t, std::string, std::optional<std::string>, int64_t, int64_t, int64_t> version_record_t;
 
       //
@@ -110,7 +111,13 @@ class file_tracker_t {
       };
 
 #ifndef NO_SSE_AVX
-      typedef mb_hasher_t<mb_sha256_traits, file_tracker_t, std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t, version_record_result_t, std::filesystem::directory_entry, std::optional<file_read_error_t>> mb_file_hasher_t;
+      typedef mb_hasher_t<mb_sha256_traits, file_tracker_t,
+                           // param_tuple_t
+                           std::unique_ptr<FILE, file_handle_deleter_t>,
+                           uint64_t,
+                           version_record_result_t,
+                           std::filesystem::directory_entry,
+                           std::optional<file_read_error_t>> mb_file_hasher_t;
 #endif
 
       static const size_t HASH_BIN_SIZE;
@@ -123,11 +130,11 @@ class file_tracker_t {
 
       print_stream_t& print_stream;
 
+      // the current scan ID (empty for verification scans)
       std::optional<int64_t> scan_id;
 
+      // the scan ID against which files will be compared (empty for initial scans; cannot be empty for verification scans)
       std::optional<int64_t> base_scan_id;
-
-      const std::string_view hash_type;
 
       std::unique_ptr<unsigned char[]> file_buffer;
 
@@ -190,12 +197,12 @@ class file_tracker_t {
 
       void run(void);
 
-      static time_t file_time_to_time_t(const std::chrono::file_clock::time_point& file_time);
-
 #ifndef NO_SSE_AVX
       mb_file_hasher_t::param_tuple_t open_file(version_record_result_t&& version_record, std::filesystem::directory_entry&& dir_entry) const;
       bool read_file(unsigned char *file_buffer, size_t buf_size, size_t& data_size, mb_file_hasher_t::param_tuple_t& args) const noexcept;
 #endif
+
+      static time_t file_time_to_time_t(const std::chrono::file_clock::time_point& file_time);
 
       static std::u8string to_ascii_path(const std::filesystem::path& fspath);
 

@@ -143,13 +143,17 @@ modes and are as follows:
     drive letters or leading path separators will fail to match
     when queried on different platforms.
 
-  * `-v`
+  * `-v [scan-id]`
 
     Scans the file tree and reports added, modified or changed
     files. This option cannot detect removed files.
 
     If a scan number provided as a value, the file tree will be
     verified against that scan.
+
+  * `-m scan-message`
+
+    Records a short human-readable message for the current scan.
 
 ## Scanning a File Tree
 

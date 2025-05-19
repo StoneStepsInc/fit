@@ -29,7 +29,7 @@ inline bool in_range(char ch)
 // 
 // if slen is greater than zero, it may point to a null character, which
 // is considered as a valid UTF-8 character within the string (i.e. if
-// str = "\x0ABC" and slen == 4, value 1 is returned).
+// str = "\x0""ABC" and slen == 4, value 1 is returned).
 // 
 // If slen is zero, str is assumed to be pointing to a null-terminated
 // string and code units will be evaluated such that a null character
@@ -40,7 +40,7 @@ inline bool in_range(char ch)
 // The function returns a value between 1 and 4 if str points to a valid
 // UTF-8 character and a zero otherwise.
 //
-inline size_t utf8_size(const char *str, size_t slen)
+static inline size_t utf8_size(const char *str, size_t slen)
 {
    if(!str)
       return 0;

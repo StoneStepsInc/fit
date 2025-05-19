@@ -46,6 +46,7 @@ struct less_ci {
       if(s1.empty() && s2.empty())
          return false;
 
+      // intended only for std::binary_search - will not sort strings lexigraphically
       if(s1.length() != s2.length())
          return s1.length() < s2.length();
 
@@ -322,16 +323,17 @@ void file_tracker_t::init_base_scan_stmts(void)
    // there's any version record, there will be a file record).
    // 
    // columns:                                            0         1          2     3               4        5        6
-   std::string_view sql_find_file_version = "SELECT version, mod_time, hash_type, hash, versions.rowid, file_id, scan_id "
+   std::string_view sql_find_last_version = "SELECT version, mod_time, hash_type, hash, versions.rowid, file_id, scan_id "
                                        "FROM versions JOIN files ON file_id = files.rowid JOIN scansets ON version_id = versions.rowid "
    // parameters:                                    1
-                                       "WHERE path = ? ORDER BY version DESC, scan_id DESC LIMIT 1"sv;
+                                       "WHERE path = ? "
+                                       "ORDER BY version DESC, scan_id DESC LIMIT 1"sv;
 
-   if((errcode = stmt_find_last_version.prepare(file_scan_db, sql_find_file_version)) != SQLITE_OK)
+   if((errcode = stmt_find_last_version.prepare(file_scan_db, sql_find_last_version)) != SQLITE_OK)
       throw std::runtime_error(FMTNS::format("Cannot prepare a SQLite statement to find the last file version ({:s})", sqlite3_errstr(errcode)));
 
    //
-   // A select statement to look up a file version it file path
+   // A select statement to look up a file version by file path
    // and a specific scan identifier (used only for verifications).
    // 
    // columns:                                                 0         1          2     3               4        5        6
@@ -797,13 +799,9 @@ void file_tracker_t::run(void)
    if(options.query_path_sep.has_value())
       filepath_query.reserve(1024);
                
-   unsigned char hexhash_file[HASH_HEX_SIZE + 1] = {};      // file hash; should not be accessed if filesize == 0
-
    std::unique_lock<std::mutex> files_lock(files_mtx);
 
    while(!stop_request) {
-      bool hash_match = false;                              // if true, the file didn't change; if false, a new version will be created
-
       std::optional<std::filesystem::directory_entry> dir_entry;
 
       version_record_result_t version_record;
@@ -837,7 +835,9 @@ void file_tracker_t::run(void)
       files_lock.unlock();
 
       try {
-         uint64_t filesize = 0;
+         bool hash_match = false;                              // if true, the file didn't change; if false, a new version will be created
+         uint64_t filesize = 0;                                // hashed file size
+         unsigned char hexhash_file[HASH_HEX_SIZE + 1] = {};   // file hash; should not be accessed if filesize == 0
 
          // dir_entry will be empty when we are finalizing last few hash jobs
          if(dir_entry.has_value()) {
@@ -853,10 +853,10 @@ void file_tracker_t::run(void)
             // will be tracked as two different paths.
             //
             try {
-            if(options.base_path.empty())
-               filepath = dir_entry.value().path().u8string();
-            else
-               filepath = dir_entry.value().path().lexically_relative(options.base_path).u8string();
+               if(options.base_path.empty())
+                  filepath = dir_entry.value().path().u8string();
+               else
+                  filepath = dir_entry.value().path().lexically_relative(options.base_path).u8string();
             }
             catch (const std::exception& error) {
                progress_info.failed_files++;
@@ -1091,6 +1091,10 @@ void file_tracker_t::run(void)
                commit_transaction(filepath);
             }
          }
+
+         // this is an assert-type exception - dir_entry will always be populated here either from the file queue or from the last-completed hashing job
+         if(!dir_entry.has_value())
+            throw std::logic_error("dir_entry cannot be empty at this point");
 
          //
          // Update stats for processed files
