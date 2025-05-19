@@ -421,7 +421,7 @@ void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& 
    #endif
 
    if(!file)
-      throw std::runtime_error("Cannot open file (" + std::string(strerror(errno)) + ") " + filepath.u8string());
+      throw std::runtime_error(FMTNS::format("Cannot open a file ({:s})", std::string(strerror(errno))));
 
    sha256_t ctx;
    sha256_init(&ctx);
@@ -436,7 +436,7 @@ void file_tracker_t::hash_file(const std::filesystem::path& filepath, uint64_t& 
    }
 
    if(std::ferror(file.get()))
-      throw std::runtime_error("Cannot read file (" + std::string(strerror(errno)) + ") " + filepath.u8string());
+      throw std::runtime_error(FMTNS::format("Cannot read a file ({:s})", std::string(strerror(errno))));
 
    // hash for zero-length files should not be evaluated
    if(filesize) {
@@ -468,7 +468,7 @@ file_tracker_t::mb_file_hasher_t::param_tuple_t file_tracker_t::open_file(versio
    #endif
 
    if(!file)
-      throw std::runtime_error(FMTNS::format("Cannot open file ({:s}) {:s}", strerror(errno), u8tosv_t(dir_entry.path().u8string())));
+      throw std::runtime_error(FMTNS::format("Cannot open a file ({:s})", strerror(errno)));
 
    // FILE*, file_size, version_record, dir_entry, file_read_error_t
    return std::make_tuple(std::move(file), 0, std::move(version_record), std::move(dir_entry), std::nullopt);
@@ -483,7 +483,7 @@ bool file_tracker_t::read_file(unsigned char *file_buffer, size_t buf_size, size
       data_size = std::fread(file_buffer, 1, buf_size, file.get());
 
       if(std::ferror(file.get()))
-         throw std::runtime_error(FMTNS::format("Cannot read file ({:s}) {:s} ", strerror(errno), u8tosv_t(std::get<3>(args).path().u8string())));
+         throw std::runtime_error(FMTNS::format("Cannot read a file ({:s})", strerror(errno)));
 
       file_size += data_size;
 
@@ -936,12 +936,13 @@ void file_tracker_t::run(void)
                      progress_info.failed_files++;
 
                      //
-                     // If we failed to open a file, the hash job slot remains available
-                     // and we can just continue with the next file. The error is expected
-                     // to be self-descriptive, so we don't have to provide more context
-                     // here.
+                     // If we failed to open a file (submit_job won't read any data),
+                     // the hash job slot remains available and we can just continue
+                     // with the next file. Use filepath to report the file path
+                     // because dir_entry has been moved out, but filepath still
+                     // contains a valid UTF-8 string.
                      //
-                     print_stream.error("%s", error.what());
+                     print_stream.error("Cannot submit a hashing job (%s) for \"%s\" ", error.what(), filepath.c_str());
                      files_lock.lock();
                      continue;
                   }
@@ -960,12 +961,20 @@ void file_tracker_t::run(void)
                // close the file handle explicitly to avoid keeping it open while handling hashing results
                std::get<0>(args.value()).reset();
 
+               dir_entry = std::move(std::get<3>(args.value()));
+
+               // invalid UCS-2 code points have been filtered out when directory entries were pulled from the queue
+               if(options.base_path.empty())
+                  filepath = dir_entry.value().path().u8string();
+               else
+                  filepath = dir_entry.value().path().lexically_relative(options.base_path).u8string();
+
                // if we got an error while reading this file, report the error, discard results and continue to the next file
                if(std::get<4>(args.value()).has_value()) {
                   progress_info.failed_files++;
 
                   // same as when calling mb_hasher.submit_job
-                  print_stream.error("%s", std::get<4>(args.value()).value().error.c_str());
+                  print_stream.error("Cannot hash a file (%s) for \"%s\"", std::get<4>(args.value()).value().error.c_str(), filepath.c_str());
                   files_lock.lock();
                   continue;
                }
@@ -990,14 +999,6 @@ void file_tracker_t::run(void)
                   version_id = std::nullopt;
                   file_id = std::nullopt;
                }
-
-               dir_entry = std::move(std::get<3>(args.value()));
-
-               // invalid UCS-2 code points have been filtered out above
-               if(options.base_path.empty())
-                  filepath = dir_entry.value().path().u8string();
-               else
-                  filepath = dir_entry.value().path().lexically_relative(options.base_path).u8string();
 #endif
 
                //
