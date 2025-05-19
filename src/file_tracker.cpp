@@ -55,9 +55,13 @@ struct less_ci {
 };
 
 #ifdef NO_SSE_AVX
-static constexpr const size_t HASH_BIN_SIZE = SHA256_DIGEST_SIZE;
-static constexpr const size_t HASH_HEX_SIZE = HASH_BIN_SIZE * 2;
-static constexpr std::string_view HASH_TYPE = "SHA256";
+constexpr size_t file_tracker_t::HASH_BIN_SIZE = SHA256_DIGEST_SIZE;
+constexpr size_t file_tracker_t::HASH_HEX_SIZE = HASH_BIN_SIZE * 2;
+constexpr std::string_view file_tracker_t::HASH_TYPE = "SHA256";
+#else
+constexpr size_t file_tracker_t::HASH_BIN_SIZE = mb_file_hasher_t::traits::HASH_SIZE;
+constexpr size_t file_tracker_t::HASH_HEX_SIZE = HASH_BIN_SIZE * 2;
+constexpr std::string_view file_tracker_t::HASH_TYPE = mb_file_hasher_t::traits::HASH_TYPE;
 #endif
 
 file_tracker_t::file_tracker_t(const options_t& options, std::optional<int64_t>& scan_id, std::optional<int64_t>& base_scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info, print_stream_t& print_stream) :
@@ -65,7 +69,6 @@ file_tracker_t::file_tracker_t(const options_t& options, std::optional<int64_t>&
       print_stream(print_stream),
       scan_id(scan_id),
       base_scan_id(base_scan_id),
-      hash_type(HASH_TYPE),
       file_buffer(new unsigned char[options.buffer_size]),
       files(files),
       files_mtx(files_mtx),
@@ -101,7 +104,6 @@ file_tracker_t::file_tracker_t(file_tracker_t&& other) :
       print_stream(other.print_stream),
       scan_id(std::move(other.scan_id)),
       base_scan_id(std::move(other.base_scan_id)),
-      hash_type(other.hash_type),
       file_buffer(std::move(other.file_buffer)),
       files(other.files),
       files_mtx(other.files_mtx),
@@ -224,7 +226,7 @@ void file_tracker_t::init_new_scan_stmts(void)
    if((errcode = stmt_insert_version.prepare(file_scan_db, sql_insert_version)) != SQLITE_OK)
       throw std::runtime_error(FMTNS::format("Cannot prepare a SQLite statement to insert a file version ({:s})", sqlite3_errstr(errcode)));
 
-   if((errcode = sqlite3_bind_text(stmt_insert_version, 6, hash_type.data(), static_cast<int>(hash_type.size()), SQLITE_TRANSIENT)) != SQLITE_OK)
+   if((errcode = sqlite3_bind_text(stmt_insert_version, 6, HASH_TYPE.data(), static_cast<int>(HASH_TYPE.size()), SQLITE_TRANSIENT)) != SQLITE_OK)
       throw std::runtime_error(FMTNS::format("Cannot bind a hash type for a SQLite statement to insert a file version ({:s})", sqlite3_errstr(errcode)));
 
    //

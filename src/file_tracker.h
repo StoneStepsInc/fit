@@ -111,12 +111,12 @@ class file_tracker_t {
 
 #ifndef NO_SSE_AVX
       typedef mb_hasher_t<mb_sha256_traits, file_tracker_t, std::unique_ptr<FILE, file_handle_deleter_t>, uint64_t, version_record_result_t, std::filesystem::directory_entry, std::optional<file_read_error_t>> mb_file_hasher_t;
-
-      static constexpr const size_t HASH_BIN_SIZE = mb_file_hasher_t::traits::HASH_SIZE;
-      static constexpr const size_t HASH_HEX_SIZE = HASH_BIN_SIZE * 2;
-
-      static constexpr const std::string_view HASH_TYPE = mb_file_hasher_t::traits::HASH_TYPE;
 #endif
+
+      static const size_t HASH_BIN_SIZE;
+      static const size_t HASH_HEX_SIZE;
+
+      static const std::string_view HASH_TYPE;
 
    private:
       const options_t& options;
