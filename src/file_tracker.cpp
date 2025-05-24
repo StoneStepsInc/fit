@@ -883,36 +883,12 @@ void file_tracker_t::run(void)
          // file tracker instance (scan_id).
          //
          if(!options.update_last_scanset || !version_record.has_value() || version_record.scanset_scan_id() != scan_id) {
-            //
-            // Check if we were asked to skip hashing based on the file
-            // modification time being unchanged from what was recorded
-            // in the database.
-            // 
-            if(dir_entry.has_value()) {
-               // base_scan_id must be checked to avoid picking up a time stamp of a deleted file in one of the past versions
-               if(!options.verify_files && options.skip_hash_mod_time && version_record.has_value() && version_record.scanset_scan_id() == base_scan_id.value()
-                     && version_record.mod_time() == static_cast<int64_t>(file_time_to_time_t(dir_entry.value().last_write_time()))) {
-                  hash_match = true;
-               }
-            }
-
             // a non-optional to allow version+1 whether version_record has a value or not
             int64_t version = 0;
 
             std::optional<int64_t> version_id;        // version record identifier (either from the database or a newly inserted one)
             std::optional<int64_t> file_id;           // a file identifier (same as version_id)
             std::optional<int64_t> exif_id;           // an EXIF data identifier (same as version_id)
-
-            //
-            // Need to set these for options.skip_hash_mod_time==true, when
-            // we avoid hashing, which means they are never restored after
-            // multi-buffer hashing returns.
-            //
-            if(version_record.has_value()) {
-               version = version_record.version();
-               version_id = version_record.version_id();
-               file_id = version_record.file_id();
-            }
 
             if(!hash_match) {
 #ifdef NO_SSE_AVX
@@ -1078,10 +1054,14 @@ void file_tracker_t::run(void)
 
                // reuse for updated files during scans and for mismatched files during verification
                progress_info.updated_files++;
-               progress_info.updated_size += options.skip_hash_mod_time ? dir_entry.value().file_size() : filesize;
+               progress_info.updated_size += filesize;
             }
 
             if(!options.verify_files) {
+               // this is an assert-type exception - version_id will either be one of the existing versions or a new one
+               if(!version_id.has_value())
+                  throw std::logic_error("version_id cannot be empty at this point");
+
                // insert a scanset record with the new or existing version ID
                insert_scanset_record(filepath, version_id.value());
 
@@ -1097,7 +1077,7 @@ void file_tracker_t::run(void)
          // Update stats for processed files
          //
          progress_info.processed_files++;
-         progress_info.processed_size += options.skip_hash_mod_time || options.update_last_scanset ? dir_entry.value().file_size() : filesize;
+         progress_info.processed_size += options.update_last_scanset ? dir_entry.value().file_size() : filesize;
       }
       catch (const std::exception& error) {
          progress_info.failed_files++;

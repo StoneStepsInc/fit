@@ -47,12 +47,11 @@ modes and are as follows:
 
   * `-w`
 
-    This option instructs `fit` to compare the file modification
-    time against the time stored in the SQLite database for each
-    file as an indicator whether the file was changed or not,
-    rather than to compute checksums. This option was originally
-    intended to recover from an interrupted scan, but using the
-    `-u` option works better for this.
+    This option was originally intended to recover from an
+    interrupted scan, comparing file modification times instead
+    of comparing file hashes, but it became pointless since the
+    `-u` option was introduced and it was removed.
+
 
   * `-u`
 

@@ -122,7 +122,6 @@ void print_usage(void)
    fputs("    -t number    - file hasher thread count (default: 4, min: 1, max: 64)\n", stdout);
    fputs("    -s size      - file buffer size (default: 524288, min: 512, max: 16777216)\n", stdout);
    fputs("    -i seconds   - progress reporting interval (default: 10, min: 1)\n", stdout);
-   fputs("    -w           - skip hashing for files with same last-modified time\n", stdout);
    fputs("    -u           - continue last scan (update last scanset)\n", stdout);
    fputs("    -l path      - log file path\n", stdout);
    fputs("    -a           - skip restricted access directories\n", stdout);
@@ -247,9 +246,6 @@ options_t parse_options(int argc, char *argv[])
                   throw std::runtime_error("Missing progress reporting interval value");
 
                options.progress_interval = atoi(argv[++i]);
-               break;
-            case 'w':
-               options.skip_hash_mod_time = true;
                break;
             case 'u':
                options.update_last_scanset = true;
