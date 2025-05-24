@@ -10,7 +10,8 @@
 --
 SELECT
     substring(path, 1, MAX(instr(path, '\'), instr(path, '/'))) AS top_dir,
-    COUNT(ext) AS file_count,
+    COUNT(name) AS file_count,
+    COUNT(ext) AS ext_count,
     COUNT(exif_id) AS EXIF_count,
     round(SUM(entry_size) / 1000000., 3) AS sum_entry_size_mb,
     round(AVG(entry_size) / 1000000., 3) AS avg_entry_size_mb,
@@ -20,8 +21,7 @@ FROM
     JOIN versions ON version_id = versions.rowid
     JOIN files ON file_id = files.rowid
 WHERE
-    scansets.scan_id = coalesce(@SCAN_ID, (select MAX(rowid) FROM scans), 0) AND
-    ext IS NOT NULL
+    scansets.scan_id = coalesce(@SCAN_ID, (select MAX(rowid) FROM scans), 0)
 GROUP BY
     substring(path, 1, MAX(instr(path, '\'), instr(path, '/')))
 ORDER BY
