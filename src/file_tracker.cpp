@@ -91,8 +91,7 @@ file_tracker_t::file_tracker_t(const options_t& options, std::optional<int64_t>&
 {
    init_scan_db_conn();
 
-   if(base_scan_id.has_value())
-      init_base_scan_stmts();
+   init_base_scan_stmts();
 
    if(scan_id.has_value()) {
       init_new_scan_stmts();
@@ -586,7 +585,6 @@ file_tracker_t::version_record_result_t file_tracker_t::select_version_record(co
    if(errcode != SQLITE_DONE && errcode != SQLITE_ROW)
       throw std::runtime_error(FMTNS::format("Failed to find a version for {:s} ({:s})", u8tosv_t(filepath), sqlite3_errstr(errcode)));
 
-   // if we found a file record, get the columns we need
    if(errcode != SQLITE_ROW)
       return version_record_result_t{std::nullopt};
 
@@ -875,9 +873,8 @@ void file_tracker_t::run(void)
                std::for_each(filepath_query.begin(), filepath_query.end(), [this](char8_t& pc) {if(pc == std::filesystem::path::preferred_separator) pc = options.query_path_sep.value();});
             }
 
-            // attempt to find a version record for the file in question if there is a scan provided
-            if(base_scan_id.has_value())
-               version_record = select_version_record(!options.query_path_sep.has_value() ? filepath : filepath_query);
+            // attempt to find a version record for the file in question
+            version_record = select_version_record(!options.query_path_sep.has_value() ? filepath : filepath_query);
          }
 
          //
