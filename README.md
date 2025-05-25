@@ -315,6 +315,28 @@ without the `-v` option and has the following fields:
     scan was completed. May be updated by subsequent scans
     with the `-u` option.
 
+  * `last_update_time` `INTEGER NULL`
+
+    Number of seconds since 1970-01-01, UTC of the time when
+    the last scan update was started (i.e. the `-u` option was
+    used).
+
+    A scan is considered completed if `completed_time` contains
+    a non-`NULL` value and `last_update_time` either contains
+    `NULL` or a time stamp that is in the past, relative to
+    `completed_time`.
+
+  * `cumulative_duration` `INTEGER NULL`
+
+    Cumulative time, in seconds, spent while scanning files.
+    This value is updated for original scans and update scans,
+    never for verification scans.
+
+  * `times_updated` `INTEGER NULL`
+
+    Number of times the last scan was updated. This number does
+    not include the original scan.
+
   * `base_path` `TEXT`
 
     The base path, derived from the `-p` option.

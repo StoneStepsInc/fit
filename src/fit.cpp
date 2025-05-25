@@ -89,8 +89,10 @@ static const char *copyright = "Copyright (c) 2025 Stone Steps Inc.";
 //   v6.0   File time stamps are in time_t now (no schema changes)
 // 
 //   v7.0   Added scans.completed_time
+// 
+//   v8.0   Added scans.last_update_time, scans.cumulative_duration, scans.times_updated
 //
-static const int DB_SCHEMA_VERSION = 70;
+static const int DB_SCHEMA_VERSION = 80;
 
 std::atomic<bool> abort_scan = false;
 
@@ -530,6 +532,9 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
                                           "app_version TEXT NOT NULL,"
                                           "scan_time INTEGER NOT NULL,"
                                           "completed_time INTEGER NULL,"
+                                          "last_update_time INTEGER NULL,"
+                                          "times_updated INTEGER NULL,"
+                                          "cumulative_duration INTEGER NULL,"
                                           "base_path TEXT,"
                                           "options TEXT NOT NULL,"
                                           "message TEXT);", nullptr, nullptr, &errmsg) != SQLITE_OK)
@@ -621,7 +626,7 @@ int64_t insert_scan_record(const options_t& options, sqlite3 *file_scan_db)
    return scan_id;
 }
 
-void complete_scan_record(int64_t scan_id, sqlite3 *file_scan_db)
+int complete_scan_record(int64_t scan_id, sqlite3 *file_scan_db)
 {
    int errcode = SQLITE_OK;
 
@@ -640,12 +645,63 @@ void complete_scan_record(int64_t scan_id, sqlite3 *file_scan_db)
    errcode = sqlite3_step(stmt_complete_scan);
 
    if(errcode != SQLITE_DONE)
-      throw std::runtime_error(FMTNS::format("Cannot set completed time for scan {:d} ({:s})", scan_id, sqlite3_errstr(errcode)));
+      return 0;
+
+   return sqlite3_changes(file_scan_db);
+}
+
+int update_scan_duration(const options_t& options, int64_t scan_id, int64_t scan_duration, sqlite3 *file_scan_db)
+{
+   int errcode = SQLITE_OK;
+
+   sqlite_stmt_t stmt_update_scan_duration("update scan duration"sv);
+
+   //                                                                    1               2
+   std::string_view sql_update_scan_duration = options.update_last_scanset ?
+                                       "UPDATE scans SET cumulative_duration=coalesce(cumulative_duration, 0)+?, times_updated=coalesce(times_updated, 0)+1 WHERE rowid = ?"sv :
+                                       "UPDATE scans SET cumulative_duration=coalesce(cumulative_duration, 0)+? WHERE rowid = ?"sv;
+
+   stmt_update_scan_duration.prepare(file_scan_db, sql_update_scan_duration);
+
+   sqlite_stmt_binder_t update_scan_duration_stmt(stmt_update_scan_duration, "update scan duration"sv);
+
+   update_scan_duration_stmt.bind_param(scan_duration);
+   update_scan_duration_stmt.bind_param(scan_id);
+
+   errcode = sqlite3_step(stmt_update_scan_duration);
+
+   if(errcode != SQLITE_DONE)
+      return 0;
+
+   // return the number of records changed in this update
+   return sqlite3_changes(file_scan_db);
+}
+
+void set_last_scan_update_time(int64_t scan_id, sqlite3 *file_scan_db)
+{
+   int errcode = SQLITE_OK;
+
+   sqlite_stmt_t stmt_scan_update_time("last scan update time"sv);
+
+   //                                                                    1               2
+   std::string_view sql_complete_scan = "UPDATE scans SET last_update_time=? WHERE rowid = ?"sv;
+
+   stmt_scan_update_time.prepare(file_scan_db, sql_complete_scan);
+
+   sqlite_stmt_binder_t scan_update_time_stmt(stmt_scan_update_time, "last scan update time"sv);
+
+   scan_update_time_stmt.bind_param(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
+   scan_update_time_stmt.bind_param(scan_id);
+
+   errcode = sqlite3_step(stmt_scan_update_time);
+
+   if(errcode != SQLITE_DONE)
+      throw std::runtime_error(FMTNS::format("Cannot set update time for scan {:d} ({:s})", scan_id, sqlite3_errstr(errcode)));
 
    int updated_scans = sqlite3_changes(file_scan_db);
 
    if(updated_scans != 1)
-      throw std::runtime_error(FMTNS::format("Cannot set completed time for scan {:d}", scan_id));
+      throw std::runtime_error(FMTNS::format("Cannot set update time for scan {:d}", scan_id));
 }
 
 std::tuple<std::optional<int64_t>, bool> select_base_scan_id(const options_t& options, sqlite3 *file_scan_db)
@@ -658,8 +714,8 @@ std::tuple<std::optional<int64_t>, bool> select_base_scan_id(const options_t& op
    sqlite_stmt_t stmt_base_scan("select base scan"sv);
 
    std::string_view sql_base_scan = options.verify_scan_id.has_value() ?
-                                       "SELECT scans.rowid, completed_time FROM scans WHERE scans.rowid = ?"sv :
-                                       "SELECT scans.rowid, completed_time FROM scans ORDER BY scans.rowid DESC LIMIT 1"sv;
+                                       "SELECT scans.rowid, completed_time, last_update_time FROM scans WHERE scans.rowid = ?"sv :
+                                       "SELECT scans.rowid, completed_time, last_update_time FROM scans ORDER BY scans.rowid DESC LIMIT 1"sv;
 
    stmt_base_scan.prepare(file_scan_db, sql_base_scan);
 
@@ -679,7 +735,18 @@ std::tuple<std::optional<int64_t>, bool> select_base_scan_id(const options_t& op
 
    if(errcode == SQLITE_ROW) {
       scan_id = sqlite3_column_int64(stmt_base_scan, 0);
-      completed_scan = sqlite3_column_type(stmt_base_scan, 1) != SQLITE_NULL;
+
+      std::optional<int64_t> completed_time;
+      std::optional<int64_t> last_update_time;
+
+      if(sqlite3_column_type(stmt_base_scan, 1) != SQLITE_NULL)
+         completed_time = sqlite3_column_int64(stmt_base_scan, 1);
+
+      if(sqlite3_column_type(stmt_base_scan, 2) != SQLITE_NULL)
+         last_update_time = sqlite3_column_int64(stmt_base_scan, 2);
+
+      // a scan is completed if there is completed time in the record and either there is no last scan update time or it is in the past
+      completed_scan = completed_time.has_value() && (!last_update_time.has_value() || completed_time.value() > last_update_time.value());
    }
 
    return std::make_tuple(scan_id, completed_scan);
@@ -1027,6 +1094,8 @@ int main(int argc, char *argv[])
             // set the current scan to the one we found (last scan at this point) and find a previous scan to use as a base scan
             scan_id = base_scan_id.value();
             base_scan_id = fit::select_scan_for_update(options, base_scan_id.value(), file_scan_db.get());
+
+            fit::set_last_scan_update_time(scan_id.value(), file_scan_db.get());
          }
       }
 
@@ -1055,8 +1124,14 @@ int main(int argc, char *argv[])
             file_tree_walker.walk_tree<std::filesystem::directory_iterator>();
 
          if(!options.verify_files) {
-            if(file_tree_walker.was_scan_completed())
-               fit::complete_scan_record(scan_id.value(), file_scan_db.get());
+            if(file_tree_walker.was_scan_completed()) {
+               if(fit::complete_scan_record(scan_id.value(), file_scan_db.get()) != 1)
+                  print_stream.warning("Cannot update completed time for scan %d", scan_id);
+            }
+
+            // at this point cumulative time will not reflect any activities performed while closing the database
+            if(fit::update_scan_duration(options, scan_id.value(), std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now()-start_time).count(), file_scan_db.get()) != 1)
+               print_stream.warning("Cannot update cumulative duration for scan %d", scan_id);
 
             fit::close_sqlite_database(file_scan_db.release());
          }
