@@ -389,19 +389,19 @@ void verify_options(options_t& options)
 
       options.base_path = std::filesystem::canonical(options.base_path);
 
-      // make sure that the scan path is under the base path
-      std::filesystem::path::iterator bpi = options.base_path.begin();
-
+      // make sure that all scan paths are under the base path
       for(const std::filesystem::path& scan_path : options.scan_paths) {
+         std::filesystem::path::iterator bpi = options.base_path.begin();
+
          for(std::filesystem::path::iterator spi = scan_path.begin(); bpi != options.base_path.end() && spi != scan_path.end(); ++bpi, ++spi) {
             if(*bpi != *spi)
-               throw std::runtime_error("Scan path must be under the base path");
+               break;
          }
-      }
 
-      // check if the loop ended because the scan path was shorter
-      if(bpi != options.base_path.end())
-         throw std::runtime_error("Scan path must be under the base path");
+         // check if the entire base path was consumed (i.e. there's no mismatch and the scan path isn't shorter)
+         if(bpi != options.base_path.end())
+            throw std::runtime_error(FMTNS::format("Scan path must be under the base path ({:s})", u8tosv_t(scan_path.u8string())));
+      }
    }
 
    // if there are no EXIF extensions, use the default list
