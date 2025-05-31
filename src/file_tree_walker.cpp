@@ -59,11 +59,24 @@ void file_tree_walker_t::report_progress(void)
       print_stream.info("Failed to process %" PRIu64 " files", progress_info.failed_files.load());
 }
 
+void file_tree_walker_t::handle_abort_scan(bool& abort_scan_reported)
+{
+   static const char *abort_message = "Aborting... Ctrl-C to kill (may render database unusable)";
+
+   interrupted_scan = true;
+
+   if(!abort_scan_reported) {
+      abort_scan_reported = true;
+      print_stream.info(abort_message);
+   }
+}
+
 template <typename dir_iter_t>
 void file_tree_walker_t::walk_tree(void)
 {
-   static const char *abort_message = "Aborting... Ctrl-C to kill (may render database unusable)";
    static const char *enum_files_error_msg = "Cannot enumerate files";
+
+   bool abort_scan_reported = false;
 
    // start hasher threads
    for(size_t i = 0; i < file_trackers.size(); i++)
@@ -118,11 +131,15 @@ void file_tree_walker_t::walk_tree(void)
                }
 
                if(abort_scan) {
-                  interrupted_scan = true;
-                  print_stream.info(abort_message);
+                  handle_abort_scan(abort_scan_reported);
                   break;
                }
             }
+         }
+
+         if(abort_scan) {
+            handle_abort_scan(abort_scan_reported);
+            break;
          }
       }
    }
@@ -170,8 +187,7 @@ void file_tree_walker_t::walk_tree(void)
       }
 
       if(abort_scan) {
-         interrupted_scan = true;
-         print_stream.info(abort_message);
+         handle_abort_scan(abort_scan_reported);
          break;
       }
    }

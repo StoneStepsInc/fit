@@ -46,6 +46,9 @@ class file_tree_walker_t {
 
       bool interrupted_scan = false;
 
+   private:
+      void handle_abort_scan(bool& aborted_scan_reported);
+
    public:
       file_tree_walker_t(const options_t& options, std::optional<int64_t>& scan_id, std::optional<int64_t>& base_scan_id, print_stream_t& print_stream);
 
