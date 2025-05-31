@@ -201,8 +201,12 @@ void file_tree_walker_t::walk_tree(void)
       file_trackers[i].join();
 
    // make it visible that the scan was interrupted (the exception may be hidden behind subsequent messages)
-   if(interrupted_scan)
-      print_stream.warning("Scan %d did not complete successfully", scan_id.value());
+   if(interrupted_scan) { 
+      if(options.verify_files)
+         print_stream.warning("Cannot verify remaining files");
+      else
+         print_stream.warning("Scan %d did not complete successfully", scan_id.value_or(0));
+   }
 }
 
 bool file_tree_walker_t::was_scan_completed(void) const
