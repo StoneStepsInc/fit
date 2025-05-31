@@ -148,8 +148,8 @@ options_t parse_options(int argc, char *argv[])
       // hold onto the option index to detect option values
       size_t opt_i = i;
 
-      // conditions should match the loop with same option conditions following the switch
-      if(*(argv[i]+1) != 'm' && *(argv[i]+1) != 'd') {
+      // conditions should match the loop with same option conditions following the switch for options with values
+      if(*(argv[i]+1) != 'm' && *(argv[i]+1) != 'd' && *(argv[i]+1) != 'a') {
          if(i > 1)
             options.all += ' ';
 
@@ -303,11 +303,11 @@ options_t parse_options(int argc, char *argv[])
       }
 
       //
-      // For options with values, append it to the option line, unless it
-      // is a message or a scan directory. We also don't want to enforce
-      // either for scanset updates, so multiple directories under the
-      // same base path can be scanned within one scanset. The message is
-      // stored in its own column and both are reported in the output.
+      // If this option has a value, append it to the list of options,
+      // wrapping values that may contain spaces in double quotes. Skip
+      // `-d` to allow additional directories and `-m` because we want
+      // to collect only the original message (it may get messy tracking
+      // multiple messages).
       // 
       if(opt_i != i && *(argv[opt_i]+1) != 'm' && *(argv[opt_i]+1) != 'd') {
          // wrap arguments that may have spaces in quotes

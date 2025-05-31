@@ -135,8 +135,8 @@ void file_tree_walker_t::walk_tree(void)
       // 
       // Both error paths are populated for two-argument commands,
       // such as `rename`, and for iterating directories none of them
-      // is populated currently, but in case if it changes, print the
-      // first one that is not empty.
+      // is populated currently, but in case if it changes, print all
+      // that are not empty.
       // 
       // For access-denied errors, there may be nothing helpful we can
       // report because the iterator contains no value after a failed
@@ -145,13 +145,19 @@ void file_tree_walker_t::walk_tree(void)
       //
       if(error.path1().empty() && error.path2().empty())
          print_stream.error("Cannot queue a file, %s (%s)", enum_files_error_msg, error.code().message().c_str());
+      else if(!error.path1().empty() && !error.path2().empty())
+         print_stream.error("Cannot queue a file, %s (%s) for \"%s\" and \"%s\"", enum_files_error_msg, error.code().message().c_str(), error.path1().u8string().c_str(), error.path2().u8string().c_str());
       else if(!error.path1().empty())
-         print_stream.error("Cannot queue a file, %s (%s) for %s", enum_files_error_msg, error.code().message().c_str(), error.path1().u8string().c_str());
+         print_stream.error("Cannot queue a file, %s (%s) for \"%s\"", enum_files_error_msg, error.code().message().c_str(), error.path1().u8string().c_str());
       else
-         print_stream.error("Cannot queue a file, %s (%s) for %s", enum_files_error_msg, error.code().message().c_str(), error.path2().u8string().c_str());
+         print_stream.error("Cannot queue a file, %s (%s) for \"%s\"", enum_files_error_msg, error.code().message().c_str(), error.path2().u8string().c_str());
+
+      // treat errors as interruptions, so the scan is not considered as completed
+      interrupted_scan = true;
    }
    catch (const std::exception& error) {
-      print_stream.error("Cannot queue a file, %s (%s)\n", enum_files_error_msg, error.what());
+      print_stream.error("Cannot queue a file, %s (%s)", enum_files_error_msg, error.what());
+      interrupted_scan = true;
    }
 
    // wait for all file hasher threads to process all queued files
@@ -177,6 +183,10 @@ void file_tree_walker_t::walk_tree(void)
    // and wait until they actually stop
    for(size_t i = 0; i < file_trackers.size(); i++)
       file_trackers[i].join();
+
+   // make it visible that the scan was interrupted (the exception may be hidden behind subsequent messages)
+   if(interrupted_scan)
+      print_stream.warning("Scan %d did not complete successfully", scan_id.value());
 }
 
 bool file_tree_walker_t::was_scan_completed(void) const

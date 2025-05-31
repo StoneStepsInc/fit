@@ -97,6 +97,9 @@ modes and are as follows:
     directory names, so some other means need to be used to figure
     which specific directories cannot be accessed.
 
+    The `-a` option may be added in subsequent update scans, so
+    the inaccessible directory is skipped.
+
   * `-X .ext[.ext]...`
 
     This option provides a list of EXIF file extensions. The default
