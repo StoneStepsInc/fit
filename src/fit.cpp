@@ -474,7 +474,7 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
          if(sqlite3_exec(file_scan_db, "CREATE TABLE files ("
                                           "id INTEGER NOT NULL PRIMARY KEY,"
                                           "name TEXT NOT NULL,"
-                                          "ext TEXT NULL,"
+                                          "ext TEXT,"
                                           "path TEXT NOT NULL);", nullptr, nullptr, &errmsg) != SQLITE_OK)
             throw std::runtime_error("Cannot create table 'files' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
@@ -489,7 +489,7 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
                                           "mod_time INTEGER NOT NULL,"
                                           "entry_size INTEGER NOT NULL,"
                                           "read_size INTEGER NOT NULL, "
-                                          "exif_id INTEGER NULL, "
+                                          "exif_id INTEGER, "
                                           "hash_type VARCHAR(32) NOT NULL,"
                                           "hash TEXT);", nullptr, nullptr, &errmsg) != SQLITE_OK)
             throw std::runtime_error("Cannot create table 'files' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
@@ -503,23 +503,23 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
          // exif table
          if(sqlite3_exec(file_scan_db, "CREATE TABLE exif ("
                                           "id INTEGER NOT NULL PRIMARY KEY,"
-                                          "BitsPerSample TEXT NULL,Compression INTEGER NULL,DocumentName TEXT NULL,ImageDescription TEXT NULL,"
-                                          "Make TEXT NULL,Model TEXT NULL,Orientation INTEGER NULL,SamplesPerPixel TEXT NULL,"
-                                          "Software TEXT NULL,DateTime TEXT NULL,Artist TEXT NULL,Copyright TEXT NULL,"
-                                          "ExposureTime TEXT NULL,FNumber TEXT NULL,ExposureProgram INTEGER NULL,ISOSpeedRatings INTEGER NULL,"
-                                          "SensitivityType INTEGER NULL,ISOSpeed INTEGER NULL,TimeZoneOffset TEXT NULL,DateTimeOriginal TEXT NULL,"
-                                          "DateTimeDigitized TEXT NULL,OffsetTime TEXT NULL,OffsetTimeOriginal TEXT NULL,OffsetTimeDigitized TEXT NULL,"
-                                          "ShutterSpeedValue TEXT NULL,ApertureValue TEXT NULL,SubjectDistance TEXT NULL,BrightnessValue TEXT NULL,"
-                                          "ExposureBiasValue TEXT NULL,MaxApertureValue TEXT NULL,MeteringMode INTEGER NULL,LightSource INTEGER NULL,"
-                                          "Flash INTEGER NULL,FocalLength TEXT NULL,UserComment TEXT NULL,SubsecTime TEXT NULL,"
-                                          "SubSecTimeOriginal TEXT NULL,SubSecTimeDigitized TEXT NULL,FlashpixVersion TEXT NULL,FlashEnergy TEXT NULL,"
-                                          "SubjectLocation TEXT NULL,ExposureIndex TEXT NULL,SensingMethod INTEGER NULL,SceneType INTEGER NULL,"
-                                          "ExposureMode INTEGER NULL,WhiteBalance INTEGER NULL,DigitalZoomRatio TEXT NULL,FocalLengthIn35mmFilm TEXT NULL,"
-                                          "SceneCaptureType INTEGER NULL,SubjectDistanceRange TEXT NULL,ImageUniqueID TEXT NULL,CameraOwnerName TEXT NULL,"
-                                          "BodySerialNumber TEXT NULL,LensSpecification TEXT NULL,LensMake TEXT NULL,LensModel TEXT NULL,"
-                                          "LensSerialNumber TEXT NULL,GPSLatitudeRef TEXT NULL,GPSLatitude TEXT NULL,GPSLongitudeRef TEXT NULL,"
-                                          "GPSLongitude TEXT NULL,GPSAltitudeRef TEXT NULL,GPSAltitude TEXT NULL,GPSTimeStamp TEXT NULL,"
-                                          "GPSSpeedRef TEXT NULL,GPSSpeed TEXT NULL,GPSDateStamp TEXT NULL, XMPxmpRating TEXT NULL, Exiv2Json TEXT NULL);",nullptr,nullptr,&errmsg) != SQLITE_OK)
+                                          "BitsPerSample TEXT,Compression INTEGER,DocumentName TEXT,ImageDescription TEXT,"
+                                          "Make TEXT,Model TEXT,Orientation INTEGER,SamplesPerPixel TEXT,"
+                                          "Software TEXT,DateTime TEXT,Artist TEXT,Copyright TEXT,"
+                                          "ExposureTime TEXT,FNumber TEXT,ExposureProgram INTEGER,ISOSpeedRatings INTEGER,"
+                                          "SensitivityType INTEGER,ISOSpeed INTEGER,TimeZoneOffset TEXT,DateTimeOriginal TEXT,"
+                                          "DateTimeDigitized TEXT,OffsetTime TEXT,OffsetTimeOriginal TEXT,OffsetTimeDigitized TEXT,"
+                                          "ShutterSpeedValue TEXT,ApertureValue TEXT,SubjectDistance TEXT,BrightnessValue TEXT,"
+                                          "ExposureBiasValue TEXT,MaxApertureValue TEXT,MeteringMode INTEGER,LightSource INTEGER,"
+                                          "Flash INTEGER,FocalLength TEXT,UserComment TEXT,SubsecTime TEXT,"
+                                          "SubSecTimeOriginal TEXT,SubSecTimeDigitized TEXT,FlashpixVersion TEXT,FlashEnergy TEXT,"
+                                          "SubjectLocation TEXT,ExposureIndex TEXT,SensingMethod INTEGER,SceneType INTEGER,"
+                                          "ExposureMode INTEGER,WhiteBalance INTEGER,DigitalZoomRatio TEXT,FocalLengthIn35mmFilm TEXT,"
+                                          "SceneCaptureType INTEGER,SubjectDistanceRange TEXT,ImageUniqueID TEXT,CameraOwnerName TEXT,"
+                                          "BodySerialNumber TEXT,LensSpecification TEXT,LensMake TEXT,LensModel TEXT,"
+                                          "LensSerialNumber TEXT,GPSLatitudeRef TEXT,GPSLatitude TEXT,GPSLongitudeRef TEXT,"
+                                          "GPSLongitude TEXT,GPSAltitudeRef TEXT,GPSAltitude TEXT,GPSTimeStamp TEXT,"
+                                          "GPSSpeedRef TEXT,GPSSpeed TEXT,GPSDateStamp TEXT, XMPxmpRating TEXT, Exiv2Json TEXT);",nullptr,nullptr,&errmsg) != SQLITE_OK)
             throw std::runtime_error("Cannot create table 'exif' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
          // scans table
@@ -527,10 +527,10 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
                                           "id INTEGER NOT NULL PRIMARY KEY,"
                                           "app_version TEXT NOT NULL,"
                                           "scan_time INTEGER NOT NULL,"
-                                          "completed_time INTEGER NULL,"
-                                          "last_update_time INTEGER NULL,"
-                                          "times_updated INTEGER NULL,"
-                                          "cumulative_duration INTEGER NULL,"
+                                          "completed_time INTEGER,"
+                                          "last_update_time INTEGER,"
+                                          "times_updated INTEGER,"
+                                          "cumulative_duration INTEGER,"
                                           "base_path TEXT,"
                                           "options TEXT NOT NULL,"
                                           "message TEXT);", nullptr, nullptr, &errmsg) != SQLITE_OK)

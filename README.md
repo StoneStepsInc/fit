@@ -311,13 +311,13 @@ without the `-v` option and has the following fields:
 
         datetime(scan_time, 'unixepoch')
 
-  * `completed_time` `INTEGER NULL`
+  * `completed_time` `INTEGER`
 
     Number of seconds since 1970-01-01, UTC of the time the
     scan was completed. May be updated by subsequent scans
     with the `-u` option.
 
-  * `last_update_time` `INTEGER NULL`
+  * `last_update_time` `INTEGER`
 
     Number of seconds since 1970-01-01, UTC of the time when
     the last scan update was started (i.e. the `-u` option was
@@ -328,13 +328,13 @@ without the `-v` option and has the following fields:
     `NULL` or a time stamp that is in the past, relative to
     `completed_time`.
 
-  * `cumulative_duration` `INTEGER NULL`
+  * `cumulative_duration` `INTEGER`
 
     Cumulative time, in seconds, spent while scanning files.
     This value is updated for original scans and update scans,
     never for verification scans.
 
-  * `times_updated` `INTEGER NULL`
+  * `times_updated` `INTEGER`
 
     Number of times the last scan was updated. This number does
     not include the original scan.
@@ -395,7 +395,7 @@ This table has following fields:
     file or the directory entry was updated after it was read
     by the file scanner.
 
-  * `exif_id` `INTEGER NULL`
+  * `exif_id` `INTEGER`
 
     An EXIF record identifier for this file version record. This
     value is set to `NULL` for file versions that do not have
@@ -435,7 +435,7 @@ of the same file reference the same file record.
     the file path that compares just the file name at the end of the
     path.
 
-  * `ext` `TEXT NULL`
+  * `ext` `TEXT`
 
     File extension, including the leading dot, as reported by the
     underlying file system layer.
