@@ -156,6 +156,9 @@ modes and are as follows:
   * `-m scan-message`
 
     Records a short human-readable message for the current scan.
+    The message specified in the first scan is stored in the
+    database. Scan messages for subsequent update scans may still
+    be useful if log files are preserved.
 
 ## Scanning a File Tree
 
@@ -244,7 +247,7 @@ throw-away database.
 
 Multiple files are scanned in parallel using `-t` threads.
 Each thread has its own EXIF reader, a file hasher and a
-set of scan buffers.
+set of hashing buffers.
 
 Using more threads increases parallelism, but also increases
 contention for shared resources, such as disk and database.
@@ -262,7 +265,7 @@ reading more data, `-s` bytes at a time, as hashing progresses.
 This means that only hashing is done in parallel on a single
 scan thread, while files are being read one at a time, which
 may improve scan speed against drives that provide slower
-random access.
+random disk access, such as magnetic drives.
 
 Increasing buffer size via larger `-s` values may help to
 improve scan speed against large files, such as video and
@@ -345,11 +348,14 @@ without the `-v` option and has the following fields:
 
   * `options` `TEXT NOT NULL`
 
-    Command line options used for this scan.
+    Command line options used for this scan. The value will not
+    include options that can be changed between update scans,
+    such as `-d` or `-a`.
 
   * `message` `TEXT`
 
-    A text message to describe this scan. If omitted, `NULL` is stored.
+    A text message to describe this scan. Only the scan message
+    of the first scan is stored in the database.
 
 ### Versions Table
 
