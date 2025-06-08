@@ -13,6 +13,7 @@
 --   certutil -hashfile path\to\file SHA256
 --
 SELECT 
+    scan_id,
     version,
     path,
     mod_time,

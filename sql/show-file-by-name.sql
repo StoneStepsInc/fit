@@ -9,6 +9,7 @@
 --   datetime(mod_time-11644473600, 'unixepoch') as mod_time
 --
 SELECT
+    scan_id,
     version,
     path,
     mod_time,
