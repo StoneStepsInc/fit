@@ -1101,9 +1101,9 @@ void file_tracker_t::run(void)
                   version_id = insert_version_record(filepath, file_id.value(), version+1, filesize, dir_entry.value(), hexhash_file, exif_id);
                }
 
-               // reuse for updated files during scans and for mismatched files during verification
-               progress_info.updated_files++;
-               progress_info.updated_size += filesize;
+               // update the number of unmatched files and their size
+               progress_info.unmatched_files++;
+               progress_info.unmatched_size += filesize;
             }
 
             if(!options.verify_files) {

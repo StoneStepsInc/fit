@@ -44,14 +44,14 @@ void file_tree_walker_t::cleanup(print_stream_t& print_stream) noexcept
 
 void file_tree_walker_t::report_progress(void)
 {
-   if(!progress_info.updated_files) {
+   if(!progress_info.unmatched_files) {
       print_stream.info("Processed %.1f GB in %" PRIu64 " files",
                         progress_info.processed_size.load()/1'000'000'000., progress_info.processed_files.load());
    }
    else {
       print_stream.info("Processed %.1f GB in %" PRIu64 " files (%" PRIu64 "/%.1f GB %s)",
                         progress_info.processed_size.load()/1'000'000'000., progress_info.processed_files.load(),
-                        progress_info.updated_files.load(), progress_info.updated_size.load()/1'000'000'000.,
+                        progress_info.unmatched_files.load(), progress_info.unmatched_size.load()/1'000'000'000.,
                         options.verify_files ? "changed" : "updated");
    }
 
