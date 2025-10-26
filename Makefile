@@ -1,7 +1,7 @@
 #
 # File Integrity Tracker (fit)
 # 
-# Copyright (c) 2023, Stone Steps Inc.
+# Copyright (c) 2025, Stone Steps Inc.
 #
 
 SHELL := /bin/bash
@@ -57,7 +57,7 @@ CXXFLAGS := -std=c++20 \
 	-DRAPIDJSON_HAS_CXX11_NOEXCEPT \
 	-DRAPIDJSON_HAS_CXX11_RANGE_FOR
 
-
+# if there's no debug information requested, turn on optimizations
 ifeq ($(findstring -g,$(CXXFLAGS)),)
 CXXFLAGS += -O3
 endif
@@ -95,7 +95,7 @@ $(BLDDIR)/%.o : $(SRCDIR)/%.c
 $(BLDDIR)/%.o : $(SRCDIR)/%.cpp
 	$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) $(addprefix -I,$(INCDIRS)) $< -o $@
 
-# dependencies
+# C/C++ dependencies
 $(BLDDIR)/%.d : $(SRCDIR)/%.c
 	@if [ ! -e $(@D) ]; then mkdir -p $(@D); fi
 	set -e; $(CC) -MM $(CPPFLAGS) $(CFLAGS) $(addprefix -I,$(INCDIRS)) $< | \
@@ -106,6 +106,7 @@ $(BLDDIR)/%.d : $(SRCDIR)/%.cpp
 	set -e; $(CXX) -MM $(CPPFLAGS) $(CXXFLAGS) $(addprefix -I,$(INCDIRS)) $< | \
 	sed 's|^[ \t]*$(*F)\.o|$(BLDDIR)/$*.o $(BLDDIR)/$*.d|g' > $@
 
+# update dependencies if there are no goals or if build/fit was specified as a target
 ifeq ($(MAKECMDGOALS),)
 include $(addprefix $(BLDDIR)/, $(DEPS))
 else ifneq ($(filter $(BLDDIR)/fit,$(MAKECMDGOALS)),)

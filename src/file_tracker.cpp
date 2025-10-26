@@ -360,7 +360,7 @@ time_t file_tracker_t::file_time_to_time_t(const std::chrono::file_clock::time_p
 {
 #if defined(_MSC_VER) || (defined(__GNUC__) && __GNUC__ >= 13)
    // works only in VC++ 19.37, GCC 13 and CLang 17
-   // utc_clock epoch is 1970, even though the official UTC epoch is 1972
+   // utc_clock epoch is 1970 (since 1972-01-01 UTC is adjusted for leap seconds as UTC_since_1970 = (TAI_now - TAI_at_1970) - (10_leap_seconds_at_1972 + leap_seconds_since_1972))
    // this might be more concise - std::chrono::file_clock::to_utc(mod_time_fc), but GCC 13 doesn't implement to_utc (plus use of generic clock_cast is encouraged)
    return std::chrono::duration_cast<std::chrono::seconds>(std::chrono::clock_cast<std::chrono::utc_clock>(file_time).time_since_epoch()).count();
 #else
@@ -401,6 +401,7 @@ bool file_tracker_t::set_sqlite_journal_mode(sqlite3 *file_scan_db, print_stream
 {
    int errcode = SQLITE_OK;
 
+   // write-ahead logging works significantly faster, given how this app uses the database (see https://sqlite.org/wal.html)
    sqlite_stmt_t journal_mode_stmt("PRAGMA journal_mode=WAL"sv);
 
    if((errcode = journal_mode_stmt.prepare(file_scan_db, "PRAGMA journal_mode=WAL;"sv)) != SQLITE_OK) {
@@ -909,6 +910,7 @@ void file_tracker_t::run(void)
                continue;
             }
 
+            // if asked to use an alternative path separator character, construct a path string for the query (e.g. using Windows database on Linux)
             if(options.query_path_sep.has_value() && options.query_path_sep.value() != std::filesystem::path::preferred_separator) {
                // tests show that it's ~15% faster to copy a string and then replace a few characters vs. copying a character at a time (i.e. copy is done a few words at a time)
                filepath_query = filepath;
