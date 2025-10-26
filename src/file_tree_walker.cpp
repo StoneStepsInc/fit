@@ -197,8 +197,21 @@ void file_tree_walker_t::walk_tree(void)
       file_trackers[i].stop();
 
    // and wait until they actually stop
-   for(size_t i = 0; i < file_trackers.size(); i++)
+   for(size_t i = 0; i < file_trackers.size(); i++) {
       file_trackers[i].join();
+
+      if(options.report_removed_files) {
+         // collect combined file removal information in the first file tracker
+         if(i != 0)
+            file_trackers.front().update_file_removals(file_trackers[i]);
+      }
+   }
+
+   // reporting removed files only works in a completeded full recursive scan
+   if(!interrupted_scan && options.report_removed_files) {
+      // allow the file tracker to report file removals, if any were identified
+      file_trackers.front().report_file_removals();
+   }
 
    // make it visible that the scan was interrupted (the exception may be hidden behind subsequent messages)
    if(interrupted_scan) { 
@@ -237,6 +250,11 @@ uint64_t file_tree_walker_t::get_new_files(void) const
 uint64_t file_tree_walker_t::get_changed_files(void) const
 {
    return progress_info.changed_files.load();
+}
+
+uint64_t file_tree_walker_t::get_removed_files(void) const
+{
+   return progress_info.removed_files.load();
 }
 
 }

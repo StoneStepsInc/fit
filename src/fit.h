@@ -33,6 +33,7 @@ struct options_t {
    bool skip_no_access_paths = false;
    bool update_last_scanset = false;
    bool exiv2_json = false;
+   bool report_removed_files = false;
    bool upgrade_schema_to_v60 = false;
 
    std::optional<int> verify_scan_id;

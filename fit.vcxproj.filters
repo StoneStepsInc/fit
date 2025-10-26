@@ -25,6 +25,9 @@
     <ClCompile Include="src\mb_hasher_tmpl.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\scanset_bitmap.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\file_tracker.h">
@@ -52,6 +55,9 @@
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="src\mb_sha256_traits.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\scanset_bitmap.h">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>

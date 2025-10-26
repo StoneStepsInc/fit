@@ -3,6 +3,7 @@
 
 #include "print_stream.h"
 #include "exif_reader.h"
+#include "scanset_bitmap.h"
 
 #include "fit.h"
 
@@ -30,7 +31,9 @@ namespace fit {
 
 //
 // This progress tracker is intended to be fast and will not
-// consistently represent values in relation with each other.
+// consistently represent values in relation with each other
+// while the file tree is being scanned.
+// 
 // For example, it is possible that the number of processed
 // files will not accurately reflect processed size because
 // active threads may be updating some of these values while
@@ -50,6 +53,9 @@ struct progress_info_t {
    std::atomic<uint64_t> modified_files = 0;
    std::atomic<uint64_t> changed_files = 0;
    std::atomic<uint64_t> new_files = 0;
+
+   std::atomic<uint64_t> removed_files = 0;
+   std::atomic<uint64_t> removed_size = 0;
 };
 
 //
@@ -61,7 +67,7 @@ class file_tracker_t {
 
       // same field order as in the select statement (stmt_find_version)
       // version, mod_time, hash_type, hash, versions.rowid, file_id, scan_id
-      typedef std::tuple<int64_t, int64_t, std::string, std::optional<std::string>, int64_t, int64_t, int64_t> version_record_t;
+      typedef std::tuple<int64_t, int64_t, std::string, std::optional<std::string>, int64_t, int64_t, int64_t, int64_t> version_record_t;
 
       //
       // A wrapper for the file version select statement result tuple,
@@ -91,6 +97,8 @@ class file_tracker_t {
          int64_t file_id(void) const {return std::get<5>(version_record.value());}
 
          int64_t scanset_scan_id(void) const {return std::get<6>(version_record.value());}
+
+         int64_t scanset_rowid(void) const {return std::get<7>(version_record.value());}
       };
 
       //
@@ -150,6 +158,8 @@ class file_tracker_t {
       std::vector<std::u8string> EXIF_exts;
 
       exif::exif_reader_t exif_reader;
+
+      scanset_bitmap_t scanset_bitmap;
 
 #ifndef NO_SSE_AVX
       mb_file_hasher_t mb_hasher;
@@ -212,6 +222,8 @@ class file_tracker_t {
 
       static bool set_sqlite_journal_mode(sqlite3 *file_scan_db, print_stream_t& print_stream);
 
+      static std::tuple<uint64_t, uint64_t> get_scanset_rowid_range(sqlite3 *file_scan_db, int64_t scan_id);
+
    public:
       file_tracker_t(const options_t& options, std::optional<int64_t>& scan_id, std::optional<int64_t>& base_scan_id, std::queue<std::filesystem::directory_entry>& files, std::mutex& files_mtx, progress_info_t& progress_info, print_stream_t& print_stream);
 
@@ -228,6 +240,10 @@ class file_tracker_t {
       void stop(void);
 
       void join(void);
+
+      void update_file_removals(const file_tracker_t& other);
+
+      void report_file_removals(void);
 };
 
 }

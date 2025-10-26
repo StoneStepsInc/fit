@@ -102,6 +102,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="src\print_stream.cpp" />
+    <ClCompile Include="src\scanset_bitmap.cpp" />
     <ClCompile Include="src\sqlite.cpp" />
     <ClCompile Include="src\unicode.cpp" />
   </ItemGroup>
@@ -113,6 +114,7 @@
     <ClInclude Include="src\mb_hasher.h" />
     <ClInclude Include="src\mb_sha256_traits.h" />
     <ClInclude Include="src\print_stream.h" />
+    <ClInclude Include="src\scanset_bitmap.h" />
     <ClInclude Include="src\sqlite.h" />
     <ClInclude Include="src\unicode.h" />
   </ItemGroup>

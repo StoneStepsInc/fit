@@ -127,7 +127,8 @@ void print_usage(void)
    fputs("    -a           - skip restricted access directories\n", stdout);
    fputs("    -X [ext,...] - EXIF file extensions (default: .jpg.cr2.dng.nef.tif.heif.webp, none: no EXIF)\n", stdout);
    fputs("    -J           - store EXIF obtained from Exiv2 as JSON\n", stdout);
-   fputs("    -S kind      - path separator kind for querying the database (default: none, Windows, POSIX)\n", stdout);
+   fputs("    -S kind      - path separator for querying the database (default: none, choice: Windows, POSIX)\n", stdout);
+   fputs("    -R           - report removed files in verification scans\n", stdout);
    fputs("    -?           - this help\n", stdout);
 
    fputc('\n', stdout);
@@ -293,6 +294,9 @@ options_t parse_options(int argc, char *argv[])
                   throw std::runtime_error("Query path separator kind must be Windows or POSIX");
                
                break;
+            case 'R':
+               options.report_removed_files = true;
+               break;
             case 'h':
             case '?':
                options.print_usage = true;
@@ -323,6 +327,9 @@ options_t parse_options(int argc, char *argv[])
 
 void verify_options(options_t& options)
 {
+   if(options.report_removed_files && !options.verify_files)
+      throw std::runtime_error("-R can be used only with -v");
+
    if(options.thread_count == 0 || options.thread_count > 64)
       throw std::runtime_error("Invalid thread count");
 
@@ -1153,8 +1160,9 @@ int main(int argc, char *argv[])
          }
 
          if(options.verify_files) {
-            print_stream.info("Found %" PRIu64 " modified, %" PRIu64 " new and %" PRIu64 " changed files",
-                              file_tree_walker.get_modified_files(), file_tree_walker.get_new_files(), file_tree_walker.get_changed_files());
+            print_stream.info("Found %" PRIu64 " modified, %" PRIu64 " new, %" PRIu64 " removed, and %" PRIu64 " changed files",
+                              file_tree_walker.get_modified_files(), file_tree_walker.get_new_files(),
+                              file_tree_walker.get_removed_files(), file_tree_walker.get_changed_files());
          }
       }
       catch (...) {

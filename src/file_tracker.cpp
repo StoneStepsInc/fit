@@ -16,6 +16,7 @@ extern "C" {
 #include <stdexcept>
 #include <chrono>
 #include <algorithm>
+#include <array>
 
 #if defined(_MSC_VER) || (defined(__GNUC__) && __GNUC__ >= 13)
 #include <format>
@@ -39,6 +40,9 @@ using namespace std::literals::string_view_literals;
 using namespace std::literals::string_literals;
 
 namespace fit {
+
+// defined in fit.cpp
+extern std::atomic<bool> abort_scan;
 
 struct less_ci {
    bool operator () (const std::u8string& s1, const std::u8string& s2)
@@ -97,6 +101,12 @@ file_tracker_t::file_tracker_t(const options_t& options, std::optional<int64_t>&
       init_new_scan_stmts();
       init_transaction_stmts();
    }
+
+   if(options.report_removed_files) {
+      // if there is a base scan in a recursive scan, set up a scanset bitmap, so we can track removed files (i.e. remaining bits in scanset_bitmap)
+      if(base_scan_id.has_value() && options.recursive_scan)
+         scanset_bitmap = scanset_bitmap_t(get_scanset_rowid_range(file_scan_db, base_scan_id.value()));
+   }
 }
 
 file_tracker_t::file_tracker_t(file_tracker_t&& other) :
@@ -120,7 +130,8 @@ file_tracker_t::file_tracker_t(file_tracker_t&& other) :
       stmt_commit_txn(std::move(other.stmt_commit_txn)),
       stmt_rollback_txn(std::move(other.stmt_rollback_txn)),
       EXIF_exts(std::move(other.EXIF_exts)),
-      exif_reader(std::move(other.exif_reader))
+      exif_reader(std::move(other.exif_reader)),
+      scanset_bitmap(std::move(other.scanset_bitmap))
 #ifndef NO_SSE_AVX
       , mb_hasher(*this, options.buffer_size, other.mb_hasher.max_jobs())
 #endif
@@ -321,8 +332,8 @@ void file_tracker_t::init_base_scan_stmts(void)
    // a file record cannot exist without a version record and if
    // there's any version record, there will be a file record).
    // 
-   // columns:                                            0         1          2     3               4        5        6
-   std::string_view sql_find_last_version = "SELECT version, mod_time, hash_type, hash, versions.rowid, file_id, scan_id "
+   // columns:                                            0         1          2     3               4        5        6               7
+   std::string_view sql_find_last_version = "SELECT version, mod_time, hash_type, hash, versions.rowid, file_id, scan_id, scansets.rowid "
                                        "FROM versions JOIN files ON file_id = files.rowid JOIN scansets ON version_id = versions.rowid "
    // parameters:                                    1
                                        "WHERE path = ? "
@@ -335,8 +346,8 @@ void file_tracker_t::init_base_scan_stmts(void)
    // A select statement to look up a file version by file path
    // and a specific scan identifier (used only for verifications).
    // 
-   // columns:                                                 0         1          2     3               4        5        6
-   std::string_view sql_find_scan_file_version = "SELECT version, mod_time, hash_type, hash, versions.rowid, file_id, scan_id "
+   // columns:                                                 0         1          2     3               4        5        6               7
+   std::string_view sql_find_scan_file_version = "SELECT version, mod_time, hash_type, hash, versions.rowid, file_id, scan_id, scansets.rowid "
                                        "FROM versions JOIN files ON file_id = files.rowid JOIN scansets ON version_id = versions.rowid "
    // parameters:                                    1               2
                                        "WHERE path = ? AND scan_id = ?"sv;
@@ -410,6 +421,34 @@ bool file_tracker_t::set_sqlite_journal_mode(sqlite3 *file_scan_db, print_stream
       print_stream.warning("Cannot finalize SQLite statement for setting journal mode to WAL (%s)", sqlite3_errstr(errcode));
 
    return have_wal;
+}
+
+std::tuple<uint64_t, uint64_t> file_tracker_t::get_scanset_rowid_range(sqlite3 *file_scan_db, int64_t scan_id)
+{
+   int errcode = SQLITE_OK;
+
+   std::array<uint64_t, 2> scanset_rowid_range = {0};
+
+   for(size_t i = 0; i < sizeof(scanset_rowid_range)/sizeof(scanset_rowid_range)[0]; i++) {
+      std::string sql_scanset_rowid = FMTNS::format("SELECT rowid FROM scansets WHERE scan_id = ? ORDER BY rowid {:s} LIMIT 1"sv, i == 0 ? "ASC" : "DESC");
+
+      sqlite_stmt_t stmt_scanset_rowid("min/max scanset rowid"sv);
+
+      // selecting the first/last value avoids a table scan for MIN/MAX aggregates
+      if((errcode = stmt_scanset_rowid.prepare(file_scan_db, sql_scanset_rowid)) != SQLITE_OK)
+         throw std::runtime_error(FMTNS::format("Cannot prepare a min/max rowid statement for scanset {:d} ({:s})"sv, scan_id, sqlite3_errstr(errcode)));
+
+      sqlite_stmt_binder_t scanset_rowid_stmt(stmt_scanset_rowid, "min/max scanset rowid"sv);
+
+      scanset_rowid_stmt.bind_param(scan_id);
+
+      if((errcode = sqlite3_step(stmt_scanset_rowid)) != SQLITE_ROW)
+         throw std::runtime_error(FMTNS::format("Cannot obtain a min/max rowid for scanset {:d} ({:s})"sv, scan_id, sqlite3_errstr(errcode)));
+
+      scanset_rowid_range[i] = sqlite3_column_int64(stmt_scanset_rowid, 0);
+   }
+
+   return std::make_tuple(scanset_rowid_range[0], scanset_rowid_range[1]);
 }
 
 #ifdef NO_SSE_AVX
@@ -602,6 +641,8 @@ file_tracker_t::version_record_result_t file_tracker_t::select_version_record(co
 
    int64_t scanset_scan_id = sqlite3_column_int64(stmt_find_version, 6);
 
+   int64_t scanset_rowid = sqlite3_column_int64(stmt_find_version, 7);
+
    unsigned char hexhash_field[HASH_HEX_SIZE + 1];
 
    hexhash_field[HASH_HEX_SIZE] = '\x0';
@@ -633,7 +674,8 @@ file_tracker_t::version_record_result_t file_tracker_t::select_version_record(co
             (!hash_field_is_null ? std::make_optional<std::string>(reinterpret_cast<char*>(hexhash_field)) : std::nullopt),
             version_id,
             file_id,
-            scanset_scan_id)};
+            scanset_scan_id,
+            scanset_rowid)};
 }
 
 int64_t file_tracker_t::insert_version_record(const std::u8string& filepath, int64_t file_id, int64_t version, int64_t filesize, const std::filesystem::directory_entry& dir_entry, unsigned char hexhash_file[], std::optional<int64_t> exif_id)
@@ -1002,6 +1044,13 @@ void file_tracker_t::run(void)
                begin_transaction(filepath);
             }
 
+            // only keep track of removed files if a full recursive verification scan is requested
+            if(options.report_removed_files && options.recursive_scan) {
+               // if there's a version record, clear its rowid in the scanset bitmap of the base scan
+               if(version_record.has_value() && !scanset_bitmap.empty())
+                  scanset_bitmap.clear_rowid(version_record.scanset_rowid());
+            }
+
             // if there is no file record for this path, insert one to get a file ID
             if(!options.verify_files && !file_id.has_value())
                file_id = insert_file_record(filepath, dir_entry.value());
@@ -1013,16 +1062,16 @@ void file_tracker_t::run(void)
                   // differentiate between new, modified and changed files (a scanned file with a version in scan 1 and no version in a base scan 2, is a new file)
                   if(!version_record.has_value() || (base_scan_id.has_value() && version_record.scanset_scan_id() != base_scan_id.value())) {
                      progress_info.new_files++;
-                     print_stream.warning(   "new file: %s", filepath.c_str());
+                     print_stream.warning(   "new file: %s (%.3f MB)", filepath.c_str(), dir_entry.value().file_size()/1'000'000.);
                   }
                   else {
                      if(version_record.mod_time() != static_cast<int64_t>(file_time_to_time_t(dir_entry.value().last_write_time()))) {
                         progress_info.modified_files++;
-                        print_stream.warning("modified: %s", filepath.c_str());
+                        print_stream.warning("modified: %s (%.3f MB)", filepath.c_str(), dir_entry.value().file_size()/1'000'000.);
                      }
                      else {
                         progress_info.changed_files++;
-                        print_stream.warning("changed : %s", filepath.c_str());
+                        print_stream.warning("changed : %s (%.3f MB)", filepath.c_str(), dir_entry.value().file_size()/1'000'000.);
                      }
                   }
                }
@@ -1139,6 +1188,56 @@ void file_tracker_t::join(void)
 {
    if(file_tracker_thread.joinable())
       file_tracker_thread.join();
+}
+
+void file_tracker_t::update_file_removals(const file_tracker_t& other)
+{
+   scanset_bitmap.update(other.scanset_bitmap);
+}
+
+void file_tracker_t::report_file_removals(void)
+{
+   if(!scanset_bitmap.empty() && !abort_scan) {
+      int errcode = SQLITE_OK;
+
+      scanset_bitmap_t::const_iterator end_it = scanset_bitmap.end();
+
+      sqlite_stmt_t stmt_find_scanset_file("find scanset file"sv);
+
+      std::string_view sql_find_scanset_file = "SELECT path, entry_size FROM scansets "
+                                                   "JOIN versions ON scansets.version_id = versions.rowid "
+                                                   "JOIN files ON file_id = files.rowid "
+                                                   "WHERE scansets.rowid = ?"sv;
+
+      if((errcode = stmt_find_scanset_file.prepare(file_scan_db, sql_find_scanset_file)) != SQLITE_OK)
+         throw std::runtime_error(FMTNS::format("Cannot prepare a find scanset file statement ({:s})"sv, sqlite3_errstr(errcode)));
+
+      for(scanset_bitmap_t::const_iterator it = scanset_bitmap.begin(); it != end_it; ++it) {
+         sqlite_stmt_binder_t find_scanset_file_stmt(stmt_find_scanset_file, "find scanset file"sv);
+
+         find_scanset_file_stmt.bind_param(*it);
+
+         if((errcode = sqlite3_step(stmt_find_scanset_file)) != SQLITE_ROW)
+            throw std::runtime_error(FMTNS::format("The scanset file record for rowid {:d} must be in the database ({:s})"sv, *it, sqlite3_errstr(errcode)));
+
+         progress_info.removed_files++;
+         progress_info.removed_size += sqlite3_column_int64(stmt_find_scanset_file, 1);
+
+         print_stream.warning("removed : %s (%.3f MB)", sqlite3_column_text(stmt_find_scanset_file, 0), sqlite3_column_int64(stmt_find_scanset_file, 1)/1'000'000.);
+
+         if(abort_scan) {
+            // there's no waiting for other threads to stop at this point - just notify that we didn't report all removed files
+            print_stream.warning("Reporting of removed files has been aborted...");
+            break;
+         }
+      }
+
+      if(!abort_scan) {
+         // report removed files only if we identified any
+         if(progress_info.removed_files)
+            print_stream.warning("Identified %" PRIu64 " removed files (%.3f GB)", progress_info.removed_files.load(), progress_info.removed_size.load()/1'000'000'000.);
+      }
+   }
 }
 
 }

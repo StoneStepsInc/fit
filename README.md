@@ -147,11 +147,28 @@ modes and are as follows:
 
   * `-v [scan-id]`
 
-    Scans the file tree and reports added, modified or changed
-    files. This option cannot detect removed files.
+    Scans the file tree and reports added, modified or changed files.
+    See the `-R` option for reporting removed files.
 
     If a scan number provided as a value, the file tree will be
     verified against that scan.
+
+  * `-R`
+
+    Instructs `fit` to report removed files against the base scan,
+    which is either the last scan or the scan specified in the
+    `-v` option. May only be used if `-v` is also specified.
+
+    Note, that for this option to work, the same directories must
+    be specified for the verification scan as were used in the base
+    scan.
+
+    For example, if the base scan recorded files under `Pictures`
+    and `Documents`, and the verification scan only specifies
+    `Pictures`, then all files under `Documents` will be reported
+    as removed. This happens because file removals are tracked
+    against all files recorded in the base scan, not individual
+    directories.
 
   * `-m scan-message`
 

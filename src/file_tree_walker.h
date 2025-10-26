@@ -69,6 +69,8 @@ class file_tree_walker_t {
       uint64_t get_modified_files(void) const;
       uint64_t get_new_files(void) const;
       uint64_t get_changed_files(void) const;
+
+      uint64_t get_removed_files(void) const;
 };
 
 }

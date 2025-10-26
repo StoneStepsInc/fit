@@ -19,7 +19,7 @@ BLDDIR := build
 endif
 
 SRCS := fit.cpp file_tree_walker.cpp file_tracker.cpp exif_reader.cpp \
-        print_stream.cpp sqlite.cpp unicode.cpp
+        print_stream.cpp sqlite.cpp unicode.cpp scanset_bitmap.cpp
 
 LIBS := sqlite3 pthread stdc++fs exiv2 expat z fmt
 
