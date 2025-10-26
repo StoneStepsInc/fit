@@ -586,10 +586,10 @@ int64_t file_tracker_t::insert_exif_record(const std::u8string& filepath, const 
       if(!field_bitset.test(i))
          insert_exif_stmt.bind_param(nullptr);
       else {
-         if(exif_fields[i].index() == 1)
-            insert_exif_stmt.bind_param(std::get<1>(exif_fields[i]));
-         else if(exif_fields[i].index() == 2)
-            insert_exif_stmt.bind_param(std::get<2>(exif_fields[i]));
+         if(std::holds_alternative<int64_t>(exif_fields[i]))
+            insert_exif_stmt.bind_param(std::get<int64_t>(exif_fields[i]));
+         else if(std::holds_alternative<std::u8string>(exif_fields[i]))
+            insert_exif_stmt.bind_param(std::get<std::u8string>(exif_fields[i]));
          else
             throw std::runtime_error(FMTNS::format("Bad field value in EXIF record for {:s} ({:d})", u8tosv_t(filepath), i));
       }
