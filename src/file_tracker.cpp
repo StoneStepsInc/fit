@@ -517,8 +517,8 @@ file_tracker_t::mb_file_hasher_t::param_tuple_t file_tracker_t::open_file(versio
 bool file_tracker_t::read_file(unsigned char *file_buffer, size_t buf_size, size_t& data_size, mb_file_hasher_t::param_tuple_t& args) const noexcept
 {
    try {
-      std::unique_ptr<FILE, file_handle_deleter_t>& file = std::get<0>(args);
-      uint64_t& file_size = std::get<1>(args);
+      std::unique_ptr<FILE, file_handle_deleter_t>& file = std::get<mbh_arg_file_handle>(args);
+      uint64_t& file_size = std::get<mbh_arg_file_size>(args);
 
       data_size = std::fread(file_buffer, 1, buf_size, file.get());
 
@@ -531,17 +531,17 @@ bool file_tracker_t::read_file(unsigned char *file_buffer, size_t buf_size, size
    }
    catch (const std::exception& error) {
       // std::optional<file_read_error_t>
-      std::get<4>(args).emplace(error.what());
+      std::get<mbh_arg_file_read_error>(args).emplace(error.what());
    }
    catch (...) {
-      std::get<4>(args).emplace(FMTNS::format("Unexpected error caught while reading {:s}", u8tosv_t(std::get<3>(args).path().u8string())));
+      std::get<mbh_arg_file_read_error>(args).emplace(FMTNS::format("Unexpected error caught while reading {:s}", u8tosv_t(std::get<mbh_arg_dir_entry>(args).path().u8string())));
    }
 
    // indicate that we didn't read anything
    data_size = 0;
 
    // reset the number of bytes read so far because it is irrelevant and misleading in this case
-   std::get<1>(args) = 0;
+   std::get<mbh_arg_file_size>(args) = 0;
 
    return false;
 }
@@ -974,9 +974,9 @@ void file_tracker_t::run(void)
                std::optional<mb_file_hasher_t::param_tuple_t> args = mb_hasher.get_hash(isa_mb_hash);
 
                // close the file handle explicitly to avoid keeping it open while handling hashing results
-               std::get<0>(args.value()).reset();
+               std::get<mbh_arg_file_handle>(args.value()).reset();
 
-               dir_entry = std::move(std::get<3>(args.value()));
+               dir_entry = std::move(std::get<mbh_arg_dir_entry>(args.value()));
 
                // invalid UCS-2 code points have been filtered out when directory entries were pulled from the queue
                if(options.base_path.empty())
@@ -985,23 +985,23 @@ void file_tracker_t::run(void)
                   filepath = dir_entry.value().path().lexically_relative(options.base_path).u8string();
 
                // if we got an error while reading this file, report the error, discard results and continue to the next file
-               if(std::get<4>(args.value()).has_value()) {
+               if(std::get<mbh_arg_file_read_error>(args.value()).has_value()) {
                   progress_info.failed_files++;
 
                   // same as when calling mb_hasher.submit_job
-                  print_stream.error("Cannot hash a file (%s) for \"%s\"", std::get<4>(args.value()).value().error.c_str(), filepath.c_str());
+                  print_stream.error("Cannot hash a file (%s) for \"%s\"", std::get<mbh_arg_file_read_error>(args.value()).value().error.c_str(), filepath.c_str());
                   files_lock.lock();
                   continue;
                }
 
-               filesize = std::get<1>(args.value());
+               filesize = std::get<mbh_arg_file_size>(args.value());
 
                // hash for zero-length files should not be evaluated
                if(filesize)
                   mb_file_hasher_t::isa_mb_hash_to_hex(isa_mb_hash, hexhash_file);
 
                // restore the version record and directory entry to continue the loop interrupted by queuing hash jobs
-               version_record = std::move(std::get<2>(args.value()));
+               version_record = std::move(std::get<mbh_arg_version_record_result>(args.value()));
 
                if(version_record.has_value()) {
                   version = version_record.version();

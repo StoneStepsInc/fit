@@ -124,6 +124,14 @@ class file_tracker_t {
                            version_record_result_t,
                            std::filesystem::directory_entry,
                            std::optional<file_read_error_t>> mb_file_hasher_t;
+
+      enum mb_hasher_param_t {
+         mbh_arg_file_handle,
+         mbh_arg_file_size,
+         mbh_arg_version_record_result,
+         mbh_arg_dir_entry,
+         mbh_arg_file_read_error
+      };
 #endif
 
       static const size_t HASH_BIN_SIZE;
