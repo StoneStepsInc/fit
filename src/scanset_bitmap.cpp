@@ -230,16 +230,21 @@ void scanset_bitmap_t::update(const scanset_bitmap_t& other)
       throw std::logic_error(FMTNS::format("Both bitmaps must have the same rowid range [{:d}, {:d}]/[{:d}, {:d}]", first_rowid, last_rowid, other.first_rowid, other.last_rowid));
 
    for(size_t i = 0; i < scanset_bitmap.size(); i++) {
-      // extract the new bits from the incoming bitset
-      uint64_t new_bits = other.scanset_bitmap[i] & ~scanset_bitmap[i];
+      // extract the new 0s as 1s from the incoming bitset (a new 0 is counted where this bitmap has 1 and the other one has a zero)
+      uint64_t new_holes = scanset_bitmap[i] & ~other.scanset_bitmap[i];
 
-      // update element count to account for unset between the new bits
-      rowid_count += std::popcount(~new_bits);
+      // clear the bits to the right of the last valid bit in the last element
+      if(i == scanset_bitmap.size()-1) {
+         uint64_t bit_mask = UINT64_C(1) << ((sizeof(uint64_t) * CHAR_BIT) - (last_rowid + 1 - first_rowid) % (sizeof(uint64_t) * CHAR_BIT));
+         new_holes &= ~(bit_mask-1);
+      }
 
-      // combine the unset bits from both elements
+      // update the rowid count with the number of new cleared bits in the other bitmap
+      rowid_count += std::popcount(new_holes);
+
+      // transfer the cleared bits from the other bitmap into this one
       scanset_bitmap[i] &= other.scanset_bitmap[i];
    }
-   
 }
 
 scanset_bitmap_t::const_iterator scanset_bitmap_t::begin(void) const
