@@ -104,9 +104,19 @@ extern "C" void console_ctrl_c_handler(int sig)
       abort_scan = true;
 }
 
-void print_usage(void)
+void print_title(void)
 {
    printf("%s (fit) %s -- %s\n", title, version, copyright);
+}
+
+void print_version(void)
+{
+   printf("%s\n", version);
+}
+
+void print_usage(void)
+{
+   print_title();
 
    fputs("\nUsage: fit [options]\n\n", stdout);
 
@@ -162,6 +172,8 @@ options_t parse_options(int argc, char *argv[])
             options.upgrade_schema_to_v60 = true;
          else if(!strcmp(argv[i]+2, "help"))
             options.print_usage = true;
+         else if(!strncmp(argv[i]+2, "ver", 3))
+            options.print_version = true;
          else
             throw std::runtime_error(FMTNS::format("Invalid long option {:s}", argv[i]));
       }
@@ -1006,9 +1018,14 @@ int main(int argc, char *argv[])
          return EXIT_SUCCESS;
       }
 
+      if(options.print_version) {
+         fit::print_version();
+         return EXIT_SUCCESS;
+      }
+
       fit::verify_options(options);
 
-      printf("%s (fit) %s -- %s\n\n", fit::title, fit::version, fit::copyright);
+      fit::print_title();
 
       signal(SIGINT, fit::console_ctrl_c_handler);
       signal(SIGTERM, fit::console_ctrl_c_handler);

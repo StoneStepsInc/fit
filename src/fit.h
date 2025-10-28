@@ -30,6 +30,7 @@ struct options_t {
    bool recursive_scan = false;
    bool verify_files = false;
    bool print_usage = false;
+   bool print_version = false;
    bool skip_no_access_paths = false;
    bool update_last_scanset = false;
    bool exiv2_json = false;
