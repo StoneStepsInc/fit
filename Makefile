@@ -77,7 +77,7 @@ $(BLDDIR)/fit: $(addprefix $(BLDDIR)/,$(OBJS)) | $(BLDDIR)
 		$(addprefix -l,$(LIBS)) 
 
 $(BLDDIR): 
-	@mkdir $(BLDDIR)
+	@mkdir -p $(BLDDIR)
 
 clean:
 	@echo 'Removing object files...'

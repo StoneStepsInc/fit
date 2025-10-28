@@ -17,7 +17,7 @@ then
     exit 1
 fi
 
-tar xzf $EXIV2_FNAME
+tar -xzf $EXIV2_FNAME
 
 rm -f $EXIV2_FNAME
 
