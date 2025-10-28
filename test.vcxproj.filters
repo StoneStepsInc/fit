@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="src\test\main.cpp" />
+    <ClCompile Include="src\test\scanset_bitmap_test.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.test.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="obj">
+      <UniqueIdentifier>{7240feae-faeb-494c-998d-5ded494ea77a}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Object Include="$(Platform)\$(Configuration)\fit\scanset_bitmap.obj" />
+  </ItemGroup>
+</Project>
