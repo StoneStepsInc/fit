@@ -1160,9 +1160,16 @@ int main(int argc, char *argv[])
          }
 
          if(options.verify_files) {
-            print_stream.info("Found %" PRIu64 " modified, %" PRIu64 " new, %" PRIu64 " removed, and %" PRIu64 " changed files",
-                              file_tree_walker.get_modified_files(), file_tree_walker.get_new_files(),
-                              file_tree_walker.get_removed_files(), file_tree_walker.get_changed_files());
+            if(options.report_removed_files) {
+               print_stream.info("Found %" PRIu64 " modified, %" PRIu64 " new, %" PRIu64 " removed, and %" PRIu64 " changed files",
+                                 file_tree_walker.get_modified_files(), file_tree_walker.get_new_files(),
+                                 file_tree_walker.get_removed_files(), file_tree_walker.get_changed_files());
+            }
+            else {
+               print_stream.info("Found %" PRIu64 " modified, %" PRIu64 " new, and %" PRIu64 " changed files",
+                                 file_tree_walker.get_modified_files(), file_tree_walker.get_new_files(),
+                                 file_tree_walker.get_changed_files());
+            }
          }
       }
       catch (...) {
