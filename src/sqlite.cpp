@@ -10,13 +10,13 @@ namespace fit {
 static const std::string err_null_stmt_msg = "SQLite statement must not be null ";
 static const std::string err_reuse_stmt_msg = "SQLite statement must finalized before it can be reused ";
 
-sqlite_stmt_binder_t::sqlite_stmt_binder_t(sqlite3_stmt *stmt, const std::string_view& name) :
+sqlite_param_binder_t::sqlite_param_binder_t(sqlite3_stmt *stmt, const std::string_view& name) :
       name(name),
       stmt(stmt)
 {
 }
 
-sqlite_stmt_binder_t::sqlite_stmt_binder_t(sqlite_stmt_binder_t&& other) :
+sqlite_param_binder_t::sqlite_param_binder_t(sqlite_param_binder_t&& other) :
       index(other.index),
       name(std::move(other.name)),
       stmt(other.stmt)
@@ -24,13 +24,13 @@ sqlite_stmt_binder_t::sqlite_stmt_binder_t(sqlite_stmt_binder_t&& other) :
    other.stmt = nullptr;
 }
 
-sqlite_stmt_binder_t::~sqlite_stmt_binder_t(void)
+sqlite_param_binder_t::~sqlite_param_binder_t(void)
 {
    if(stmt)
       sqlite3_reset(stmt);
 }
 
-void sqlite_stmt_binder_t::release(void)
+void sqlite_param_binder_t::release(void)
 {
    if(stmt) {
       reset();
@@ -38,7 +38,7 @@ void sqlite_stmt_binder_t::release(void)
    }
 }
 
-void sqlite_stmt_binder_t::reset(void)
+void sqlite_param_binder_t::reset(void)
 {
    if(!stmt)
       throw std::runtime_error(err_null_stmt_msg + "(" + name + ")");
@@ -49,7 +49,7 @@ void sqlite_stmt_binder_t::reset(void)
       throw std::runtime_error(name + ": cannot reset statement ("s + sqlite3_errstr(errcode) + ")"s);
 }
 
-void sqlite_stmt_binder_t::skip_param(void)
+void sqlite_param_binder_t::skip_param(void)
 {
    if(!stmt)
       throw std::runtime_error(err_null_stmt_msg + "(" + name + ")");
@@ -57,7 +57,7 @@ void sqlite_stmt_binder_t::skip_param(void)
    ++index;
 }
 
-void sqlite_stmt_binder_t::bind_param(nullptr_t)
+void sqlite_param_binder_t::bind_param(nullptr_t)
 {
    if(!stmt)
       throw std::runtime_error(err_null_stmt_msg + "(" + name + ")");
@@ -68,7 +68,7 @@ void sqlite_stmt_binder_t::bind_param(nullptr_t)
       throw std::runtime_error(name + ": cannot bind a NULL parameter ("s + sqlite3_errstr(errcode) + ")"s);
 }
 
-void sqlite_stmt_binder_t::bind_param(int64_t value)
+void sqlite_param_binder_t::bind_param(int64_t value)
 {
    if(!stmt)
       throw std::runtime_error(err_null_stmt_msg + "(" + name + ")");
@@ -79,7 +79,7 @@ void sqlite_stmt_binder_t::bind_param(int64_t value)
       throw std::runtime_error(name + ": cannot bind an int64 parameter ("s + sqlite3_errstr(errcode) + ")"s);
 }
 
-void sqlite_stmt_binder_t::bind_param(const std::u8string& value)
+void sqlite_param_binder_t::bind_param(const std::u8string& value)
 {
    if(!stmt)
       throw std::runtime_error(err_null_stmt_msg + "(" + name + ")");
@@ -90,7 +90,7 @@ void sqlite_stmt_binder_t::bind_param(const std::u8string& value)
       throw std::runtime_error(name + ": cannot bind a string parameter ("s + sqlite3_errstr(errcode) + ")"s);
 }
 
-void sqlite_stmt_binder_t::bind_param(const std::u8string_view& value)
+void sqlite_param_binder_t::bind_param(const std::u8string_view& value)
 {
    if(!stmt)
       throw std::runtime_error(err_null_stmt_msg + "(" + name + ")");
@@ -101,7 +101,7 @@ void sqlite_stmt_binder_t::bind_param(const std::u8string_view& value)
       throw std::runtime_error(name + ": cannot bind a string view parameter ("s + sqlite3_errstr(errcode) + ")"s);
 }
 
-void sqlite_stmt_binder_t::bind_param(const void *value, size_t size)
+void sqlite_param_binder_t::bind_param(const void *value, size_t size)
 {
    if(!stmt)
       throw std::runtime_error(err_null_stmt_msg + "(" + name + ")");
@@ -148,6 +148,11 @@ sqlite_stmt_t::operator sqlite3_stmt* (void)
 sqlite_stmt_t::operator const sqlite3_stmt* (void) const
 {
    return stmt;
+}
+
+sqlite_param_binder_t sqlite_stmt_t::get_param_binder(void) const
+{
+   return sqlite_param_binder_t(stmt, name);
 }
 
 int sqlite_stmt_t::prepare(sqlite3 *db, const std::string_view& sql)

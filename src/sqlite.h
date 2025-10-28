@@ -26,7 +26,7 @@ struct sqlite_malloc_deleter_t {
 // statement reset leaves bound parameters intact and just releases
 // statement resources and locks acquired after the last execution.
 //
-class sqlite_stmt_binder_t {
+class sqlite_param_binder_t {
    int index = 0;                // parameter 1-based binding index
 
    std::string name;             // statement name for error reporting purposes
@@ -34,11 +34,11 @@ class sqlite_stmt_binder_t {
    sqlite3_stmt *stmt;           // SQLite statement
 
    public:
-      sqlite_stmt_binder_t(sqlite3_stmt *stmt, const std::string_view& name);
+      sqlite_param_binder_t(sqlite3_stmt *stmt, const std::string_view& name);
 
-      sqlite_stmt_binder_t(sqlite_stmt_binder_t&& other);
+      sqlite_param_binder_t(sqlite_param_binder_t&& other);
 
-      ~sqlite_stmt_binder_t(void);
+      ~sqlite_param_binder_t(void);
 
       void release(void);
 
@@ -77,6 +77,8 @@ class sqlite_stmt_t {
       operator sqlite3_stmt* (void);
 
       operator const sqlite3_stmt* (void) const;
+
+      sqlite_param_binder_t get_param_binder(void) const;
 
       int prepare(sqlite3 *db, const std::string_view& sql);
 

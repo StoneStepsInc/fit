@@ -439,7 +439,7 @@ std::tuple<uint64_t, uint64_t> file_tracker_t::get_scanset_rowid_range(sqlite3 *
       if((errcode = stmt_scanset_rowid.prepare(file_scan_db, sql_scanset_rowid)) != SQLITE_OK)
          throw std::runtime_error(FMTNS::format("Cannot prepare a min/max rowid statement for scanset {:d} ({:s})"sv, scan_id, sqlite3_errstr(errcode)));
 
-      sqlite_stmt_binder_t scanset_rowid_stmt(stmt_scanset_rowid, "min/max scanset rowid"sv);
+      sqlite_param_binder_t scanset_rowid_stmt = stmt_scanset_rowid.get_param_binder();
 
       scanset_rowid_stmt.bind_param(scan_id);
 
@@ -553,7 +553,7 @@ int64_t file_tracker_t::insert_file_record(const std::u8string& filepath, const 
    int64_t file_id = 0;
    int errcode = SQLITE_OK;
 
-   sqlite_stmt_binder_t insert_file_stmt(stmt_insert_file, "insert file"sv);
+   sqlite_param_binder_t insert_file_stmt = stmt_insert_file.get_param_binder();
 
    insert_file_stmt.bind_param(dir_entry.path().filename().u8string());
 
@@ -580,7 +580,7 @@ int64_t file_tracker_t::insert_exif_record(const std::u8string& filepath, const 
 
    int errcode = SQLITE_OK;
 
-   sqlite_stmt_binder_t insert_exif_stmt(stmt_insert_exif, "insert exif"sv);
+   sqlite_param_binder_t insert_exif_stmt = stmt_insert_exif.get_param_binder();
 
    for(size_t i = 0; i < exif_fields.size(); i++) {
       if(!field_bitset.test(i))
@@ -613,7 +613,7 @@ file_tracker_t::version_record_result_t file_tracker_t::select_version_record(co
    // for regular scans select the latest available version and for verification select the one from base_scan_id, if one exists
    sqlite_stmt_t& stmt_find_version = options.verify_files ? stmt_find_scan_version : stmt_find_last_version;
 
-   sqlite_stmt_binder_t find_version_stmt(stmt_find_version, options.verify_files ? "find scan version"sv : "find last version"sv);
+   sqlite_param_binder_t find_version_stmt = stmt_find_version.get_param_binder();
 
    find_version_stmt.bind_param(filepath);
 
@@ -685,7 +685,7 @@ int64_t file_tracker_t::insert_version_record(const std::u8string& filepath, int
 
    int errcode = SQLITE_OK;
 
-   sqlite_stmt_binder_t insert_version_stmt(stmt_insert_version, "insert version"sv);
+   sqlite_param_binder_t insert_version_stmt = stmt_insert_version.get_param_binder();
 
    insert_version_stmt.bind_param(file_id);
 
@@ -742,7 +742,7 @@ void file_tracker_t::insert_scanset_record(const std::u8string& filepath, int64_
 {
    int errcode = SQLITE_OK;
 
-   sqlite_stmt_binder_t insert_scanset_file_stmt(stmt_insert_scanset_entry, "insert scanset file"sv);
+   sqlite_param_binder_t insert_scanset_file_stmt = stmt_insert_scanset_entry.get_param_binder();
 
    // scan_id
    insert_scanset_file_stmt.skip_param();
@@ -1215,7 +1215,7 @@ void file_tracker_t::report_file_removals(void)
          throw std::runtime_error(FMTNS::format("Cannot prepare a find scanset file statement ({:s})"sv, sqlite3_errstr(errcode)));
 
       for(scanset_bitmap_t::const_iterator it = scanset_bitmap.begin(); it != end_it; ++it) {
-         sqlite_stmt_binder_t find_scanset_file_stmt(stmt_find_scanset_file, "find scanset file"sv);
+         sqlite_param_binder_t find_scanset_file_stmt = stmt_find_scanset_file.get_param_binder();
 
          find_scanset_file_stmt.bind_param(*it);
 

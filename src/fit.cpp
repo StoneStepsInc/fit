@@ -600,7 +600,7 @@ int64_t insert_scan_record(const options_t& options, sqlite3 *file_scan_db)
 
    {
       // need a statement block here to make sure statement is reset before it is finalized
-      sqlite_stmt_binder_t insert_scan_stmt(stmt_insert_scan, "insert scan"sv);
+      sqlite_param_binder_t insert_scan_stmt(stmt_insert_scan, "insert scan"sv);
 
       insert_scan_stmt.bind_param(std::u8string_view(reinterpret_cast<const char8_t*>(version)));
       insert_scan_stmt.bind_param(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
@@ -640,7 +640,7 @@ int complete_scan_record(int64_t scan_id, sqlite3 *file_scan_db)
 
    stmt_complete_scan.prepare(file_scan_db, sql_complete_scan);
 
-   sqlite_stmt_binder_t complete_scan_stmt(stmt_complete_scan, "complete scan"sv);
+   sqlite_param_binder_t complete_scan_stmt = stmt_complete_scan.get_param_binder();
 
    complete_scan_stmt.bind_param(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
    complete_scan_stmt.bind_param(scan_id);
@@ -666,7 +666,7 @@ int update_scan_duration(const options_t& options, int64_t scan_id, int64_t scan
 
    stmt_update_scan_duration.prepare(file_scan_db, sql_update_scan_duration);
 
-   sqlite_stmt_binder_t update_scan_duration_stmt(stmt_update_scan_duration, "update scan duration"sv);
+   sqlite_param_binder_t update_scan_duration_stmt = stmt_update_scan_duration.get_param_binder();
 
    update_scan_duration_stmt.bind_param(scan_duration);
    update_scan_duration_stmt.bind_param(scan_id);
@@ -691,7 +691,7 @@ void set_last_scan_update_time(int64_t scan_id, sqlite3 *file_scan_db)
 
    stmt_scan_update_time.prepare(file_scan_db, sql_complete_scan);
 
-   sqlite_stmt_binder_t scan_update_time_stmt(stmt_scan_update_time, "last scan update time"sv);
+   sqlite_param_binder_t scan_update_time_stmt = stmt_scan_update_time.get_param_binder();
 
    scan_update_time_stmt.bind_param(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
    scan_update_time_stmt.bind_param(scan_id);
@@ -722,7 +722,7 @@ std::tuple<std::optional<int64_t>, bool> select_base_scan_id(const options_t& op
 
    stmt_base_scan.prepare(file_scan_db, sql_base_scan);
 
-   sqlite_stmt_binder_t base_scan_stmt(stmt_base_scan, "select base scan"sv);
+   sqlite_param_binder_t base_scan_stmt = stmt_base_scan.get_param_binder();
 
    if(options.verify_scan_id.has_value())
       base_scan_stmt.bind_param(options.verify_scan_id.value());
@@ -767,7 +767,7 @@ std::u8string select_scan_options(int64_t scan_id, sqlite3 *file_scan_db)
 
    stmt_last_scan.prepare(file_scan_db, sql_last_scan);
 
-   sqlite_stmt_binder_t last_scan_stmt(stmt_last_scan, "scan options"sv);
+   sqlite_param_binder_t last_scan_stmt = stmt_last_scan.get_param_binder();
 
    last_scan_stmt.bind_param(scan_id);
 
@@ -799,7 +799,7 @@ std::optional<int64_t> select_base_scan_for_update(int64_t scan_id, sqlite3 *fil
 
    stmt_base_scan.prepare(file_scan_db, sql_last_scan);
 
-   sqlite_stmt_binder_t base_scan_stmt(stmt_base_scan, "base scan for update"sv);
+   sqlite_param_binder_t base_scan_stmt = stmt_base_scan.get_param_binder();
 
    base_scan_stmt.bind_param(scan_id);
 
@@ -913,7 +913,7 @@ void update_schema_from_v50(sqlite3 *file_scan_db, print_stream_t& print_stream)
       int64_t rowid = sqlite3_column_int64(stmt_select_mod_time, 0);
       int64_t mod_time = sqlite3_column_int64(stmt_select_mod_time, 1);
 
-      fit::sqlite_stmt_binder_t update_mod_time_stmt(stmt_update_mod_time, "update mod_time"sv);
+      fit::sqlite_param_binder_t update_mod_time_stmt(stmt_update_mod_time, "update mod_time"sv);
 
       std::chrono::file_clock::time_point mod_time_fc{std::chrono::seconds(mod_time)};
 
