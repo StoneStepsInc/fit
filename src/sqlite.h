@@ -58,6 +58,29 @@ class sqlite_param_binder_t {
 };
 
 //
+// This record class extracts field values from a SQLite statement
+// positioned on some record via sqlite3_step() and packages them
+// into a tuple within this class.
+//
+template <typename ...T>
+class sqlite_record_t {
+   protected:
+      std::tuple<T...> fields;
+
+   private:
+      template <std::size_t... I>
+      std::tuple<T...> make_fields_tuple(sqlite3_stmt *stmt, std::index_sequence<I...>);
+
+   public:
+      sqlite_record_t(sqlite3_stmt *stmt);
+
+      const std::tuple<T...>& get_fields(void) const;
+
+      template<size_t I>
+      const typename std::tuple_element<I, std::tuple<T...>>::type& get_field(void) const;
+};
+
+//
 // A SQLite statement convenience wrapper class.
 //
 class sqlite_stmt_t {

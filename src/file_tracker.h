@@ -65,7 +65,7 @@ class file_tracker_t {
 
       // same field order as in the select statement (stmt_find_version)
       // version, mod_time, hash_type, hash, versions.rowid, file_id, scan_id
-      typedef std::tuple<int64_t, int64_t, std::string, std::optional<std::string>, int64_t, int64_t, int64_t, int64_t> version_record_t;
+      typedef sqlite_record_t<int64_t, int64_t, std::string, std::optional<std::string>, int64_t, int64_t, int64_t, int64_t> version_record_t;
 
       //
       // A wrapper for the file version select statement result tuple,
@@ -82,21 +82,21 @@ class file_tracker_t {
 
          bool has_value(void) const {return version_record.has_value();}
 
-         int64_t version(void) const {return std::get<0>(version_record.value());}
+         int64_t version(void) const {return version_record.value().get_field<0>();}
 
-         int64_t mod_time(void) const {return std::get<1>(version_record.value());}
+         int64_t mod_time(void) const {return version_record.value().get_field<1>();}
 
-         const std::string& hash_type(void) const {return std::get<2>(version_record.value());}
+         const std::string& hash_type(void) const {return version_record.value().get_field<2>();}
 
-         const std::optional<std::string>& hexhash(void) const {return std::get<3>(version_record.value());}
+         const std::optional<std::string>& hexhash(void) const {return version_record.value().get_field<3>();}
 
-         int64_t version_id(void) const {return std::get<4>(version_record.value());}
+         int64_t version_id(void) const {return version_record.value().get_field<4>();}
 
-         int64_t file_id(void) const {return std::get<5>(version_record.value());}
+         int64_t file_id(void) const {return version_record.value().get_field<5>();}
 
-         int64_t scanset_scan_id(void) const {return std::get<6>(version_record.value());}
+         int64_t scanset_scan_id(void) const {return version_record.value().get_field<6>();}
 
-         int64_t scanset_rowid(void) const {return std::get<7>(version_record.value());}
+         int64_t scanset_rowid(void) const {return version_record.value().get_field<7>();}
       };
 
       //

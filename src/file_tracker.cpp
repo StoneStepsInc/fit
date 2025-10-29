@@ -623,41 +623,12 @@ file_tracker_t::version_record_result_t file_tracker_t::select_version_record(co
    errcode = sqlite3_step(stmt_find_version);
 
    if(errcode != SQLITE_DONE && errcode != SQLITE_ROW)
-      throw std::runtime_error(FMTNS::format("Failed to find a version for {:s} ({:s})", u8tosv_t(filepath), sqlite3_errstr(errcode)));
+      throw std::runtime_error(FMTNS::format("Failed to find a version for {:s} ({:s})"sv, u8tosv_t(filepath), sqlite3_errstr(errcode)));
 
-   if(errcode != SQLITE_ROW)
+   if(errcode == SQLITE_DONE)
       return version_record_result_t{std::nullopt};
 
-   int64_t version = sqlite3_column_int64(stmt_find_version, 0);
-
-   int64_t mod_time = sqlite3_column_int64(stmt_find_version, 1);
-
-   std::string hash_type(reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_version, 2)), sqlite3_column_bytes(stmt_find_version, 2));
-
-   bool hash_field_is_null = sqlite3_column_type(stmt_find_version, 3) == SQLITE_NULL;
-
-   int64_t version_id = sqlite3_column_int64(stmt_find_version, 4);
-
-   int64_t file_id = sqlite3_column_int64(stmt_find_version, 5);
-
-   int64_t scanset_scan_id = sqlite3_column_int64(stmt_find_version, 6);
-
-   int64_t scanset_rowid = sqlite3_column_int64(stmt_find_version, 7);
-
-   unsigned char hexhash_field[HASH_HEX_SIZE + 1];
-
-   hexhash_field[HASH_HEX_SIZE] = '\x0';
-
-   if(!hash_field_is_null) {
-      if(hash_type == HASH_TYPE) {
-         if(sqlite3_column_bytes(stmt_find_version, 3) != HASH_HEX_SIZE)
-            throw std::runtime_error(FMTNS::format("Bad hash size for {:s} ({:s})", u8tosv_t(filepath), sqlite3_errstr(errcode)));
-
-         memcpy(hexhash_field, reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_version, 3)), HASH_HEX_SIZE);
-      }
-      else
-         throw std::runtime_error("Unknown hash type: "s + reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_version, 2)));
-   }
+   version_record_result_t version_record_result{std::make_optional<version_record_t>(stmt_find_version)};
 
    //
    // Reset the select statement to release read locks acquired above
@@ -668,15 +639,16 @@ file_tracker_t::version_record_result_t file_tracker_t::select_version_record(co
    //
    find_version_stmt.reset();
 
-   return version_record_result_t{std::make_tuple(
-            version,
-            mod_time,
-            hash_type,
-            (!hash_field_is_null ? std::make_optional<std::string>(reinterpret_cast<char*>(hexhash_field)) : std::nullopt),
-            version_id,
-            file_id,
-            scanset_scan_id,
-            scanset_rowid)};
+   if(version_record_result.hexhash().has_value()) {
+      if(version_record_result.hash_type() == HASH_TYPE) {
+         if(version_record_result.hexhash().value().length() != HASH_HEX_SIZE)
+            throw std::runtime_error(FMTNS::format("Bad hash size for {:s}"sv, u8tosv_t(filepath)));
+      }
+      else
+         throw std::runtime_error(FMTNS::format("Unknown hash type: {:s}"sv, version_record_result.hash_type()));
+   }
+
+   return version_record_result;
 }
 
 int64_t file_tracker_t::insert_version_record(const std::u8string& filepath, int64_t file_id, int64_t version, int64_t filesize, const std::filesystem::directory_entry& dir_entry, unsigned char hexhash_file[], std::optional<int64_t> exif_id)
@@ -1247,3 +1219,5 @@ void file_tracker_t::report_file_removals(void)
 #ifndef NO_SSE_AVX
 #include "mb_hasher_tmpl.cpp"
 #endif
+
+#include "sqlite_tmpl.cpp"
