@@ -1,4 +1,5 @@
 #include "file_tree_walker.h"
+#include "format.h"
 
 #include "fit.h"
 
@@ -45,13 +46,13 @@ void file_tree_walker_t::cleanup(print_stream_t& print_stream) noexcept
 void file_tree_walker_t::report_progress(void)
 {
    if(!progress_info.unmatched_files) {
-      print_stream.info("Processed %.1f GB in %" PRIu64 " files",
-                        progress_info.processed_size.load()/1'000'000'000., progress_info.processed_files.load());
+      print_stream.info("Processed %s in %" PRIu64 " files",
+                        hr_bytes(progress_info.processed_size.load()).c_str(), progress_info.processed_files.load());
    }
    else {
-      print_stream.info("Processed %.1f GB in %" PRIu64 " files (%" PRIu64 "/%.1f GB %s)",
-                        progress_info.processed_size.load()/1'000'000'000., progress_info.processed_files.load(),
-                        progress_info.unmatched_files.load(), progress_info.unmatched_size.load()/1'000'000'000.,
+      print_stream.info("Processed %s in %" PRIu64 " files (%" PRIu64 "/%s %s)",
+                        hr_bytes(progress_info.processed_size.load()).c_str(), progress_info.processed_files.load(),
+                        progress_info.unmatched_files.load(), hr_bytes(progress_info.unmatched_size.load()).c_str(),
                         options.verify_files ? "changed" : "updated");
    }
 

@@ -7,6 +7,7 @@
 #include "print_stream.h"
 #include "sqlite.h"
 #include "unicode.h"
+#include "format.h"
 
 #include "fit.h"
 
@@ -1164,16 +1165,16 @@ int main(int argc, char *argv[])
 
          // for quick scans, just report processed files and elapsed time
          if(std::chrono::duration_cast<std::chrono::seconds>(end_time-start_time).count() == 0) {
-            print_stream.info("Processed %.1f GB in %" PRIu64 " files in %.1f min",
-                              file_tree_walker.get_processed_size()/1'000'000'000., file_tree_walker.get_processed_files(),
-                              std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/60000.);
+            print_stream.info("Processed %s in %" PRIu64 " files in %s",
+                              fit::hr_bytes(file_tree_walker.get_processed_size()).c_str(), file_tree_walker.get_processed_files(),
+                              fit::hr_time(end_time-start_time).c_str());
          }
          else {
-            print_stream.info("Processed %.1f GB in %" PRIu64 " files in %.1f min (%.1f files/sec, %.1f MB/sec)",
-                              file_tree_walker.get_processed_size()/1'000'000'000., file_tree_walker.get_processed_files(),
-                              std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/60000.,
+            print_stream.info("Processed %s in %" PRIu64 " files in %s (%.1f files/sec, %s/sec)",
+                              fit::hr_bytes(file_tree_walker.get_processed_size()).c_str(), file_tree_walker.get_processed_files(),
+                              fit::hr_time(end_time-start_time).c_str(),
                               file_tree_walker.get_processed_files()/(std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/1000.),
-                              file_tree_walker.get_processed_size()/1'000'000./(std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/1000.));
+                              fit::hr_bytes(file_tree_walker.get_processed_size()/(std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/1000.)).c_str());
          }
 
          if(options.verify_files) {

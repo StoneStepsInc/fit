@@ -31,6 +31,9 @@
     <ClCompile Include="src\sqlite_tmpl.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\format.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\file_tracker.h">
@@ -61,6 +64,9 @@
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="src\scanset_bitmap.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\format.h">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>

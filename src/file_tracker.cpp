@@ -1,4 +1,5 @@
 #include "file_tracker.h"
+#include "format.h"
 
 #include "fit.h"
 
@@ -1036,16 +1037,16 @@ void file_tracker_t::run(void)
                   // differentiate between new, modified and changed files (a scanned file with a version in scan 1 and no version in a base scan 2, is a new file)
                   if(!version_record.has_value() || (base_scan_id.has_value() && version_record.scanset_scan_id() != base_scan_id.value())) {
                      progress_info.new_files++;
-                     print_stream.warning(   "new file: %s (%.3f MB)", filepath.c_str(), dir_entry.value().file_size()/1'000'000.);
+                     print_stream.warning(   "new file: %s (%s)", filepath.c_str(), hr_bytes(dir_entry.value().file_size()).c_str());
                   }
                   else {
                      if(version_record.mod_time() != static_cast<int64_t>(file_time_to_time_t(dir_entry.value().last_write_time()))) {
                         progress_info.modified_files++;
-                        print_stream.warning("modified: %s (%.3f MB)", filepath.c_str(), dir_entry.value().file_size()/1'000'000.);
+                        print_stream.warning("modified: %s (%s)", filepath.c_str(), hr_bytes(dir_entry.value().file_size()).c_str());
                      }
                      else {
                         progress_info.changed_files++;
-                        print_stream.warning("changed : %s (%.3f MB)", filepath.c_str(), dir_entry.value().file_size()/1'000'000.);
+                        print_stream.warning("changed : %s (%s)", filepath.c_str(), hr_bytes(dir_entry.value().file_size()).c_str());
                      }
                   }
                }
@@ -1197,7 +1198,7 @@ void file_tracker_t::report_file_removals(void)
          progress_info.removed_files++;
          progress_info.removed_size += sqlite3_column_int64(stmt_find_scanset_file, 1);
 
-         print_stream.warning("removed : %s (%.3f MB)", sqlite3_column_text(stmt_find_scanset_file, 0), sqlite3_column_int64(stmt_find_scanset_file, 1)/1'000'000.);
+         print_stream.warning("removed : %s (%s)", sqlite3_column_text(stmt_find_scanset_file, 0), hr_bytes(sqlite3_column_int64(stmt_find_scanset_file, 1)).c_str());
 
          if(abort_scan) {
             // there's no waiting for other threads to stop at this point - just notify that we didn't report all removed files
@@ -1209,7 +1210,7 @@ void file_tracker_t::report_file_removals(void)
       if(!abort_scan) {
          // report removed files only if we identified any
          if(progress_info.removed_files)
-            print_stream.warning("Identified %" PRIu64 " removed files (%.3f GB)", progress_info.removed_files.load(), progress_info.removed_size.load()/1'000'000'000.);
+            print_stream.warning("Identified %" PRIu64 " removed files (%s)", progress_info.removed_files.load(), hr_bytes(progress_info.removed_size.load()).c_str());
       }
    }
 }
