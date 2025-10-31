@@ -1174,7 +1174,7 @@ int main(int argc, char *argv[])
                               fit::hr_bytes(file_tree_walker.get_processed_size()).c_str(), file_tree_walker.get_processed_files(),
                               fit::hr_time(end_time-start_time).c_str(),
                               file_tree_walker.get_processed_files()/(std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/1000.),
-                              fit::hr_bytes(file_tree_walker.get_processed_size()/(std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/1000.)).c_str());
+                              fit::hr_bytes(static_cast<uint64_t>(file_tree_walker.get_processed_size()/(std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/1000. + .5))).c_str());
          }
 
          if(options.verify_files) {

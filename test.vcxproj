@@ -79,6 +79,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\test\hr_bytes_test.cpp" />
     <ClCompile Include="src\test\scanset_bitmap_test.cpp" />
     <ClCompile Include="src\test\main.cpp" />
   </ItemGroup>
@@ -87,6 +88,7 @@
   </ItemGroup>
   <ItemGroup>
     <Object Include="$(Platform)\$(Configuration)\fit\scanset_bitmap.obj" />
+    <Object Include="$(Platform)\$(Configuration)\fit\format.obj" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">

@@ -19,24 +19,59 @@ std::string hr_bytes(uint64_t bytes)
 {
    const char *si_unit_pfx[] = {"", "K", "M", "G", "T", "P", "E", "Z"};
 
-   size_t prefix = 0;
-   double result = static_cast<double>(bytes);
+   // print small numbers as-is, with "bytes" spelled out
+   if(bytes < 1000)
+      return FMTNS::format("{:d} {:s}"sv, bytes, bytes == 1 ? "byte" : "bytes");
 
-   while (result >= 1000.) {
-      result /= 1000.;
+   uint64_t divisor = 1;
+   size_t prefix = 0;
+
+   while (bytes / divisor >= 1000) {
+      divisor *= 1000;
       prefix++;
    }
 
-   // print small numbers as-is, with "bytes" spelled out
-   if(prefix == 0)
-      return FMTNS::format("{:d} {:s}"sv, bytes, bytes == 1 ? "byte" : "bytes");
+   // uint64_t is 18.5 EB, so this will never be triggered in the current setup
+   if(prefix >= sizeof(si_unit_pfx)/sizeof(si_unit_pfx[0]))
+      throw std::logic_error(FMTNS::format("Cannot format {:d} as a human-readable number"sv, bytes));
+
+   uint64_t whole = bytes / divisor;
+    
+   uint64_t remainder = bytes % divisor;
+   uint64_t decimals;
+
+   if(prefix < 4) {
+      // add the equivalent of .5 to round it up or down
+      remainder += (divisor / 100) / 2;
+
+      // compute GB numbers and below with 2 digits after the decimal point
+      decimals = (remainder / (divisor / 100));
+   } else {
+      remainder += (divisor / 1000) / 2;
+
+      // otherwise, compute numbers with 3 digits after the decimal point
+      decimals = (remainder / (divisor / 1000));
+   }
 
    // print numbers that round to .0 as integers, with the appropriate unit prefix
-   if(static_cast<uint64_t>(result + .5)  == 0)
-      return FMTNS::format("{:d} {:s}B"sv, static_cast<uint64_t>(result + .5), si_unit_pfx[prefix]);
+   if(decimals == 0)
+      return FMTNS::format("{:d} {:s}B"sv, whole, si_unit_pfx[prefix]);
+
+   // omit trailing zeros for all cases (e.g. 12.3 GB not 12.30 GB)
+   if(prefix < 4) {
+      if(decimals % 10 == 0)
+         return FMTNS::format("{:d}.{:d} {:s}B"sv, whole, decimals/10, si_unit_pfx[prefix]);
+
+      return FMTNS::format("{:d}.{:02d} {:s}B"sv, whole, decimals, si_unit_pfx[prefix]);
+   }
    
-   // otherwise, print numbers with 2 digits after the decimal point
-   return FMTNS::format("{:.2f} {:s}B"sv, result, si_unit_pfx[prefix]);
+   if(decimals % 100 == 0)
+      return FMTNS::format("{:d}.{:d} {:s}B"sv, whole, decimals/100, si_unit_pfx[prefix]);
+
+   if(decimals % 10 == 0)
+      return FMTNS::format("{:d}.{:02d} {:s}B"sv, whole, decimals/10, si_unit_pfx[prefix]);
+
+   return FMTNS::format("{:d}.{:03d} {:s}B"sv, whole, decimals, si_unit_pfx[prefix]);
 }
 
 std::string hr_time(std::chrono::steady_clock::duration elapsed)

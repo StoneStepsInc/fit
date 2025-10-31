@@ -3,6 +3,7 @@
   <ItemGroup>
     <ClCompile Include="src\test\main.cpp" />
     <ClCompile Include="src\test\scanset_bitmap_test.cpp" />
+    <ClCompile Include="src\test\hr_bytes_test.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.test.config" />
