@@ -80,6 +80,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\test\hr_bytes_test.cpp" />
+    <ClCompile Include="src\test\hr_time_test.cpp" />
     <ClCompile Include="src\test\scanset_bitmap_test.cpp" />
     <ClCompile Include="src\test\main.cpp" />
   </ItemGroup>
