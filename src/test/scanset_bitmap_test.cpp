@@ -9,7 +9,7 @@
 namespace fit {
 namespace test {
 
-class scanset_bitmap_test_t : public ::testing::Test {
+class scanset_bitmap_suite : public ::testing::Test {
    protected:
       const uint64_t first_rowid;
       const uint64_t last_rowid;
@@ -23,7 +23,7 @@ class scanset_bitmap_test_t : public ::testing::Test {
       std::set<uint64_t> result;
 
    protected:
-      scanset_bitmap_test_t(uint64_t first_rowid, uint64_t last_rowid, size_t scanset_size) :
+      scanset_bitmap_suite(uint64_t first_rowid, uint64_t last_rowid, size_t scanset_size) :
             first_rowid(first_rowid),
             last_rowid(last_rowid),
             scanset_size(scanset_size),
@@ -32,23 +32,23 @@ class scanset_bitmap_test_t : public ::testing::Test {
       }
 };
 
-class small_scanset_bitmap_test_t : public scanset_bitmap_test_t {
+class small_scanset_bitmap_suite : public scanset_bitmap_suite {
    protected:
-      small_scanset_bitmap_test_t(void) :
-         scanset_bitmap_test_t(1000, 1009, 10)
+      small_scanset_bitmap_suite(void) :
+         scanset_bitmap_suite(1000, 1009, 10)
       {
       }
 };
 
-class large_scanset_bitmap_test_t : public scanset_bitmap_test_t {
+class large_scanset_bitmap_suite : public scanset_bitmap_suite {
    protected:
-      large_scanset_bitmap_test_t(void) :
-         scanset_bitmap_test_t(1000, 1'000'999, 1'000'000)
+      large_scanset_bitmap_suite(void) :
+         scanset_bitmap_suite(1000, 1'000'999, 1'000'000)
       {
       }
 };
 
-TEST_F(small_scanset_bitmap_test_t, small_bitmap_middle_bit_test)
+TEST_F(small_scanset_bitmap_suite, middle_bit_test)
 {
    ASSERT_EQ(scanset_size, scanset_bitmap.size());
    ASSERT_EQ(0, scanset_bitmap.count());
@@ -75,7 +75,7 @@ TEST_F(small_scanset_bitmap_test_t, small_bitmap_middle_bit_test)
    ASSERT_EQ(expected, result);
 }
 
-TEST_F(small_scanset_bitmap_test_t, small_bitmap_first_bit_test)
+TEST_F(small_scanset_bitmap_suite, first_bit_test)
 {
    ASSERT_EQ(scanset_size, scanset_bitmap.size());
    ASSERT_EQ(0, scanset_bitmap.count());
@@ -101,7 +101,7 @@ TEST_F(small_scanset_bitmap_test_t, small_bitmap_first_bit_test)
    ASSERT_EQ(expected, result);
 }
 
-TEST_F(small_scanset_bitmap_test_t, small_bitmap_last_bit_test)
+TEST_F(small_scanset_bitmap_suite, last_bit_test)
 {
    ASSERT_EQ(scanset_size, scanset_bitmap.size());
    ASSERT_EQ(0, scanset_bitmap.count());
@@ -127,7 +127,7 @@ TEST_F(small_scanset_bitmap_test_t, small_bitmap_last_bit_test)
    ASSERT_EQ(expected, result);
 }
 
-TEST_F(small_scanset_bitmap_test_t, small_bitmap_no_bits_test)
+TEST_F(small_scanset_bitmap_suite, no_bits_test)
 {
    ASSERT_EQ(scanset_size, scanset_bitmap.size());
    ASSERT_EQ(0, scanset_bitmap.count());
@@ -147,7 +147,7 @@ TEST_F(small_scanset_bitmap_test_t, small_bitmap_no_bits_test)
    ASSERT_EQ(expected, result);
 }
 
-TEST_F(small_scanset_bitmap_test_t, small_bitmap_odd_bits_test)
+TEST_F(small_scanset_bitmap_suite, clear_even_bits_test)
 {
    ASSERT_EQ(scanset_size, scanset_bitmap.size());
    ASSERT_EQ(0, scanset_bitmap.count());
@@ -173,7 +173,7 @@ TEST_F(small_scanset_bitmap_test_t, small_bitmap_odd_bits_test)
    ASSERT_EQ(expected, result);
 }
 
-TEST_F(small_scanset_bitmap_test_t, small_bitmap_even_bits_test)
+TEST_F(small_scanset_bitmap_suite, clear_odd_bits_test)
 {
    ASSERT_EQ(scanset_size, scanset_bitmap.size());
    ASSERT_EQ(0, scanset_bitmap.count());
@@ -199,7 +199,7 @@ TEST_F(small_scanset_bitmap_test_t, small_bitmap_even_bits_test)
    ASSERT_EQ(expected, result);
 }
 
-TEST_F(small_scanset_bitmap_test_t, small_bitmap_merge_first_last_bits_test)
+TEST_F(small_scanset_bitmap_suite, merge_first_last_bits_test)
 {
    expected = {1001, 1003, 1004, 1005};
 
@@ -242,7 +242,7 @@ TEST_F(small_scanset_bitmap_test_t, small_bitmap_merge_first_last_bits_test)
 }
 
 
-TEST_F(small_scanset_bitmap_test_t, small_bitmap_merge_odd_even_bits_test)
+TEST_F(small_scanset_bitmap_suite, merge_odd_even_bits_test)
 {
    // clear odd bits and track even rowid values in `expected`
    for(size_t i = first_rowid; i <= last_rowid; i++) {
@@ -286,7 +286,7 @@ TEST_F(small_scanset_bitmap_test_t, small_bitmap_merge_odd_even_bits_test)
    ASSERT_EQ(combined_expected, result);
 }
 
-TEST_F(large_scanset_bitmap_test_t, large_bitmap_middle_bit_test)
+TEST_F(large_scanset_bitmap_suite, middle_bit_test)
 {
    ASSERT_EQ(scanset_size, scanset_bitmap.size());
    ASSERT_EQ(0, scanset_bitmap.count());
@@ -312,7 +312,7 @@ TEST_F(large_scanset_bitmap_test_t, large_bitmap_middle_bit_test)
    ASSERT_EQ(expected, result);
 }
 
-TEST_F(large_scanset_bitmap_test_t, large_bitmap_first_bit_test)
+TEST_F(large_scanset_bitmap_suite, first_bit_test)
 {
    ASSERT_EQ(scanset_size, scanset_bitmap.size());
    ASSERT_EQ(0, scanset_bitmap.count());
@@ -338,7 +338,7 @@ TEST_F(large_scanset_bitmap_test_t, large_bitmap_first_bit_test)
    ASSERT_EQ(expected, result);
 }
 
-TEST_F(large_scanset_bitmap_test_t, large_bitmap_last_bit_test)
+TEST_F(large_scanset_bitmap_suite, last_bit_test)
 {
    ASSERT_EQ(scanset_size, scanset_bitmap.size());
    ASSERT_EQ(0, scanset_bitmap.count());
@@ -364,7 +364,7 @@ TEST_F(large_scanset_bitmap_test_t, large_bitmap_last_bit_test)
    ASSERT_EQ(expected, result);
 }
 
-TEST_F(large_scanset_bitmap_test_t, large_bitmap_no_bits_test)
+TEST_F(large_scanset_bitmap_suite, no_bits_test)
 {
    ASSERT_EQ(scanset_size, scanset_bitmap.size());
    ASSERT_EQ(0, scanset_bitmap.count());
@@ -384,7 +384,7 @@ TEST_F(large_scanset_bitmap_test_t, large_bitmap_no_bits_test)
    ASSERT_EQ(expected, result);
 }
 
-TEST_F(large_scanset_bitmap_test_t, large_bitmap_odd_bits_test)
+TEST_F(large_scanset_bitmap_suite, clear_even_bits_test)
 {
    ASSERT_EQ(scanset_size, scanset_bitmap.size());
    ASSERT_EQ(0, scanset_bitmap.count());
@@ -411,7 +411,7 @@ TEST_F(large_scanset_bitmap_test_t, large_bitmap_odd_bits_test)
    ASSERT_EQ(expected, result);
 }
 
-TEST_F(large_scanset_bitmap_test_t, large_bitmap_even_bits_test)
+TEST_F(large_scanset_bitmap_suite, clear_odd_bits_test)
 {
    ASSERT_EQ(scanset_size, scanset_bitmap.size());
    ASSERT_EQ(0, scanset_bitmap.count());
@@ -438,7 +438,7 @@ TEST_F(large_scanset_bitmap_test_t, large_bitmap_even_bits_test)
    ASSERT_EQ(expected, result);
 }
 
-TEST_F(large_scanset_bitmap_test_t, large_bitmap_first_last_bits_test)
+TEST_F(large_scanset_bitmap_suite, first_last_bits_test)
 {
    ASSERT_EQ(scanset_size, scanset_bitmap.size());
    ASSERT_EQ(0, scanset_bitmap.count());
@@ -465,7 +465,7 @@ TEST_F(large_scanset_bitmap_test_t, large_bitmap_first_last_bits_test)
    ASSERT_EQ(expected, result);
 }
 
-TEST_F(large_scanset_bitmap_test_t, large_bitmap_modulo_2_3_div_overlap_test)
+TEST_F(large_scanset_bitmap_suite, modulo_2_3_div_overlap_test)
 {
    ASSERT_EQ(scanset_size, scanset_bitmap.size());
    ASSERT_EQ(0, scanset_bitmap.count());

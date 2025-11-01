@@ -1,9 +1,18 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="src\test\main.cpp" />
-    <ClCompile Include="src\test\scanset_bitmap_test.cpp" />
-    <ClCompile Include="src\test\hr_bytes_test.cpp" />
+    <ClCompile Include="src\test\hr_bytes_test.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\test\hr_time_test.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\test\scanset_bitmap_test.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\test\main.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.test.config" />
@@ -12,8 +21,16 @@
     <Filter Include="obj">
       <UniqueIdentifier>{7240feae-faeb-494c-998d-5ded494ea77a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{347ba1ff-72f1-4a0f-8261-2e3293cb373b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <Object Include="$(Platform)\$(Configuration)\fit\scanset_bitmap.obj" />
+    <Object Include="$(Platform)\$(Configuration)\fit\scanset_bitmap.obj">
+      <Filter>obj</Filter>
+    </Object>
+    <Object Include="$(Platform)\$(Configuration)\fit\format.obj">
+      <Filter>obj</Filter>
+    </Object>
   </ItemGroup>
 </Project>
