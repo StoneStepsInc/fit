@@ -631,15 +631,16 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                   case EXIF_TAG_GPS_DATE_STAMP:
                      //
                      // Use less-than 11 comparison, in case if the value is zero-padded
-                     // to a larger size.
+                     // to a larger size. Keep shorter values or values with unrecognized
+                     // format as-is (will be processed by the field type `switch` below).
                      // 
                      //     4  7
-                     // YYYY:MM:DD
+                     // YYYY:MM:DD\x0
                      if(exif_value.typeId() != Exiv2::TypeId::asciiString || exif_value.size() < 11 || exif_value.toUint32(4) != static_cast<uint32_t>(':') || exif_value.toUint32(7) != static_cast<uint32_t>(':'))
                         field_index = EXIF_FIELD_GPSDateStamp;
                      else {
                         std::u8string& tstamp = std::get<std::u8string>(exif_fields[EXIF_FIELD_GPSDateStamp] = reinterpret_cast<const char8_t*>(static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str()));
-                        tstamp[4] = tstamp[7] = '-';
+                        tstamp[4] = tstamp[7] = u8'-';
                         field_bitset.set(EXIF_FIELD_GPSDateStamp);
                      }
                      break;
@@ -679,7 +680,7 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                      break;
                   case EXIF_TAG_DATE_TIME:
                      //     4  7
-                     // YYYY:MM:DD HH:MM:SS
+                     // YYYY:MM:DD HH:MM:SS\x0
                      if(exif_value.typeId() != Exiv2::TypeId::asciiString || exif_value.size() < 20 || exif_value.toUint32(4) != static_cast<uint32_t>(':') || exif_value.toUint32(7) != static_cast<uint32_t>(':'))
                         field_index = EXIF_FIELD_DateTime;
                      else {
@@ -782,7 +783,7 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                      break;
                   case EXIF_TAG_DATE_TIME_ORIGINAL:
                      //     4  7
-                     // YYYY:MM:DD HH:MM:SS
+                     // YYYY:MM:DD HH:MM:SS\x0
                      if(exif_value.typeId() != Exiv2::TypeId::asciiString || exif_value.size() < 20 || exif_value.toUint32(4) != static_cast<uint32_t>(':') || exif_value.toUint32(7) != static_cast<uint32_t>(':'))
                         field_index = EXIF_FIELD_DateTimeOriginal;
                      else {
@@ -792,6 +793,8 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                      }
                      break;
                   case EXIF_TAG_DATE_TIME_DIGITIZED:
+                     //     4  7
+                     // YYYY:MM:DD HH:MM:SS\x0
                      if(exif_value.typeId() != Exiv2::TypeId::asciiString || exif_value.size() < 20 || exif_value.toUint32(4) != static_cast<uint32_t>(':') || exif_value.toUint32(7) != static_cast<uint32_t>(':'))
                         field_index = EXIF_FIELD_DateTimeDigitized;
                      else {
