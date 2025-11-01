@@ -45,12 +45,19 @@ std::string hr_bytes(uint64_t bytes)
       remainder += (divisor / 100) / 2;
 
       // compute GB numbers and below with 2 digits after the decimal point
-      decimals = (remainder / (divisor / 100));
+      if((decimals = (remainder / (divisor / 100))) == 100) {
+         // adjust the whole part if the remainder pushes decimals past 99 (e.g. 14,995)
+         whole++;
+         decimals = 0;
+      }
    } else {
       remainder += (divisor / 1000) / 2;
 
       // otherwise, compute numbers with 3 digits after the decimal point
-      decimals = (remainder / (divisor / 1000));
+      if((decimals = (remainder / (divisor / 1000))) == 1000) {
+         whole++;
+         decimals = 0;
+      }
    }
 
    // print numbers that round to .0 as integers, with the appropriate unit prefix
@@ -80,6 +87,7 @@ std::string hr_time(std::chrono::steady_clock::duration elapsed)
    size_t minutes = std::chrono::duration_cast<std::chrono::minutes>(elapsed).count() % 60;
    size_t seconds = std::chrono::duration_cast<std::chrono::seconds>(elapsed).count() % 60;
 
+   // milliseconds are not rounded into seconds, etc (i.e. 5:12.999 is printed as 5:12)
    if(!hours && !minutes)
       return FMTNS::format("{:d}.{:03d} sec"sv, seconds, std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() % 1000);
 
