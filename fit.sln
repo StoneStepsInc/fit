@@ -20,6 +20,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "devops", "devops", "{373C68
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sql", "sql", "{4CCE7C08-066C-4734-8DFA-18A17D3104CB}"
 	ProjectSection(SolutionItems) = preProject
+		sql\group-dir-size.sql = sql\group-dir-size.sql
 		sql\group-exif-camera.sql = sql\group-exif-camera.sql
 		sql\group-exif-exp-mode.sql = sql\group-exif-exp-mode.sql
 		sql\group-exif-focallength.sql = sql\group-exif-focallength.sql
