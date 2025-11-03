@@ -12,6 +12,7 @@ SELECT
     @DIR_NAME AS dir_name,
     COUNT(file_id) AS file_count,
     MIN(entry_size) AS min_entry_size,
+    round(AVG(entry_size) / 1000. / 1000., 3) AS avg_entry_size_mb,
     round(MAX(entry_size) / 1000. / 1000., 3) AS max_entry_size_mb,
     MIN(datetime(mod_time, 'unixepoch')) AS min_mod_time,
     MAX(datetime(mod_time, 'unixepoch')) AS max_mod_time,
