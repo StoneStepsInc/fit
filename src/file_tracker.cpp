@@ -19,14 +19,6 @@ extern "C" {
 #include <algorithm>
 #include <array>
 
-#if defined(_MSC_VER) || (defined(__GNUC__) && __GNUC__ >= 13)
-#include <format>
-#define FMTNS std
-#else
-#include <fmt/format.h>
-#define FMTNS fmt
-#endif
-
 #include <cstring>
 
 #ifndef _MSC_VER
@@ -146,52 +138,52 @@ file_tracker_t::~file_tracker_t(void)
 
    if(stmt_find_last_version) {
       if((errcode = stmt_find_last_version.finalize()) != SQLITE_OK)
-         print_stream.error("Cannot finalize SQLite statement to find the last file version (%s)", sqlite3_errstr(errcode));
+         print_stream.error("Cannot finalize SQLite statement to find the last file version ({:s})", sqlite3_errstr(errcode));
    }
 
    if(stmt_find_scan_version) {
       if((errcode = stmt_find_scan_version.finalize()) != SQLITE_OK)
-         print_stream.error("Cannot finalize SQLite statement to find the base file version (%s)", sqlite3_errstr(errcode));
+         print_stream.error("Cannot finalize SQLite statement to find the base file version ({:s})", sqlite3_errstr(errcode));
    }
 
    if(stmt_insert_file) {
       if((errcode = stmt_insert_file.finalize()) != SQLITE_OK)
-         print_stream.error("Cannot finalize SQLite statement to insert a file (%s)", sqlite3_errstr(errcode));
+         print_stream.error("Cannot finalize SQLite statement to insert a file ({:s})", sqlite3_errstr(errcode));
    }
 
    if(stmt_insert_version) {
       if((errcode = stmt_insert_version.finalize()) != SQLITE_OK)
-         print_stream.error("Cannot finalize SQLite statement to insert a version (%s)", sqlite3_errstr(errcode));
+         print_stream.error("Cannot finalize SQLite statement to insert a version ({:s})", sqlite3_errstr(errcode));
    }
 
    if(stmt_insert_scanset_entry) {
       if((errcode = stmt_insert_scanset_entry.finalize()) != SQLITE_OK)
-         print_stream.error("Cannot finalize SQLite statement to insert a scanset file (%s)", sqlite3_errstr(errcode));
+         print_stream.error("Cannot finalize SQLite statement to insert a scanset file ({:s})", sqlite3_errstr(errcode));
    }
 
    if(stmt_insert_exif) {
       if((errcode = stmt_insert_exif.finalize()) != SQLITE_OK)
-         print_stream.error("Cannot finalize SQLite statement to insert an EXIF record (%s)", sqlite3_errstr(errcode));
+         print_stream.error("Cannot finalize SQLite statement to insert an EXIF record ({:s})", sqlite3_errstr(errcode));
    }
 
    if(stmt_begin_txn) {
       if((errcode = stmt_begin_txn.finalize()) != SQLITE_OK)
-         print_stream.error("Cannot finalize SQLite statement to begin a transaction (%s)", sqlite3_errstr(errcode));
+         print_stream.error("Cannot finalize SQLite statement to begin a transaction ({:s})", sqlite3_errstr(errcode));
    }
 
    if(stmt_commit_txn) {
       if((errcode = stmt_commit_txn.finalize()) != SQLITE_OK)
-         print_stream.error("Cannot finalize SQLite statement to commit a transaction (%s)", sqlite3_errstr(errcode));
+         print_stream.error("Cannot finalize SQLite statement to commit a transaction ({:s})", sqlite3_errstr(errcode));
    }
 
    if(stmt_rollback_txn) {
       if((errcode = stmt_rollback_txn.finalize()) != SQLITE_OK)
-         print_stream.error("Cannot finalize SQLite statement to rollback a transaction (%s)", sqlite3_errstr(errcode));
+         print_stream.error("Cannot finalize SQLite statement to rollback a transaction ({:s})", sqlite3_errstr(errcode));
    }
 
    if(file_scan_db) {
       if((errcode = sqlite3_close(file_scan_db)) != SQLITE_OK)
-         print_stream.error("Failed to close the SQLite database (%s)", sqlite3_errstr(errcode));
+         print_stream.error("Failed to close the SQLite database ({:s})", sqlite3_errstr(errcode));
    }
 }
 
@@ -406,7 +398,7 @@ bool file_tracker_t::set_sqlite_journal_mode(sqlite3 *file_scan_db, print_stream
    sqlite_stmt_t journal_mode_stmt("PRAGMA journal_mode=WAL"sv);
 
    if((errcode = journal_mode_stmt.prepare(file_scan_db, "PRAGMA journal_mode=WAL;"sv)) != SQLITE_OK) {
-      print_stream.warning("Cannot prepare a SQLite statement for setting journal mode to WAL (%s)", sqlite3_errstr(errcode));
+      print_stream.warning("Cannot prepare a SQLite statement for setting journal mode to WAL ({:s})", sqlite3_errstr(errcode));
       return false;
    }
       
@@ -420,7 +412,7 @@ bool file_tracker_t::set_sqlite_journal_mode(sqlite3 *file_scan_db, print_stream
    bool have_wal = journal_mode && !strcmp(journal_mode, "wal");
 
    if((errcode = journal_mode_stmt.finalize()) != SQLITE_OK)
-      print_stream.warning("Cannot finalize SQLite statement for setting journal mode to WAL (%s)", sqlite3_errstr(errcode));
+      print_stream.warning("Cannot finalize SQLite statement for setting journal mode to WAL ({:s})", sqlite3_errstr(errcode));
 
    return have_wal;
 }
@@ -536,7 +528,7 @@ bool file_tracker_t::read_file(unsigned char *file_buffer, size_t buf_size, size
       std::get<mbh_arg_file_read_error>(args).emplace(error.what());
    }
    catch (...) {
-      std::get<mbh_arg_file_read_error>(args).emplace(FMTNS::format("Unexpected error caught while reading {:s}", u8tosv_t(std::get<mbh_arg_dir_entry>(args).path().u8string())));
+      std::get<mbh_arg_file_read_error>(args).emplace(FMTNS::format("Unexpected error caught while reading {:s}", std::get<mbh_arg_dir_entry>(args).path().u8string()));
    }
 
    // indicate that we didn't read anything
@@ -566,7 +558,7 @@ int64_t file_tracker_t::insert_file_record(const std::u8string& filepath, const 
    insert_file_stmt.bind_param(filepath);
             
    if((errcode = sqlite3_step(stmt_insert_file)) != SQLITE_DONE)
-      throw std::runtime_error(FMTNS::format("Cannot insert a file record for {:s} ({:s})", u8tosv_t(filepath), sqlite3_errstr(errcode)));
+      throw std::runtime_error(FMTNS::format("Cannot insert a file record for {:s} ({:s})", filepath, sqlite3_errstr(errcode)));
 
    file_id = sqlite3_last_insert_rowid(file_scan_db);
 
@@ -592,12 +584,12 @@ int64_t file_tracker_t::insert_exif_record(const std::u8string& filepath, const 
          else if(std::holds_alternative<std::u8string>(exif_fields[i]))
             insert_exif_stmt.bind_param(std::get<std::u8string>(exif_fields[i]));
          else
-            throw std::runtime_error(FMTNS::format("Bad field value in EXIF record for {:s} ({:d})", u8tosv_t(filepath), i));
+            throw std::runtime_error(FMTNS::format("Bad field value in EXIF record for {:s} ({:d})", filepath, i));
       }
    }
 
    if((errcode = sqlite3_step(stmt_insert_exif)) != SQLITE_DONE)
-      throw std::runtime_error(FMTNS::format("Cannot insert an EXIF record for {:s} ({:s})", u8tosv_t(filepath), sqlite3_errstr(errcode)));
+      throw std::runtime_error(FMTNS::format("Cannot insert an EXIF record for {:s} ({:s})", filepath, sqlite3_errstr(errcode)));
 
    // get the row ID for the new EXIF record
    exif_id = sqlite3_last_insert_rowid(file_scan_db);
@@ -624,7 +616,7 @@ file_tracker_t::version_record_result_t file_tracker_t::select_version_record(co
    errcode = sqlite3_step(stmt_find_version);
 
    if(errcode != SQLITE_DONE && errcode != SQLITE_ROW)
-      throw std::runtime_error(FMTNS::format("Failed to find a version for {:s} ({:s})"sv, u8tosv_t(filepath), sqlite3_errstr(errcode)));
+      throw std::runtime_error(FMTNS::format("Failed to find a version for {:s} ({:s})"sv, filepath, sqlite3_errstr(errcode)));
 
    if(errcode == SQLITE_DONE)
       return version_record_result_t{std::nullopt};
@@ -643,7 +635,7 @@ file_tracker_t::version_record_result_t file_tracker_t::select_version_record(co
    if(version_record_result.hexhash().has_value()) {
       if(version_record_result.hash_type() == HASH_TYPE) {
          if(version_record_result.hexhash().value().length() != HASH_HEX_SIZE)
-            throw std::runtime_error(FMTNS::format("Bad hash size for {:s}"sv, u8tosv_t(filepath)));
+            throw std::runtime_error(FMTNS::format("Bad hash size for {:s}"sv, filepath));
       }
       else
          throw std::runtime_error(FMTNS::format("Unknown hash type: {:s}"sv, version_record_result.hash_type()));
@@ -701,7 +693,7 @@ int64_t file_tracker_t::insert_version_record(const std::u8string& filepath, int
    // and left SQLite record storage locked.
    //
    if((errcode = sqlite3_step(stmt_insert_version)) != SQLITE_DONE)
-      throw std::runtime_error(FMTNS::format("Cannot insert a version record for {:s} ({:s})", u8tosv_t(filepath), sqlite3_errstr(errcode)));
+      throw std::runtime_error(FMTNS::format("Cannot insert a version record for {:s} ({:s})", filepath, sqlite3_errstr(errcode)));
 
    // get the row ID for the new version record
    version_id = sqlite3_last_insert_rowid(file_scan_db);
@@ -723,7 +715,7 @@ void file_tracker_t::insert_scanset_record(const std::u8string& filepath, int64_
    insert_scanset_file_stmt.bind_param(version_id);
 
    if((errcode = sqlite3_step(stmt_insert_scanset_entry)) != SQLITE_DONE)
-      throw std::runtime_error(FMTNS::format("Cannot insert a scanset record for {:s} ({:s})", u8tosv_t(filepath), sqlite3_errstr(errcode)));
+      throw std::runtime_error(FMTNS::format("Cannot insert a scanset record for {:s} ({:s})", filepath, sqlite3_errstr(errcode)));
 
    insert_scanset_file_stmt.reset();
 }
@@ -733,7 +725,7 @@ void file_tracker_t::begin_transaction(const std::u8string& filepath)
    int errcode = sqlite3_step(stmt_begin_txn);
 
    if(errcode != SQLITE_DONE)
-      throw std::runtime_error(FMTNS::format("Cannot start a SQLite transaction for {:s} ({:s})", u8tosv_t(filepath), sqlite3_errstr(errcode)));
+      throw std::runtime_error(FMTNS::format("Cannot start a SQLite transaction for {:s} ({:s})", filepath, sqlite3_errstr(errcode)));
 }
 
 void file_tracker_t::commit_transaction(const std::u8string& filepath)
@@ -741,7 +733,7 @@ void file_tracker_t::commit_transaction(const std::u8string& filepath)
    int errcode = sqlite3_step(stmt_commit_txn);
 
    if(errcode != SQLITE_DONE)
-      throw std::runtime_error(FMTNS::format("Cannot commit a SQLite transaction for {:s} ({:s})", u8tosv_t(filepath), sqlite3_errstr(errcode)));
+      throw std::runtime_error(FMTNS::format("Cannot commit a SQLite transaction for {:s} ({:s})", filepath, sqlite3_errstr(errcode)));
 }
 
 void file_tracker_t::rollback_transaction(const std::u8string& filepath)
@@ -749,7 +741,7 @@ void file_tracker_t::rollback_transaction(const std::u8string& filepath)
    int errcode = sqlite3_step(stmt_rollback_txn);
 
    if(errcode != SQLITE_DONE)
-      print_stream.error("Cannot rollback a SQLite transaction for %s (%s)", filepath.c_str(), sqlite3_errstr(errcode));
+      print_stream.error("Cannot rollback a SQLite transaction for {:s} ({:s})", filepath, sqlite3_errstr(errcode));
 }
 
 std::u8string file_tracker_t::to_ascii_path(const std::filesystem::path& fspath)
@@ -878,7 +870,7 @@ void file_tracker_t::run(void)
                // clear filepath to indicate that UTF-8 conversion failed
                filepath.clear();
 
-               print_stream.error("Cannot convert a file path to UTF-8 (%s) %s", error.what(), to_ascii_path(dir_entry.value().path()).c_str());
+               print_stream.error("Cannot convert a file path to UTF-8 ({:s}) {:s}", error.what(), to_ascii_path(dir_entry.value().path()));
                files_lock.lock();
                continue;
             }
@@ -932,7 +924,7 @@ void file_tracker_t::run(void)
                      // because dir_entry has been moved out, but filepath still
                      // contains a valid UTF-8 string.
                      //
-                     print_stream.error("Cannot submit a hashing job (%s) for \"%s\" ", error.what(), filepath.c_str());
+                     print_stream.error("Cannot submit a hashing job ({:s}) for \"{:s}\" ", error.what(), filepath);
                      files_lock.lock();
                      continue;
                   }
@@ -964,7 +956,7 @@ void file_tracker_t::run(void)
                   progress_info.failed_files++;
 
                   // same as when calling mb_hasher.submit_job
-                  print_stream.error("Cannot hash a file (%s) for \"%s\"", std::get<mbh_arg_file_read_error>(args.value()).value().error.c_str(), filepath.c_str());
+                  print_stream.error("Cannot hash a file ({:s}) for \"{:s}\"", std::get<mbh_arg_file_read_error>(args.value()).value().error, filepath);
                   files_lock.lock();
                   continue;
                }
@@ -1037,16 +1029,16 @@ void file_tracker_t::run(void)
                   // differentiate between new, modified and changed files (a scanned file with a version in scan 1 and no version in a base scan 2, is a new file)
                   if(!version_record.has_value() || (base_scan_id.has_value() && version_record.scanset_scan_id() != base_scan_id.value())) {
                      progress_info.new_files++;
-                     print_stream.warning(   "new file: %s (%s)", filepath.c_str(), hr_bytes(dir_entry.value().file_size()).c_str());
+                     print_stream.warning(   "new file: {:s} ({:s})", filepath, hr_bytes(dir_entry.value().file_size()));
                   }
                   else {
                      if(version_record.mod_time() != static_cast<int64_t>(file_time_to_time_t(dir_entry.value().last_write_time()))) {
                         progress_info.modified_files++;
-                        print_stream.warning("modified: %s (%s)", filepath.c_str(), hr_bytes(dir_entry.value().file_size()).c_str());
+                        print_stream.warning("modified: {:s} ({:s})", filepath, hr_bytes(dir_entry.value().file_size()));
                      }
                      else {
                         progress_info.changed_files++;
-                        print_stream.warning("changed : %s (%s)", filepath.c_str(), hr_bytes(dir_entry.value().file_size()).c_str());
+                        print_stream.warning("changed : {:s} ({:s})", filepath, hr_bytes(dir_entry.value().file_size()));
                      }
                   }
                }
@@ -1106,7 +1098,7 @@ void file_tracker_t::run(void)
       catch (const std::exception& error) {
          progress_info.failed_files++;
 
-         print_stream.error("Cannot process file \"%s\" (%s)", filepath.c_str(), error.what());
+         print_stream.error("Cannot process file \"{:s}\" ({:s})", filepath, error.what());
 
          // if we started a transaction, roll it back
          if(!sqlite3_get_autocommit(file_scan_db)) {
@@ -1198,7 +1190,7 @@ void file_tracker_t::report_file_removals(void)
          progress_info.removed_files++;
          progress_info.removed_size += sqlite3_column_int64(stmt_find_scanset_file, 1);
 
-         print_stream.warning("removed : %s (%s)", sqlite3_column_text(stmt_find_scanset_file, 0), hr_bytes(sqlite3_column_int64(stmt_find_scanset_file, 1)).c_str());
+         print_stream.warning("removed : {:s} ({:s})", reinterpret_cast<const char*>(sqlite3_column_text(stmt_find_scanset_file, 0)), hr_bytes(sqlite3_column_int64(stmt_find_scanset_file, 1)));
 
          if(abort_scan) {
             // there's no waiting for other threads to stop at this point - just notify that we didn't report all removed files
@@ -1210,7 +1202,7 @@ void file_tracker_t::report_file_removals(void)
       if(!abort_scan) {
          // report removed files only if we identified any
          if(progress_info.removed_files)
-            print_stream.warning("Identified %" PRIu64 " removed files (%s)", progress_info.removed_files.load(), hr_bytes(progress_info.removed_size.load()).c_str());
+            print_stream.warning("Identified {:d} removed files ({:s})", progress_info.removed_files.load(), hr_bytes(progress_info.removed_size.load()));
       }
    }
 }

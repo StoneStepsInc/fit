@@ -3,6 +3,7 @@
 #include "exif_reader.h"
 
 #include "unicode.h"
+#include "format.h"
 
 #include <rapidjson/rapidjson.h>
 #include <rapidjson/document.h>
@@ -317,7 +318,7 @@ void exif_reader_t::cleanup(print_stream_t& print_stream) noexcept
       Exiv2::XmpParser::terminate();
    }
    catch (const std::exception& error) {
-      print_stream.error("Cannot clean up XMP parser (%s)\n", error.what());
+      print_stream.error("Cannot clean up XMP parser ({:s})\n", error.what());
    }
 }
 
@@ -1108,10 +1109,10 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
       return field_bitset;
    }
    catch (const std::exception& error) {
-      print_stream.error("Cannot read EXIF for %s (%s)\n", filepath.u8string().c_str(), error.what());
+      print_stream.error("Cannot read EXIF for {:s} ({:s})\n", filepath.u8string(), error.what());
    }
    catch (...) {
-      print_stream.error("Cannot read EXIF for %s\n", filepath.u8string().c_str());
+      print_stream.error("Cannot read EXIF for {:s}\n", filepath.u8string());
    }
 
    // return an empty bitset and discard a partially filled one

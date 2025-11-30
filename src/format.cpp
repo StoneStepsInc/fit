@@ -2,14 +2,6 @@
 
 #include <chrono>
 
-#if defined(_MSC_VER) || (defined(__GNUC__) && __GNUC__ >= 13)
-#include <format>
-#define FMTNS std
-#else
-#include <fmt/format.h>
-#define FMTNS fmt
-#endif
-
 using namespace std::literals::string_view_literals;
 using namespace std::literals::string_literals;
 

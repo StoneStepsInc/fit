@@ -31,14 +31,6 @@
 #include <chrono>
 #include <optional>
 
-#if defined(_MSC_VER) || (defined(__GNUC__) && __GNUC__ >= 13)
-#include <format>
-#define FMTNS std
-#else
-#include <fmt/format.h>
-#define FMTNS fmt
-#endif
-
 using namespace std::literals::string_view_literals;
 using namespace std::literals::string_literals;
 
@@ -368,13 +360,13 @@ void verify_options(options_t& options)
       throw std::runtime_error("Database file path must be specified");
 
    if(std::filesystem::is_directory(options.db_path))
-      throw std::runtime_error(FMTNS::format("{:s} cannot be a directory", u8tosv_t(options.db_path.u8string())));
+      throw std::runtime_error(FMTNS::format("{:s} cannot be a directory", options.db_path.u8string()));
 
    if(!options.db_path.has_filename())
-      throw std::runtime_error(FMTNS::format("{:s} must point to a file", u8tosv_t(options.db_path.u8string())));
+      throw std::runtime_error(FMTNS::format("{:s} must point to a file", options.db_path.u8string()));
 
    if(!std::filesystem::is_directory(std::filesystem::absolute(options.db_path).remove_filename()))
-      throw std::runtime_error(FMTNS::format("{:s} must be an existing directory", u8tosv_t(std::filesystem::absolute(options.db_path).remove_filename().u8string())));
+      throw std::runtime_error(FMTNS::format("{:s} must be an existing directory", std::filesystem::absolute(options.db_path).remove_filename().u8string()));
 
    // scan_path
    if(options.scan_paths.empty())
@@ -382,12 +374,12 @@ void verify_options(options_t& options)
 
    for(const std::filesystem::path& scan_path : options.scan_paths) {
       if(!std::filesystem::exists(scan_path))
-         throw std::runtime_error(FMTNS::format("{:s} does not exist", u8tosv_t(scan_path.u8string())));
+         throw std::runtime_error(FMTNS::format("{:s} does not exist", scan_path.u8string()));
    }
 
    for(const std::filesystem::path& scan_path : options.scan_paths) {
       if(!std::filesystem::is_directory(scan_path))
-         throw std::runtime_error(FMTNS::format("{:s} is not a directory", u8tosv_t(scan_path.u8string())));
+         throw std::runtime_error(FMTNS::format("{:s} is not a directory", scan_path.u8string()));
    }
 
    //
@@ -405,7 +397,7 @@ void verify_options(options_t& options)
 
    if(!options.base_path.empty()) {
       if(!std::filesystem::is_directory(options.base_path))
-         throw std::runtime_error(FMTNS::format("{:s} is not a directory", u8tosv_t(options.base_path.u8string())));
+         throw std::runtime_error(FMTNS::format("{:s} is not a directory", options.base_path.u8string()));
 
       options.base_path = std::filesystem::canonical(options.base_path);
 
@@ -420,7 +412,7 @@ void verify_options(options_t& options)
 
          // check if the entire base path was consumed (i.e. there's no mismatch and the scan path isn't shorter)
          if(bpi != options.base_path.end())
-            throw std::runtime_error(FMTNS::format("Scan path must be under the base path ({:s})", u8tosv_t(scan_path.u8string())));
+            throw std::runtime_error(FMTNS::format("Scan path must be under the base path ({:s})", scan_path.u8string()));
       }
    }
 
@@ -482,13 +474,13 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
       }
       else {
          if(options.verify_files)
-            throw std::runtime_error(FMTNS::format("Cannot open a SQLite database in {:s}", u8tosv_t(options.db_path.generic_u8string())));
+            throw std::runtime_error(FMTNS::format("Cannot open a SQLite database in {:s}", options.db_path.generic_u8string()));
 
          // attempt to create a new database
          if((errcode = sqlite3_open_v2(reinterpret_cast<const char*>(options.db_path.u8string().c_str()), &file_scan_db, sqlite_flags | SQLITE_OPEN_CREATE, nullptr)) != SQLITE_OK)
             throw std::runtime_error(sqlite3_errstr(errcode));
 
-         print_stream.info("Creating a new SQLite database %s", options.db_path.generic_u8string().c_str());
+         print_stream.info("Creating a new SQLite database {:s}", options.db_path.generic_u8string());
 
          // files table
          if(sqlite3_exec(file_scan_db, "CREATE TABLE files ("
@@ -989,13 +981,13 @@ void update_schema_from_v50(sqlite3 *file_scan_db, print_stream_t& print_stream)
                                  ") VALUES ("
                                  "   (select user_version from pragma_user_version()),"
                                  "   60,"
-                                 "   CAST(strftime('%s', 'now') AS INTEGER))", nullptr, nullptr, &errmsg) != SQLITE_OK)
+                                 "   CAST(strftime('{:s}', 'now') AS INTEGER))", nullptr, nullptr, &errmsg) != SQLITE_OK)
       throw std::runtime_error(FMTNS::format("Cannot update version to 6.0 in 'upgrades' ({:s})"sv, std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get()));
 
    if(sqlite3_exec(file_scan_db, "PRAGMA user_version=60", nullptr, nullptr, &errmsg) != SQLITE_OK)
       throw std::runtime_error(FMTNS::format("Cannot update version to 6.0 in 'user_version' ({:s})"sv, std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get()));
 
-   print_stream.info("Updated %" PRIu64 " records in %.3lf minutes",
+   print_stream.info("Updated {:d} records in {:.3f} minutes",
                         record_count,
                         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-start_time).count()/1000./60.);
 }
@@ -1034,17 +1026,17 @@ int main(int argc, char *argv[])
       //
       // Open a print stream
       //
-      std::unique_ptr<FILE, fit::file_handle_deleter_t> log_file;
+      std::ofstream log_file;
 
       if(!options.log_file.empty()) {
          // open the log file in binary mode, where supported, so character encoding is preserved
-         log_file.reset(fopen(reinterpret_cast<const char*>(options.log_file.c_str()), "ab"));
+         log_file.open(reinterpret_cast<const char*>(options.log_file.c_str()));
 
          if(!log_file)
-            throw std::runtime_error(FMTNS::format("Cannot open log file {:s}", fit::u8tosv_t(options.log_file)));
+            throw std::runtime_error(FMTNS::format("Cannot open log file {:s}", options.log_file));
       }
 
-      fit::print_stream_t print_stream(log_file.get());
+      fit::print_stream_t print_stream(std::move(log_file));
 
       //
       // Open a SQLite database
@@ -1099,7 +1091,7 @@ int main(int argc, char *argv[])
             options.update_last_scanset = true;
             options.all += u8" -u";
 
-            print_stream.warning("Continuing interrupted scan %" PRId64 " (forcing -u)", base_scan_id.value());
+            print_stream.warning("Continuing interrupted scan {:d} (forcing -u)", base_scan_id.value());
          }
 
          if(!options.update_last_scanset)
@@ -1110,7 +1102,7 @@ int main(int argc, char *argv[])
                throw std::runtime_error("There is no last scan to update");
 
             if(completed_scan)
-               print_stream.warning("Updating a completed scan %" PRId64 " (completed time will change)", base_scan_id.value());
+               print_stream.warning("Updating a completed scan {:d} (completed time will change)", base_scan_id.value());
 
             // set the current scan to the one we found (last scan at this point) and find a previous scan to use as a base scan
             scan_id = base_scan_id.value();
@@ -1126,9 +1118,9 @@ int main(int argc, char *argv[])
       // Walk the file tree
       //
       if(!options.scan_message.empty())
-         print_stream.info("%s (%s) with options %s", options.verify_files ? "Verifying" : "Scanning", options.scan_message.c_str(), options.all.c_str());
+         print_stream.info("{:s} ({:s}) with options {:s}", options.verify_files ? "Verifying" : "Scanning", options.scan_message, options.all);
       else
-         print_stream.info("%s with options %s", options.verify_files ? "Verifying" : "Scanning", options.all.c_str());
+         print_stream.info("{:s} with options {:s}", options.verify_files ? "Verifying" : "Scanning", options.all);
 
       //
       // Initialize underlying libraries before any of the components
@@ -1147,12 +1139,12 @@ int main(int argc, char *argv[])
          if(!options.verify_files) {
             if(file_tree_walker.was_scan_completed()) {
                if(fit::complete_scan_record(scan_id.value(), file_scan_db.get()) != 1)
-                  print_stream.warning("Cannot update completed time for scan %d", scan_id);
+                  print_stream.warning("Cannot update completed time for scan {:d}", scan_id.value());
             }
 
             // at this point cumulative time will not reflect any activities performed while closing the database
             if(fit::update_scan_duration(options, scan_id.value(), std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now()-start_time).count(), file_scan_db.get()) != 1)
-               print_stream.warning("Cannot update cumulative duration for scan %d", scan_id);
+               print_stream.warning("Cannot update cumulative duration for scan {:d}", scan_id.value());
 
             fit::close_sqlite_database(file_scan_db.release());
          }
@@ -1165,26 +1157,26 @@ int main(int argc, char *argv[])
 
          // for quick scans, just report processed files and elapsed time
          if(std::chrono::duration_cast<std::chrono::seconds>(end_time-start_time).count() == 0) {
-            print_stream.info("Processed %s in %" PRIu64 " files in %s",
-                              fit::hr_bytes(file_tree_walker.get_processed_size()).c_str(), file_tree_walker.get_processed_files(),
-                              fit::hr_time(end_time-start_time).c_str());
+            print_stream.info("Processed {:s} in {:d} files in {:s}",
+                              fit::hr_bytes(file_tree_walker.get_processed_size()), file_tree_walker.get_processed_files(),
+                              fit::hr_time(end_time-start_time));
          }
          else {
-            print_stream.info("Processed %s in %" PRIu64 " files in %s (%.1f files/sec, %s/sec)",
-                              fit::hr_bytes(file_tree_walker.get_processed_size()).c_str(), file_tree_walker.get_processed_files(),
-                              fit::hr_time(end_time-start_time).c_str(),
+            print_stream.info("Processed {:s} in {:d} files in {:s} ({:.1f} files/sec, {:s}/sec)",
+                              fit::hr_bytes(file_tree_walker.get_processed_size()), file_tree_walker.get_processed_files(),
+                              fit::hr_time(end_time-start_time),
                               file_tree_walker.get_processed_files()/(std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/1000.),
-                              fit::hr_bytes(static_cast<uint64_t>(file_tree_walker.get_processed_size()/(std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/1000. + .5))).c_str());
+                              fit::hr_bytes(static_cast<uint64_t>(file_tree_walker.get_processed_size()/(std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()/1000. + .5))));
          }
 
          if(options.verify_files) {
             if(options.report_removed_files) {
-               print_stream.info("Found %" PRIu64 " modified, %" PRIu64 " new, %" PRIu64 " removed, and %" PRIu64 " changed files",
+               print_stream.info("Found {:d} modified, {:d} new, {:d} removed, and {:d} changed files",
                                  file_tree_walker.get_modified_files(), file_tree_walker.get_new_files(),
                                  file_tree_walker.get_removed_files(), file_tree_walker.get_changed_files());
             }
             else {
-               print_stream.info("Found %" PRIu64 " modified, %" PRIu64 " new, and %" PRIu64 " changed files",
+               print_stream.info("Found {:d} modified, {:d} new, and {:d} changed files",
                                  file_tree_walker.get_modified_files(), file_tree_walker.get_new_files(),
                                  file_tree_walker.get_changed_files());
             }

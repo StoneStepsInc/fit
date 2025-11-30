@@ -1,18 +1,11 @@
 #include "scanset_bitmap.h"
+#include "format.h"
 
 #include <climits>
 #include <cstdint>
 #include <stdexcept>
 #include <bit>
 #include <functional>
-
-#if defined(_MSC_VER) || (defined(__GNUC__) && __GNUC__ >= 13)
-#include <format>
-#define FMTNS std
-#else
-#include <fmt/format.h>
-#define FMTNS fmt
-#endif
 
 namespace fit {
 

@@ -46,29 +46,27 @@ void file_tree_walker_t::cleanup(print_stream_t& print_stream) noexcept
 void file_tree_walker_t::report_progress(void)
 {
    if(!progress_info.unmatched_files) {
-      print_stream.info("Processed %s in %" PRIu64 " files",
-                        hr_bytes(progress_info.processed_size.load()).c_str(), progress_info.processed_files.load());
+      print_stream.info("Processed {:s} in {:d} files",
+                        hr_bytes(progress_info.processed_size.load()), progress_info.processed_files.load());
    }
    else {
-      print_stream.info("Processed %s in %" PRIu64 " files (%" PRIu64 "/%s %s)",
-                        hr_bytes(progress_info.processed_size.load()).c_str(), progress_info.processed_files.load(),
-                        progress_info.unmatched_files.load(), hr_bytes(progress_info.unmatched_size.load()).c_str(),
+      print_stream.info("Processed {:s} in {:d} files ({:d}/{:s} {:s})",
+                        hr_bytes(progress_info.processed_size.load()), progress_info.processed_files.load(),
+                        progress_info.unmatched_files.load(), hr_bytes(progress_info.unmatched_size.load()),
                         options.verify_files ? "changed" : "updated");
    }
 
    if(progress_info.failed_files)
-      print_stream.info("Failed to process %" PRIu64 " files", progress_info.failed_files.load());
+      print_stream.info("Failed to process {:d} files", progress_info.failed_files.load());
 }
 
 void file_tree_walker_t::handle_abort_scan(bool& abort_scan_reported)
 {
-   static const char *abort_message = "Aborting... Ctrl-C to kill (may render database unusable)";
-
    interrupted_scan = true;
 
    if(!abort_scan_reported) {
       abort_scan_reported = true;
-      print_stream.info(abort_message);
+      print_stream.info("Aborting... Ctrl-C to kill (may render database unusable)");
    }
 }
 
@@ -92,7 +90,7 @@ void file_tree_walker_t::walk_tree(void)
       std::filesystem::directory_options dir_it_opts = options.skip_no_access_paths ? std::filesystem::directory_options::skip_permission_denied : std::filesystem::directory_options::none;
 
       for(const std::filesystem::path& scan_path : options.scan_paths) {
-         print_stream.info("%s \"%s\"", options.verify_files ? "Verifying" : "Scanning", scan_path.u8string().c_str());
+         print_stream.info("{:s} \"{:s}\"", options.verify_files ? "Verifying" : "Scanning", scan_path.u8string());
 
          for(const std::filesystem::directory_entry& dir_entry : dir_iter_t(scan_path, dir_it_opts)) {
             //
@@ -162,19 +160,19 @@ void file_tree_walker_t::walk_tree(void)
       // called - all we get back is the end iterator).
       //
       if(error.path1().empty() && error.path2().empty())
-         print_stream.error("Cannot queue a file, %s (%s)", enum_files_error_msg, error.code().message().c_str());
+         print_stream.error("Cannot queue a file, {:s} ({:s})", enum_files_error_msg, error.code().message());
       else if(!error.path1().empty() && !error.path2().empty())
-         print_stream.error("Cannot queue a file, %s (%s) for \"%s\" and \"%s\"", enum_files_error_msg, error.code().message().c_str(), error.path1().u8string().c_str(), error.path2().u8string().c_str());
+         print_stream.error("Cannot queue a file, {:s} ({:s}) for \"{:s}\" and \"{:s}\"", enum_files_error_msg, error.code().message(), error.path1().u8string(), error.path2().u8string());
       else if(!error.path1().empty())
-         print_stream.error("Cannot queue a file, %s (%s) for \"%s\"", enum_files_error_msg, error.code().message().c_str(), error.path1().u8string().c_str());
+         print_stream.error("Cannot queue a file, {:s} ({:s}) for \"{:s}\"", enum_files_error_msg, error.code().message(), error.path1().u8string());
       else
-         print_stream.error("Cannot queue a file, %s (%s) for \"%s\"", enum_files_error_msg, error.code().message().c_str(), error.path2().u8string().c_str());
+         print_stream.error("Cannot queue a file, {:s} ({:s}) for \"{:s}\"", enum_files_error_msg, error.code().message(), error.path2().u8string());
 
       // treat errors as interruptions, so the scan is not considered as completed
       interrupted_scan = true;
    }
    catch (const std::exception& error) {
-      print_stream.error("Cannot queue a file, %s (%s)", enum_files_error_msg, error.what());
+      print_stream.error("Cannot queue a file, {:s} ({:s})", enum_files_error_msg, error.what());
       interrupted_scan = true;
    }
 
@@ -219,7 +217,7 @@ void file_tree_walker_t::walk_tree(void)
       if(options.verify_files)
          print_stream.warning("Cannot verify remaining files");
       else
-         print_stream.warning("Scan %d did not complete successfully", scan_id.value_or(0));
+         print_stream.warning("Scan {:d} did not complete successfully", scan_id.value_or(0));
    }
 }
 

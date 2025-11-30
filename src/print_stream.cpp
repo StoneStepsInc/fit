@@ -1,85 +1,52 @@
 #include "print_stream.h"
 
 #include <ctime>
+#include <iterator>
 
 namespace fit {
 
-print_stream_t::print_stream_t(FILE *print_stream) :
-      print_stream(print_stream)
+print_stream_t::print_stream_t(std::ofstream&& print_stream) :
+      print_stream(std::move(print_stream))
 {
 }
 
 print_stream_t::print_stream_t(print_stream_t&& other) :
-      print_stream(other.print_stream)
+      print_stream(std::move(other.print_stream))
 {
-   other.print_stream = nullptr;
 }
 
 print_stream_t::~print_stream_t(void)
 {
 }
 
-void print_stream_t::print(FILE *stream, const char *prefix, const char *fmt, va_list valist)
+void print_stream_t::print(std::basic_ostream<char>& stream, const char* prefix, const std::string_view& fmt, std::format_args args)
 {
-   std::unique_lock<std::mutex> lock(print_mtx);
+   std::unique_lock lock(print_mtx);
 
-   va_list ap;
-
-   va_copy(ap, valist);
-   vfprintf(stream, fmt, ap);
-   va_end(ap);
-
-   fputc('\n', stream);
+   std::vformat_to(std::ostreambuf_iterator<char>(stream), fmt, args);
+   stream.put('\n');
 
    if(print_stream) {
-      char tstamp[] = "2022-04-15 00:00:00";
+      char tstamp[32];
       time_t now = time(nullptr);
       strftime(tstamp, sizeof(tstamp), "%Y-%m-%d %H:%M:%S", localtime(&now));
 
-      fputs(tstamp, print_stream);
-      fputs(" [", print_stream);
-      fputs(prefix, print_stream);
-      fputs("] ", print_stream);
+      // 1234567890123456789
+      // 2025-11-29 12:34:56
+      print_stream.write(tstamp, 19);
+      print_stream.write(" [", 2);
+      print_stream.write(prefix, 3);
+      print_stream.write("] ", 2);
 
-      va_copy(ap, valist);
-      vfprintf(print_stream, fmt, ap);
-      va_end(ap);
-
-      fputc('\n', print_stream);
+      std::vformat_to(std::ostreambuf_iterator<char>(print_stream), fmt, args);
+      print_stream.put('\n');
    }
 
    lock.unlock();
 
    // flush log file on one thread to allow tailing it from another session
    if(print_stream && lock.try_lock())
-      fflush(print_stream);
-}
-
-void print_stream_t::info(const char *fmt, ...)
-{
-   va_list valist;
-
-   va_start(valist, fmt);
-   print(stdout, "inf", fmt, valist);
-   va_end(valist);
-}
-
-void print_stream_t::warning(const char *fmt, ...)
-{
-   va_list valist;
-
-   va_start(valist, fmt);
-   print(stderr, "wrn", fmt, valist);
-   va_end(valist);
-}
-
-void print_stream_t::error(const char *fmt, ...)
-{
-   va_list valist;
-
-   va_start(valist, fmt);
-   print(stderr, "err", fmt, valist);
-   va_end(valist);
+      print_stream.flush();
 }
 
 }
