@@ -238,6 +238,12 @@ three labels:
     time. For example, disk corruption or direct disk access may
     change file contents without updating file modification time.
 
+* `removed`
+   
+   This file was found in the base scan in the database, but wasn't
+   enumerated in the current verification scan. Removed files are
+   only reported when the `-R` option is specified.
+
 With scans performed by `fit` 2.0.0 and newer, it is also possible
 to verify which files were changed between scans comparing scan
 sets in the database. For example, files changed between scans `11`
