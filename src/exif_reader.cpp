@@ -1109,10 +1109,10 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
       return field_bitset;
    }
    catch (const std::exception& error) {
-      print_stream.error("Cannot read EXIF for {:s} ({:s})\n", filepath.u8string(), error.what());
+      print_stream.error("Cannot read EXIF for {:s} ({:s})\n", u8sv(filepath.u8string()), error.what());
    }
    catch (...) {
-      print_stream.error("Cannot read EXIF for {:s}\n", filepath.u8string());
+      print_stream.error("Cannot read EXIF for {:s}\n", u8sv(filepath.u8string()));
    }
 
    // return an empty bitset and discard a partially filled one

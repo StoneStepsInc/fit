@@ -90,7 +90,7 @@ void file_tree_walker_t::walk_tree(void)
       std::filesystem::directory_options dir_it_opts = options.skip_no_access_paths ? std::filesystem::directory_options::skip_permission_denied : std::filesystem::directory_options::none;
 
       for(const std::filesystem::path& scan_path : options.scan_paths) {
-         print_stream.info("{:s} \"{:s}\"", options.verify_files ? "Verifying" : "Scanning", scan_path.u8string());
+         print_stream.info("{:s} \"{:s}\"", options.verify_files ? "Verifying" : "Scanning", u8sv(scan_path.u8string()));
 
          for(const std::filesystem::directory_entry& dir_entry : dir_iter_t(scan_path, dir_it_opts)) {
             //
@@ -162,11 +162,11 @@ void file_tree_walker_t::walk_tree(void)
       if(error.path1().empty() && error.path2().empty())
          print_stream.error("Cannot queue a file, {:s} ({:s})", enum_files_error_msg, error.code().message());
       else if(!error.path1().empty() && !error.path2().empty())
-         print_stream.error("Cannot queue a file, {:s} ({:s}) for \"{:s}\" and \"{:s}\"", enum_files_error_msg, error.code().message(), error.path1().u8string(), error.path2().u8string());
+         print_stream.error("Cannot queue a file, {:s} ({:s}) for \"{:s}\" and \"{:s}\"", enum_files_error_msg, error.code().message(), u8sv(error.path1().u8string()), u8sv(error.path2().u8string()));
       else if(!error.path1().empty())
-         print_stream.error("Cannot queue a file, {:s} ({:s}) for \"{:s}\"", enum_files_error_msg, error.code().message(), error.path1().u8string());
+         print_stream.error("Cannot queue a file, {:s} ({:s}) for \"{:s}\"", enum_files_error_msg, error.code().message(), u8sv(error.path1().u8string()));
       else
-         print_stream.error("Cannot queue a file, {:s} ({:s}) for \"{:s}\"", enum_files_error_msg, error.code().message(), error.path2().u8string());
+         print_stream.error("Cannot queue a file, {:s} ({:s}) for \"{:s}\"", enum_files_error_msg, error.code().message(), u8sv(error.path2().u8string()));
 
       // treat errors as interruptions, so the scan is not considered as completed
       interrupted_scan = true;

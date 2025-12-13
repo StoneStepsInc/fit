@@ -19,7 +19,7 @@ class print_stream_t {
       std::ofstream  print_stream;
 
    private:
-      void print(std::basic_ostream<char>& stream, const char* prefix, const std::string_view& fmt, std::format_args args);
+      void print(std::basic_ostream<char>& stream, const char* prefix, const FMTNS::string_view& fmt, FMTNS::format_args args);
 
    public:
       print_stream_t(std::ofstream&& print_stream);
@@ -29,21 +29,21 @@ class print_stream_t {
       ~print_stream_t(void);
 
       template <typename... Args>
-      void info(const std::format_string<Args...>& fmt, Args&&... args)
+      void info(const FMTNS::format_string<Args...>& fmt, Args&&... args)
       {
-         print(std::cout, "inf", fmt.get(), std::make_format_args(args...));
+         print(std::cout, "inf", FMTSV(fmt), FMTNS::make_format_args(args...));
       }
 
       template <typename... Args>
-      void warning(const std::format_string<Args...>& fmt, Args&&... args)
+      void warning(const FMTNS::format_string<Args...>& fmt, Args&&... args)
       {
-         print(std::cout, "wrn", fmt.get(), std::make_format_args(args...));
+         print(std::cout, "wrn", FMTSV(fmt), FMTNS::make_format_args(args...));
       }
 
       template <typename... Args>
-      void error(const std::format_string<Args...>& fmt, Args&&... args)
+      void error(const FMTNS::format_string<Args...>& fmt, Args&&... args)
       {
-         print(std::cout, "err", fmt.get(), std::make_format_args(args...));
+         print(std::cout, "err", FMTSV(fmt), FMTNS::make_format_args(args...));
       }
 };
 

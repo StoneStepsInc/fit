@@ -19,11 +19,11 @@ print_stream_t::~print_stream_t(void)
 {
 }
 
-void print_stream_t::print(std::basic_ostream<char>& stream, const char* prefix, const std::string_view& fmt, std::format_args args)
+void print_stream_t::print(std::basic_ostream<char>& stream, const char* prefix, const FMTNS::string_view& fmt, FMTNS::format_args args)
 {
    std::unique_lock lock(print_mtx);
 
-   std::vformat_to(std::ostreambuf_iterator<char>(stream), fmt, args);
+   FMTNS::vformat_to(std::ostreambuf_iterator<char>(stream), fmt, args);
    stream.put('\n');
 
    if(print_stream) {
@@ -38,7 +38,7 @@ void print_stream_t::print(std::basic_ostream<char>& stream, const char* prefix,
       print_stream.write(prefix, 3);
       print_stream.write("] ", 2);
 
-      std::vformat_to(std::ostreambuf_iterator<char>(print_stream), fmt, args);
+      FMTNS::vformat_to(std::ostreambuf_iterator<char>(print_stream), fmt, args);
       print_stream.put('\n');
    }
 

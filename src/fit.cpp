@@ -360,13 +360,13 @@ void verify_options(options_t& options)
       throw std::runtime_error("Database file path must be specified");
 
    if(std::filesystem::is_directory(options.db_path))
-      throw std::runtime_error(FMTNS::format("{:s} cannot be a directory", options.db_path.u8string()));
+      throw std::runtime_error(FMTNS::format("{:s} cannot be a directory", u8sv(options.db_path.u8string())));
 
    if(!options.db_path.has_filename())
-      throw std::runtime_error(FMTNS::format("{:s} must point to a file", options.db_path.u8string()));
+      throw std::runtime_error(FMTNS::format("{:s} must point to a file", u8sv(options.db_path.u8string())));
 
    if(!std::filesystem::is_directory(std::filesystem::absolute(options.db_path).remove_filename()))
-      throw std::runtime_error(FMTNS::format("{:s} must be an existing directory", std::filesystem::absolute(options.db_path).remove_filename().u8string()));
+      throw std::runtime_error(FMTNS::format("{:s} must be an existing directory", u8sv(std::filesystem::absolute(options.db_path).remove_filename().u8string())));
 
    // scan_path
    if(options.scan_paths.empty())
@@ -374,12 +374,12 @@ void verify_options(options_t& options)
 
    for(const std::filesystem::path& scan_path : options.scan_paths) {
       if(!std::filesystem::exists(scan_path))
-         throw std::runtime_error(FMTNS::format("{:s} does not exist", scan_path.u8string()));
+         throw std::runtime_error(FMTNS::format("{:s} does not exist", u8sv(scan_path.u8string())));
    }
 
    for(const std::filesystem::path& scan_path : options.scan_paths) {
       if(!std::filesystem::is_directory(scan_path))
-         throw std::runtime_error(FMTNS::format("{:s} is not a directory", scan_path.u8string()));
+         throw std::runtime_error(FMTNS::format("{:s} is not a directory", u8sv(scan_path.u8string())));
    }
 
    //
@@ -397,7 +397,7 @@ void verify_options(options_t& options)
 
    if(!options.base_path.empty()) {
       if(!std::filesystem::is_directory(options.base_path))
-         throw std::runtime_error(FMTNS::format("{:s} is not a directory", options.base_path.u8string()));
+         throw std::runtime_error(FMTNS::format("{:s} is not a directory", u8sv(options.base_path.u8string())));
 
       options.base_path = std::filesystem::canonical(options.base_path);
 
@@ -412,7 +412,7 @@ void verify_options(options_t& options)
 
          // check if the entire base path was consumed (i.e. there's no mismatch and the scan path isn't shorter)
          if(bpi != options.base_path.end())
-            throw std::runtime_error(FMTNS::format("Scan path must be under the base path ({:s})", scan_path.u8string()));
+            throw std::runtime_error(FMTNS::format("Scan path must be under the base path ({:s})", u8sv(scan_path.u8string())));
       }
    }
 
@@ -474,13 +474,13 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
       }
       else {
          if(options.verify_files)
-            throw std::runtime_error(FMTNS::format("Cannot open a SQLite database in {:s}", options.db_path.generic_u8string()));
+            throw std::runtime_error(FMTNS::format("Cannot open a SQLite database in {:s}", u8sv(options.db_path.generic_u8string())));
 
          // attempt to create a new database
          if((errcode = sqlite3_open_v2(reinterpret_cast<const char*>(options.db_path.u8string().c_str()), &file_scan_db, sqlite_flags | SQLITE_OPEN_CREATE, nullptr)) != SQLITE_OK)
             throw std::runtime_error(sqlite3_errstr(errcode));
 
-         print_stream.info("Creating a new SQLite database {:s}", options.db_path.generic_u8string());
+         print_stream.info("Creating a new SQLite database {:s}", u8sv(options.db_path.generic_u8string()));
 
          // files table
          if(sqlite3_exec(file_scan_db, "CREATE TABLE files ("
@@ -1033,7 +1033,7 @@ int main(int argc, char *argv[])
          log_file.open(reinterpret_cast<const char*>(options.log_file.c_str()));
 
          if(!log_file)
-            throw std::runtime_error(FMTNS::format("Cannot open log file {:s}", options.log_file));
+            throw std::runtime_error(FMTNS::format("Cannot open log file {:s}", u8sv(options.log_file)));
       }
 
       fit::print_stream_t print_stream(std::move(log_file));
@@ -1118,9 +1118,9 @@ int main(int argc, char *argv[])
       // Walk the file tree
       //
       if(!options.scan_message.empty())
-         print_stream.info("{:s} ({:s}) with options {:s}", options.verify_files ? "Verifying" : "Scanning", options.scan_message, options.all);
+         print_stream.info("{:s} ({:s}) with options {:s}", options.verify_files ? "Verifying" : "Scanning", u8sv(options.scan_message), u8sv(options.all));
       else
-         print_stream.info("{:s} with options {:s}", options.verify_files ? "Verifying" : "Scanning", options.all);
+         print_stream.info("{:s} with options {:s}", options.verify_files ? "Verifying" : "Scanning", u8sv(options.all));
 
       //
       // Initialize underlying libraries before any of the components
