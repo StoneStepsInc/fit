@@ -99,12 +99,12 @@ extern "C" void console_ctrl_c_handler(int sig)
 
 void print_title(void)
 {
-   printf("%s (fit) %s -- %s\n", title, version, copyright);
+   fputs(FMTNS::format("{:s} (fit) {:s} -- {:s}\n", title, version, copyright).c_str(), stdout);
 }
 
 void print_version(void)
 {
-   printf("%s\n", version);
+   fputs(FMTNS::format("{:s}\n", version).c_str(), stdout);
 }
 
 void print_usage(void)
@@ -470,7 +470,7 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
             schema_version = sqlite3_column_int(user_version_stmt, 0);
 
          if((errcode = user_version_stmt.finalize()) != SQLITE_OK)
-            fprintf(stderr, "Cannot finalize SQLite statement for a database schema version (%s)", sqlite3_errstr(errcode));
+            fputs(FMTNS::format("Cannot finalize SQLite statement for a database schema version ({:s})", sqlite3_errstr(errcode)).c_str(), stderr);
       }
       else {
          if(options.verify_files)
@@ -582,10 +582,10 @@ void close_sqlite_database(sqlite3 *file_scan_db)
    int errcode = SQLITE_OK;
 
    if((errcode = sqlite3_close(file_scan_db)) != SQLITE_OK)
-      fprintf(stderr, "Failed to close the SQLite database (%s)\n", sqlite3_errstr(errcode));
+      fputs(FMTNS::format("Failed to close the SQLite database ({:s})\n", sqlite3_errstr(errcode)).c_str(), stderr);
 
    if((errcode = sqlite3_shutdown()) != SQLITE_OK)
-      fprintf(stderr, "Failed to shut down SQLite (%s)\n", sqlite3_errstr(errcode));
+      fputs(FMTNS::format("Failed to shut down SQLite ({:s})\n", sqlite3_errstr(errcode)).c_str(), stderr);
 }
 
 int64_t insert_scan_record(const options_t& options, sqlite3 *file_scan_db)
@@ -1192,7 +1192,7 @@ int main(int argc, char *argv[])
       return EXIT_SUCCESS;
    }
    catch (const std::exception& error) {
-      fprintf(stderr, "ERROR: %s\n", error.what());
+      fputs(FMTNS::format("ERROR: {:s}\n", error.what()).c_str(), stderr);
    }
 
    return EXIT_FAILURE;

@@ -146,27 +146,32 @@ exif_reader_t::exif_reader_t(exif_reader_t&& other) :
 // string in the field value.
 //
 template <typename T>
-void exif_reader_t::fmt_exif_byte(const Exiv2::DataValue& exif_value, const char *format, field_value_t& field_value)
+void exif_reader_t::fmt_exif_byte(const Exiv2::DataValue& exif_value, const FMTNS::format_string<T>& format, field_value_t& field_value)
 {
-   size_t slen;
    char8_t buf[128];
 
-   slen = snprintf(reinterpret_cast<char*>(buf), sizeof(buf), format, static_cast<T>(exif_value.toUint32(0)));
+   FMTNS::format_to_n_result<char8_t*> res = FMTNS::format_to_n(buf, sizeof(buf), format, static_cast<T>(exif_value.toUint32(0)));
 
-   // append additional bytes until we run out of values or buffer is full
-   for(size_t i = 1; i < exif_value.count() && slen < sizeof(buf)-1; i++) {
-      *(buf+slen++) = ' ';
-      slen += snprintf(reinterpret_cast<char*>(buf)+slen, sizeof(buf)-slen, format, static_cast<T>(exif_value.toUint32(i)));
+   size_t slen = res.size;
+
+   // append additional bytes until we run out of values or the buffer is full
+   for(size_t i = 1; i < exif_value.count() && slen < sizeof(buf); i++) {
+      // the condition above gives us at least one byte in the buffer
+      *(buf+slen++) = u8' ';
+
+      // if there's not enough room in the buffer, res.out will remain one-past the last byte, while res.size will be set to the required size
+      res = FMTNS::format_to_n(res.out+1, sizeof(buf)-slen, format, static_cast<T>(exif_value.toUint32(i)));
+      slen += res.size;
    }
 
-   // if snprintf indicated truncation, replace last 3 characters with `...` (there's a null character from snprintf)
-   if(slen >= sizeof(buf)) {
-      *(buf+sizeof(buf)-4) = '.';
-      *(buf+sizeof(buf)-3) = '.';
-      *(buf+sizeof(buf)-2) = '.';
+   // if format_to_n indicated truncation, replace the last 3 characters with `...`
+   if(slen > sizeof(buf)) {
+      *(buf+sizeof(buf)-3) = u8'.';
+      *(buf+sizeof(buf)-2) = u8'.';
+      *(buf+sizeof(buf)-1) = u8'.';
    }
 
-   field_value.emplace<std::u8string>(buf, slen >= sizeof(buf) ? sizeof(buf)-1 : slen);
+   field_value.emplace<std::u8string>(buf, res.out-buf);
 }
 
 //
@@ -179,33 +184,33 @@ void exif_reader_t::fmt_exif_byte(const Exiv2::DataValue& exif_value, const char
 // would be truncated.
 //
 template <typename T>
-bool exif_reader_t::fmt_exif_number(const Exiv2::ValueType<T>& exif_value, const char *format, field_value_t& field_value)
+bool exif_reader_t::fmt_exif_number(const Exiv2::ValueType<T>& exif_value, const FMTNS::format_string<T>& format, field_value_t& field_value)
 {
-   size_t slen;
-   char8_t buf[128];
-
    if(exif_value.count() == 1) {
       field_value = exif_value.value_.front();
       return true;
    }
 
-   slen = snprintf(reinterpret_cast<char*>(buf), sizeof(buf), format, exif_value.value_.front());
+   char8_t buf[128];
 
-   for(size_t i = 1; i < exif_value.count() && slen < sizeof(buf)-1; i++) {
-      *(buf+slen++) = ' ';
-      slen += snprintf(reinterpret_cast<char*>(buf)+slen, sizeof(buf)-slen, format, *(exif_value.value_.begin()+i));
+   FMTNS::format_to_n_result<char8_t*> res = FMTNS::format_to_n(buf, sizeof(buf), format, static_cast<T>(exif_value.toUint32(0)));
+
+   size_t slen = res.size;
+
+   for(size_t i = 1; i < exif_value.count() && slen < sizeof(buf); i++) {
+      *(buf+slen++) = u8' ';
+
+      res = FMTNS::format_to_n(res.out+1, sizeof(buf)-slen, format, static_cast<T>(exif_value.toUint32(i)));
+      slen += res.size;
    }
 
-   // if snprintf indicated truncation, replace last 3 characters with `...` (there's a null character from snprintf)
-   if(slen >= sizeof(buf)) {
-      *(buf+sizeof(buf)-4) = '.';
-      *(buf+sizeof(buf)-3) = '.';
-      *(buf+sizeof(buf)-2) = '.';
-   }
+   // truncating numbers would produce confusing results; just indicate that we failed to format the sequence
+   if(slen > sizeof(buf))
+      return false;
 
-   field_value.emplace<std::u8string>(buf, slen >= sizeof(buf) ? sizeof(buf)-1 : slen);
+   field_value.emplace<std::u8string>(buf, res.out-buf);
 
-   return slen < sizeof(buf);
+   return true;
 }
 
 //
@@ -217,13 +222,13 @@ bool exif_reader_t::fmt_exif_number(const Exiv2::ValueType<T>& exif_value, const
 template <typename T>
 bool exif_reader_t::fmt_exif_rational(const Exiv2::ValueType<T>& exif_value, field_value_t& field_value)
 {
-   size_t fsize;
    size_t slen = 0;
    char8_t buf[128];
 
    for(size_t i = 0; i < exif_value.count(); i++) {
       if(i) {
-         if(sizeof(buf) - slen == 0)
+         // check if there's room for a space
+         if(slen == sizeof(buf))
             return false;
 
          *(buf+slen++) = u8' ';
@@ -237,16 +242,19 @@ bool exif_reader_t::fmt_exif_rational(const Exiv2::ValueType<T>& exif_value, fie
       if(!denominator)
          return false;
 
-      // copied from libexif/0.6.24
+      // copied from libexif/0.6.24 (provides clean flooring of the desired precision)
       int decimals = (int)(log10(denominator)-0.08+1.0);
 
-      if((fsize = snprintf(reinterpret_cast<char*>(buf)+slen, sizeof(buf)-slen, "%.*f",
-            decimals,
+      FMTNS::format_to_n_result<char8_t*> res = FMTNS::format_to_n(buf+slen, sizeof(buf)-slen, "{:.{}f}",
             (double) numerator /
-            (double) denominator)) >= sizeof(buf)-slen)
-         return false;
+            (double) denominator,
+            decimals);
 
-      slen += fsize;
+      slen += res.size;
+
+      // don't truncate rational numbers and instead indicate that we failed to format the sequence
+      if(slen > sizeof(buf))
+         return false;
    }
 
    field_value.emplace<std::u8string>(buf, slen);
@@ -740,9 +748,9 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                            if(!value || value >= 1)
                               field_index = EXIF_FIELD_ExposureTime;
                            else {
-                              size_t slen = snprintf(reinterpret_cast<char*>(buf), sizeof(buf), "1/%.0f", 1. / value);
+                              FMTNS::format_to_n_result<char8_t*> res = FMTNS::format_to_n(buf, sizeof(buf), "1/{:.0f}", 1. / value);
 
-                              exif_fields[EXIF_FIELD_ExposureTime].emplace<std::u8string>(buf, slen);
+                              exif_fields[EXIF_FIELD_ExposureTime].emplace<std::u8string>(buf, res.size);
 
                               field_bitset.set(EXIF_FIELD_ExposureTime);
                            }
@@ -758,9 +766,9 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                         if(!rational.value_.front().second)
                            field_index = EXIF_FIELD_FNumber;
                         else {
-                           size_t slen = snprintf(reinterpret_cast<char*>(buf), sizeof(buf), "f/%.01f", (double) rational.value_.front().first / (double) rational.value_.front().second);
+                           FMTNS::format_to_n_result<char8_t*> res = FMTNS::format_to_n(buf, sizeof(buf), "f/{:.1f}", (double) rational.value_.front().first / (double) rational.value_.front().second);
 
-                           exif_fields[EXIF_FIELD_FNumber].emplace<std::u8string>(buf, slen);
+                           exif_fields[EXIF_FIELD_FNumber].emplace<std::u8string>(buf, res.size);
 
                            field_bitset.set(EXIF_FIELD_FNumber);
                         }
@@ -789,7 +797,7 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                         field_index = EXIF_FIELD_DateTimeOriginal;
                      else {
                         std::u8string& tstamp = std::get<std::u8string>(exif_fields[EXIF_FIELD_DateTimeOriginal] = reinterpret_cast<const char8_t*>(static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str()));
-                        tstamp[4] = tstamp[7] = '-';
+                        tstamp[4] = tstamp[7] = u8'-';
                         field_bitset.set(EXIF_FIELD_DateTimeOriginal);
                      }
                      break;
@@ -800,7 +808,7 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                         field_index = EXIF_FIELD_DateTimeDigitized;
                      else {
                         std::u8string& tstamp = std::get<std::u8string>(exif_fields[EXIF_FIELD_DateTimeDigitized] = reinterpret_cast<const char8_t*>(static_cast<const Exiv2::AsciiValue&>(exif_value).value_.c_str()));
-                        tstamp[4] = tstamp[7] = '-';
+                        tstamp[4] = tstamp[7] = u8'-';
                         field_bitset.set(EXIF_FIELD_DateTimeDigitized);
                      }
                      break;
@@ -970,7 +978,7 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
             if(field_index.has_value() && exif_value.size()) {
                switch(exif_value.typeId()) {
                   case Exiv2::TypeId::unsignedByte:
-                     fmt_exif_byte<unsigned char>(static_cast<const Exiv2::DataValue&>(exif_value), "%02hhx", exif_fields[field_index.value()]);
+                     fmt_exif_byte<unsigned char>(static_cast<const Exiv2::DataValue&>(exif_value), "{:02x}", exif_fields[field_index.value()]);
                      field_bitset.set(field_index.value());
                      break;
                   case Exiv2::TypeId::asciiString:
@@ -994,11 +1002,11 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                      }
                      break;
                   case Exiv2::TypeId::unsignedShort:
-                     if(fmt_exif_number(static_cast<const Exiv2::ValueType<uint16_t>&>(exif_value), "%hu", exif_fields[field_index.value()]))
+                     if(fmt_exif_number<uint16_t>(static_cast<const Exiv2::ValueType<uint16_t>&>(exif_value), "{:d}", exif_fields[field_index.value()]))
                         field_bitset.set(field_index.value());
                      break;
                   case Exiv2::TypeId::unsignedLong:
-                     if(fmt_exif_number(static_cast<const Exiv2::ValueType<uint32_t>&>(exif_value), "%" PRIu32, exif_fields[field_index.value()]))
+                     if(fmt_exif_number<uint32_t>(static_cast<const Exiv2::ValueType<uint32_t>&>(exif_value), "{:d}", exif_fields[field_index.value()]))
                         field_bitset.set(field_index.value());
                      break;
                   case Exiv2::TypeId::unsignedRational:
@@ -1010,7 +1018,7 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                         field_bitset.set(field_index.value());
                      break;
                   case Exiv2::TypeId::signedByte:
-                     fmt_exif_byte<char>(static_cast<const Exiv2::DataValue&>(exif_value), "%hhd", exif_fields[field_index.value()]);
+                     fmt_exif_byte<char>(static_cast<const Exiv2::DataValue&>(exif_value), "{:d}", exif_fields[field_index.value()]);
                      field_bitset.set(field_index.value());
                      break;
                   case Exiv2::TypeId::undefined:
@@ -1021,15 +1029,15 @@ field_bitset_t exif_reader_t::read_file_exif(const std::filesystem::path& filepa
                      // about should be formatted in the section above and here we
                      // can only output values as hex data, which may be truncated.
                      //
-                     fmt_exif_byte<unsigned char>(static_cast<const Exiv2::DataValue&>(exif_value), "%02hhx", exif_fields[field_index.value()]);
+                     fmt_exif_byte<unsigned char>(static_cast<const Exiv2::DataValue&>(exif_value), "{:02x}", exif_fields[field_index.value()]);
                      field_bitset.set(field_index.value());
                      break;
                   case Exiv2::TypeId::signedShort:
-                     if(fmt_exif_number(static_cast<const Exiv2::ValueType<int16_t>&>(exif_value), "%hd", exif_fields[field_index.value()]))
+                     if(fmt_exif_number<int16_t>(static_cast<const Exiv2::ValueType<int16_t>&>(exif_value), "{:d}", exif_fields[field_index.value()]))
                         field_bitset.set(field_index.value());
                      break;
                   case Exiv2::TypeId::signedLong:
-                     if(fmt_exif_number(static_cast<const Exiv2::ValueType<int32_t>&>(exif_value), "%" PRId32, exif_fields[field_index.value()]))
+                     if(fmt_exif_number<int32_t>(static_cast<const Exiv2::ValueType<int32_t>&>(exif_value), "{:d}", exif_fields[field_index.value()]))
                         field_bitset.set(field_index.value());
                      break;
                   default:

@@ -2,6 +2,7 @@
 #define FIT_EXIF_READER_H
 
 #include "print_stream.h"
+#include "format.h"
 
 #include "fit.h"
 
@@ -138,10 +139,10 @@ class exif_reader_t {
 
    private:
       template <typename T>
-      static void fmt_exif_byte(const Exiv2::DataValue& exif_value, const char *format, field_value_t& field_value);
+      static void fmt_exif_byte(const Exiv2::DataValue& exif_value, const FMTNS::format_string<T>& format, field_value_t& field_value);
 
       template <typename T>
-      static bool fmt_exif_number(const Exiv2::ValueType<T>& exif_value, const char *format, field_value_t& field_value);
+      static bool fmt_exif_number(const Exiv2::ValueType<T>& exif_value, const FMTNS::format_string<T>& format, field_value_t& field_value);
 
       template <typename T>
       static bool fmt_exif_rational(const Exiv2::ValueType<T>& exif_value, field_value_t& field_value);
