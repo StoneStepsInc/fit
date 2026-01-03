@@ -6,7 +6,7 @@
 --
 SELECT
     Model,
-    FocalLength,
+    CAST(round(CAST(FocalLength AS REAL), 0) AS INTEGER) AS FocalLength,
     COUNT(exif_id)
 FROM 
     scansets
@@ -16,6 +16,6 @@ FROM
 WHERE
     scan_id = coalesce(@SCAN_ID, (SELECT MAX(rowid) FROM scans), 0)
 GROUP BY
-    exif.Model COLLATE NOCASE, exif.FocalLength
+    Model COLLATE NOCASE, round(CAST(FocalLength AS REAL), 0)
 ORDER BY
     Model, COUNT(exif_id) DESC
