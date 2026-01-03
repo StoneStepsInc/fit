@@ -5,7 +5,8 @@
 #include <cstdint>
 #include <chrono>
 
-#if defined(_MSC_VER) || (defined(__GNUC__) && __GNUC__ >= 13)
+// cppreference.com reports that GCC v13.3 has a bug in computing the result of std::format_to_n
+#if defined(_MSC_VER) || (defined(__GNUC__) && (__GNUC__ >= 14 || (__GNUC__ == 13 && __GNUC_MINOR__ > 3)))
 #include <format>
 #define FMTNS std
 
