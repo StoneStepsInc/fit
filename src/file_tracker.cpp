@@ -1053,8 +1053,12 @@ void file_tracker_t::run(void)
                         // filepath will contain a relative path if base path was specified
                         exif::field_bitset_t field_bitset = exif_reader.read_file_exif(dir_entry.value().path(), print_stream);
 
-                        // ignore EXIF unless Make or Model were specified (some image editors add meaningless default values).
-                        if(field_bitset.test(exif::EXIF_FIELD_Make) || field_bitset.test(exif::EXIF_FIELD_Model))
+                        // ignore EXIF unless some of the select EXIF fields are set (some image editors add meaningless values, like BitsPerSample or FlashpixVersion)
+                        if(field_bitset.test(exif::EXIF_FIELD_Make) || field_bitset.test(exif::EXIF_FIELD_Model) ||
+                              // ignore DateTime, which is often used as the last modification time or image (not photo) creation time
+                              field_bitset.test(exif::EXIF_FIELD_DateTimeOriginal) || field_bitset.test(exif::EXIF_FIELD_DateTimeDigitized) ||
+                              field_bitset.test(exif::EXIF_FIELD_Artist) || field_bitset.test(exif::EXIF_FIELD_Copyright) ||
+                              field_bitset.test(exif::EXIF_FIELD_ImageDescription) || field_bitset.test(exif::EXIF_FIELD_UserComment))
                            exif_id = insert_exif_record(filepath, exif_reader.get_exif_fields(), field_bitset);
                      }
                   }
