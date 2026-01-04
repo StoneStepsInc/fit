@@ -8,12 +8,12 @@
 namespace fit {
 
 //
-// Provides a container for tracking scanset identifiers, SQLite
-// rowid values, for each file version included into the scanset
-// that is being represented by a single bit.
+// Provides a container for tracking scanset identifiers (SQLite
+// rowid values), where each file version included in the scanset
+// is represented by a single bit.
 // 
 // When the bitmap is created, all of the bits are set. During
-// a verification scan, bits file version bits are cleared for
+// a verification scan, file version bits are cleared for
 // each scanned file that was found in the database. After the
 // verification scan is complete, the bits that are remaining
 // identify the files that existed at the time of the base
