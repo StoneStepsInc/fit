@@ -1,8 +1,9 @@
 --
 -- sqlite3 -line -cmd ".param set @SCAN_ID N" -cmd ".param set @BASE_SCAN_ID B" sqlite.db < sql/list-added-files.sql
 --
--- Lists files added between scans B and N. If BASE_SCAN_ID is omitted,
--- N-1 is used. If both are omitted, the last two scans are used.
+-- Lists files in N that were added between scans B and N.
+-- If BASE_SCAN_ID is omitted, N-1 is used. If both are omitted,
+-- the last two scans are used.
 --
 SELECT
     scan_id,
@@ -18,6 +19,7 @@ FROM
     JOIN versions ON version_id = versions.rowid 
     JOIN files ON file_id = files.rowid 
 WHERE scan_id = coalesce(@SCAN_ID, (SELECT MAX(rowid) FROM scans), 0)
+    -- a current scan file is added if its file_id, which is synonymous to path, does not exist in the base scan
     AND file_id NOT IN (
         SELECT
             file_id
