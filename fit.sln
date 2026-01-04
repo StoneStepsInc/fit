@@ -25,6 +25,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sql", "sql", "{4CCE7C08-066
 		sql\group-exif-camera.sql = sql\group-exif-camera.sql
 		sql\group-exif-exp-mode.sql = sql\group-exif-exp-mode.sql
 		sql\group-exif-focallength.sql = sql\group-exif-focallength.sql
+		sql\group-exif-focallength35mm.sql = sql\group-exif-focallength35mm.sql
 		sql\group-exif-month-taken-camera.sql = sql\group-exif-month-taken-camera.sql
 		sql\group-exif-xmp-rating.sql = sql\group-exif-xmp-rating.sql
 		sql\group-exiv2json-focallength35mm.sql = sql\group-exiv2json-focallength35mm.sql

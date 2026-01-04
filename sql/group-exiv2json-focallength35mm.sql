@@ -7,7 +7,7 @@
 --
 SELECT
     CAST(round(json_extract(Exiv2Json, '$.Exif.Photo.FocalLengthIn35mmFilm')/5., 0)*5 AS INTEGER) AS FocalLengthIn35mm,
-    COUNT(*)
+    COUNT(exif_id)
 FROM 
     scansets
     JOIN versions ON version_id = versions.rowid 
@@ -19,4 +19,4 @@ WHERE
 GROUP BY
     CAST(round(json_extract(Exiv2Json, '$.Exif.Photo.FocalLengthIn35mmFilm')/5., 0)*5 AS INTEGER)
 ORDER BY
-    2 DESC
+    COUNT(exif_id) DESC
