@@ -36,6 +36,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sql", "sql", "{4CCE7C08-066
 		sql\list-dup-files.sql = sql\list-dup-files.sql
 		sql\list-exiv2json-fields.sql = sql\list-exiv2json-fields.sql
 		sql\list-large-files.sql = sql\list-large-files.sql
+		sql\list-moved-files.sql = sql\list-moved-files.sql
 		sql\list-removed-files.sql = sql\list-removed-files.sql
 		sql\list-scans.sql = sql\list-scans.sql
 		sql\show-file-by-hash.sql = sql\show-file-by-hash.sql
