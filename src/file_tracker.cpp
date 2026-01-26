@@ -96,8 +96,8 @@ file_tracker_t::file_tracker_t(const options_t& options, std::optional<int64_t>&
    }
 
    if(options.report_removed_files) {
-      // if there is a base scan in a recursive scan, set up a scanset bitmap, so we can track removed files (i.e. remaining bits in scanset_bitmap)
-      if(base_scan_id.has_value() && options.recursive_scan)
+      // if there is a base scan, set up a scanset bitmap, so we can track removed files (i.e. remaining bits in scanset_bitmap)
+      if(base_scan_id.has_value())
          scanset_bitmap = scanset_bitmap_t(get_scanset_rowid_range(file_scan_db, base_scan_id.value()));
    }
 }
@@ -1012,7 +1012,7 @@ void file_tracker_t::run(void)
             }
 
             // only keep track of removed files if a full recursive verification scan is requested
-            if(options.report_removed_files && options.recursive_scan) {
+            if(options.report_removed_files) {
                // if there's a version record, clear its rowid in the scanset bitmap of the base scan
                if(version_record.has_value() && !scanset_bitmap.empty())
                   scanset_bitmap.clear_rowid(version_record.scanset_rowid());

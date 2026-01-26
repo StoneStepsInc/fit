@@ -712,18 +712,24 @@ void set_last_scan_update_time(int64_t scan_id, sqlite3 *file_scan_db)
       throw std::runtime_error(FMTNS::format("Cannot set update time for scan {:d}", scan_id));
 }
 
-std::tuple<std::optional<int64_t>, bool> select_base_scan_id(const options_t& options, sqlite3 *file_scan_db)
+std::tuple<std::optional<int64_t>, bool, bool> select_base_scan_id(const options_t& options, sqlite3 *file_scan_db)
 {
-   std::optional<int64_t> scan_id;
+   std::optional<int64_t> base_scan_id;
+
    bool completed_scan = false;
+   bool recursive_scan = false;
 
    int errcode = SQLITE_OK;
 
    sqlite_stmt_t stmt_base_scan("select base scan"sv);
 
    std::string_view sql_base_scan = options.verify_scan_id.has_value() ?
-                                       "SELECT scans.rowid, completed_time, last_update_time FROM scans WHERE scans.rowid = ?"sv :
-                                       "SELECT scans.rowid, completed_time, last_update_time FROM scans ORDER BY scans.rowid DESC LIMIT 1"sv;
+                                       "SELECT scans.rowid, completed_time, last_update_time, instr(concat(' ', options, ' '), ' -r ') "
+                                          "FROM scans "
+                                          "WHERE scans.rowid = ?"sv :
+                                       "SELECT scans.rowid, completed_time, last_update_time, instr(concat(' ', options, ' '), ' -r ') "
+                                          "FROM scans "
+                                          "ORDER BY scans.rowid DESC LIMIT 1"sv;
 
    stmt_base_scan.prepare(file_scan_db, sql_base_scan);
 
@@ -742,7 +748,7 @@ std::tuple<std::optional<int64_t>, bool> select_base_scan_id(const options_t& op
    }
 
    if(errcode == SQLITE_ROW) {
-      scan_id = sqlite3_column_int64(stmt_base_scan, 0);
+      base_scan_id = sqlite3_column_int64(stmt_base_scan, 0);
 
       std::optional<int64_t> completed_time;
       std::optional<int64_t> last_update_time;
@@ -755,9 +761,11 @@ std::tuple<std::optional<int64_t>, bool> select_base_scan_id(const options_t& op
 
       // a scan is completed if there is completed time in the record and either there is no last scan update time or it is in the past
       completed_scan = completed_time.has_value() && (!last_update_time.has_value() || completed_time.value() > last_update_time.value());
+
+      recursive_scan = sqlite3_column_int64(stmt_base_scan, 3) != 0;
    }
 
-   return std::make_tuple(scan_id, completed_scan);
+   return std::make_tuple(base_scan_id, completed_scan, recursive_scan);
 }
 
 std::u8string select_scan_options(int64_t scan_id, sqlite3 *file_scan_db)
@@ -868,9 +876,69 @@ std::optional<int64_t> select_scan_for_update(const options_t& options, int64_t 
 
    // error out if either of the pointers isn't at the null terminator
    if(*optcp || *scncp)
-      throw std::runtime_error("Update scan must have the same options as the last scan");
+      throw std::runtime_error("An update scan must have the same options as the last scan");
 
    return base_scan_id;
+}
+
+std::tuple<std::optional<int64_t>, std::optional<int64_t>> obtain_base_scan_and_new_scan(options_t& options, print_stream_t& print_stream, sqlite3 *file_scan_db)
+{
+   std::optional<int64_t> scan_id;
+   std::optional<int64_t> base_scan_id;
+
+   bool completed_scan = false;
+   bool recursive_scan = false;
+      
+   //
+   // Get the base scan, against which current files will be
+   // compared. For a regular scan, it will be the last scan,
+   // and for a verification scan it can be any scan specified
+   // on the command line, defaulting to the last one. The base
+   // scan can change in case if the last scan is incomplete.
+   //
+   std::tie(base_scan_id, completed_scan, recursive_scan) = select_base_scan_id(options, file_scan_db);
+
+   if(options.verify_files) {
+      if(!base_scan_id.has_value()) {
+         if(options.verify_scan_id.has_value())
+            throw std::runtime_error(FMTNS::format("Cannot verify files without a base scan (scan {:d} is not found)", options.verify_scan_id.value()));
+         else
+            throw std::runtime_error("Cannot verify files without a base scan (none is found)");
+      }
+
+      if(!completed_scan)
+         throw std::runtime_error(FMTNS::format("Cannot verify files against an incomplete scan {:d}", base_scan_id.value()));
+
+      if(options.recursive_scan != recursive_scan)
+         throw std::runtime_error(FMTNS::format("Cannot verify files against the scan {:d} with a different recursion selection", base_scan_id.value()));
+   }
+   else {
+      if(!options.update_last_scanset && base_scan_id.has_value() && !completed_scan) {
+         options.update_last_scanset = true;
+         options.all += u8" -u";
+
+         print_stream.warning("Continuing interrupted scan {:d} (forcing -u)", base_scan_id.value());
+      }
+
+      if(!options.update_last_scanset)
+         scan_id = insert_scan_record(options, file_scan_db);
+      else {
+         // in this context base_scan_id is expected to contain the last scan (reassigned below)
+         if(!base_scan_id.has_value())
+            throw std::runtime_error("There is no last scan to update");
+
+         if(completed_scan)
+            print_stream.warning("Updating a completed scan {:d} (completion time will change)", base_scan_id.value());
+
+         // set the current scan to the one we found (last scan at this point) and find a previous scan to use as a base scan
+         scan_id = base_scan_id.value();
+         base_scan_id = select_scan_for_update(options, base_scan_id.value(), file_scan_db);
+
+         set_last_scan_update_time(scan_id.value(), file_scan_db);
+      }
+   }
+
+   return std::make_tuple(base_scan_id, scan_id);
 }
 
 void update_schema_from_v50(sqlite3 *file_scan_db, print_stream_t& print_stream)
@@ -1062,55 +1130,13 @@ int main(int argc, char *argv[])
          throw std::runtime_error(FMTNS::format("Database must be upgraded from v{:s} to v{:s}"sv, fit::schema_version_string(schema_version), fit::schema_version_string(fit::DB_SCHEMA_VERSION)));
       }
 
+      //
+      // Figure out the base scan ID and the current scan ID
+      //
       std::optional<int64_t> scan_id;
       std::optional<int64_t> base_scan_id;
-      bool completed_scan = false;
-      
-      //
-      // Get the base scan, against which current files will be
-      // compared. For a regular scan, it will be the last scan,
-      // and for a verification scan it can be any scan specified
-      // on the command line, defaulting to the last one. The base
-      // scan can change in case if the last scan is incomplete.
-      //
-      std::tie(base_scan_id, completed_scan) = fit::select_base_scan_id(options, file_scan_db.get());
 
-      if(options.verify_files) {
-         if(!base_scan_id.has_value()) {
-            if(options.verify_scan_id.has_value())
-               throw std::runtime_error(FMTNS::format("Cannot verify files without a base scan (scan {:d} is not found)", options.verify_scan_id.value()));
-            else
-               throw std::runtime_error("Cannot verify files without a base scan (none is found)");
-         }
-
-         if(!completed_scan)
-            throw std::runtime_error(FMTNS::format("Cannot verify files against an incomplete scan {:d}", base_scan_id.value()));
-      }
-      else {
-         if(!options.update_last_scanset && base_scan_id.has_value() && !completed_scan) {
-            options.update_last_scanset = true;
-            options.all += u8" -u";
-
-            print_stream.warning("Continuing interrupted scan {:d} (forcing -u)", base_scan_id.value());
-         }
-
-         if(!options.update_last_scanset)
-            scan_id = fit::insert_scan_record(options, file_scan_db.get());
-         else {
-            // in this context base_scan_id is expected to contain the last scan (reassigned below)
-            if(!base_scan_id.has_value())
-               throw std::runtime_error("There is no last scan to update");
-
-            if(completed_scan)
-               print_stream.warning("Updating a completed scan {:d} (completed time will change)", base_scan_id.value());
-
-            // set the current scan to the one we found (last scan at this point) and find a previous scan to use as a base scan
-            scan_id = base_scan_id.value();
-            base_scan_id = fit::select_scan_for_update(options, base_scan_id.value(), file_scan_db.get());
-
-            fit::set_last_scan_update_time(scan_id.value(), file_scan_db.get());
-         }
-      }
+      std::tie(base_scan_id, scan_id) = fit::obtain_base_scan_and_new_scan(options, print_stream, file_scan_db.get());
 
       std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
 
@@ -1122,10 +1148,7 @@ int main(int argc, char *argv[])
       else
          print_stream.info("{:s} with options {:s}", options.verify_files ? "Verifying" : "Scanning", u8sv(options.all));
 
-      //
-      // Initialize underlying libraries before any of the components
-      // are created and threads started.
-      //
+      // initialize underlying libraries before any of the components are created and threads started
       fit::file_tree_walker_t::initialize(print_stream);
 
       try {
