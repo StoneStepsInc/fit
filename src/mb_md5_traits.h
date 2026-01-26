@@ -1,7 +1,7 @@
 #ifndef FIT_MB_MD5_TRAITS_H
 #define FIT_MB_MD5_TRAITS_H
 
-#include <md5_mb.h>
+#include <isa-l_crypto/md5_mb.h>
 
 namespace fit {
 

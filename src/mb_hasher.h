@@ -1,8 +1,8 @@
 #ifndef FIT_MB_HASHER_H
 #define FIT_MB_HASHER_H
 
-#include <isal_crypto_api.h>
-#include <multi_buffer.h>
+#include <isa-l_crypto/isal_crypto_api.h>
+#include <isa-l_crypto/multi_buffer.h>
 
 #include <optional>
 #include <vector>

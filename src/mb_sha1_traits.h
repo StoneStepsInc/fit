@@ -1,7 +1,7 @@
 #ifndef FIT_MB_SHA1_TRAITS_H
 #define FIT_MB_SHA1_TRAITS_H
 
-#include <sha1_mb.h>
+#include <isa-l_crypto/sha1_mb.h>
 
 namespace fit {
 

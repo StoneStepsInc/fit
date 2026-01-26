@@ -1,7 +1,7 @@
 #ifndef FIT_MB_SHA256_TRAITS_H
 #define FIT_MB_SHA256_TRAITS_H
 
-#include <sha256_mb.h>
+#include <isa-l_crypto/sha256_mb.h>
 
 namespace fit {
 
