@@ -1,8 +1,8 @@
 --
 -- sqlite3 -line -cmd ".param set @SCAN_ID N" sqlite.db < sql/list-dup-files.sql
 --
--- Lists duplicate files for a scan equal to N, defaulted to the,
--- last scan ID, if omitted.
+-- Lists duplicate files in scan N. If SCAN_ID is omitted, the last
+-- scan ID will be used.
 --
 -- On Windows mod_time may be shown as a date/time value using
 -- this expression:

@@ -1,6 +1,6 @@
 --
--- This script upgrades the database schema from version 6.0 to
--- version 7.0.
+-- This script upgrades the database schema from version 7.0 to
+-- version 8.0.
 --
 -- sqlite3 sqlite.db < upgrade-db_7.0-8.0.sql
 --
@@ -53,7 +53,7 @@ INSERT INTO upgrades (
   upgrade_time
 ) VALUES (
   (select user_version from pragma_user_version()),
-  70,                                       -- VER_TO
+  80,                                       -- VER_TO
   CAST(strftime('%s', 'now') AS INTEGER)
 );
 

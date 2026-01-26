@@ -1,5 +1,5 @@
 --
--- sqlite3 -box -cmd ".param set @SCAN_ID N" sqlite.db < sql/group-exif-exp-prog.sql
+-- sqlite3 -box -cmd ".param set @SCAN_ID N" sqlite.db < sql/group-exif-exp-mode.sql
 --
 -- Groups files with EXIF by ExposureProgram for scans equal to N,
 -- which is defaulted to the last scan ID, if omitted.

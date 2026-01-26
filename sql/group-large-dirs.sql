@@ -1,8 +1,8 @@
 --
 -- sqlite3 -line -cmd ".param set @SCAN_ID N" -cmd ".param set @TOP M" sqlite.db < sql/list-large-dirs.sql
 --
--- Lists large files in the specified scan. If SCAN_ID is omitted,
--- the last one is used. If TOP is omitted, top 10 files will be
+-- Lists large directories in the specified scan. If SCAN_ID is omitted,
+-- the last one is used. If TOP is omitted, top 10 directories will be
 -- listed.
 --
 SELECT
