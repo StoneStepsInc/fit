@@ -278,7 +278,7 @@ std::u8string_view exif_reader_t::trim_whitespace(const char8_t *value, size_t l
 {
    // we don't ever expect a null pointer in this call
    if(!value)
-      throw std::runtime_error("Cannot trim whitespace against a null pointer");
+      throw std::logic_error("Cannot trim whitespace against a null pointer");
 
    const char8_t *bp = value, *ep = bp + length;
 
@@ -304,7 +304,7 @@ std::u8string_view exif_reader_t::trim_whitespace(const char8_t *value)
 {
    // we don't ever expect a null pointer in this call
    if(!value)
-      throw std::runtime_error("Cannot trim whitespace against a null pointer");
+      throw std::logic_error("Cannot trim whitespace against a null pointer");
 
    const char8_t *bp = value;
 

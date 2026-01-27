@@ -195,7 +195,7 @@ void file_tracker_t::init_scan_db_conn(void)
       throw std::runtime_error(sqlite3_errstr(errcode));
 
    if(!set_sqlite_journal_mode(file_scan_db, print_stream))
-      print_stream.warning("Cannot set SQlite journal mode to WAL (will run slower)");
+      print_stream.warning("Cannot set SQLite journal mode to WAL (will run slower)");
 
    //
    // SQLite keeps calling sqlite_busy_handler_cb for this amount

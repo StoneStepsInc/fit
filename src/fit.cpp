@@ -144,7 +144,7 @@ options_t parse_options(int argc, char *argv[])
    // start with 1 to skip the command program name
    for(size_t i = 1; i < argc; i++) {
       if(!argv[i])
-         throw std::runtime_error(FMTNS::format("A null argument is not valid: {:d}", i));
+         throw std::runtime_error(FMTNS::format("A null argument at position {:d} is invalid", i));
 
       if(*argv[i] != '-')
          throw std::runtime_error(FMTNS::format("Invalid option: {:s}", argv[i]));
@@ -220,7 +220,7 @@ options_t parse_options(int argc, char *argv[])
                //
                if(!unicode::is_valid_utf8(argv[i+1]))
                   // don't echo the message because it may be mangled in the output, creating more confusion
-                  throw std::runtime_error("Scan message contains invalid UTF-8 characters");
+                  throw std::runtime_error("The scan message contains invalid UTF-8 characters");
 
                options.scan_message = reinterpret_cast<const char8_t*>(argv[++i]);
                break;
@@ -296,7 +296,7 @@ options_t parse_options(int argc, char *argv[])
                else if(*reinterpret_cast<const char8_t*>(argv[i]) == u8'p')
                   options.query_path_sep = u8'/';
                else
-                  throw std::runtime_error("Query path separator kind must be Windows or POSIX");
+                  throw std::runtime_error("The query path separator must be either Windows or POSIX");
                
                break;
             case 'R':
@@ -333,7 +333,7 @@ options_t parse_options(int argc, char *argv[])
 void verify_options(options_t& options)
 {
    if(options.report_removed_files && !options.verify_files)
-      throw std::runtime_error("-R can be used only with -v");
+      throw std::runtime_error("The -R option can only be used with -v");
 
    if(options.thread_count == 0 || options.thread_count > 64)
       throw std::runtime_error("Invalid thread count");
@@ -346,10 +346,10 @@ void verify_options(options_t& options)
    options.buffer_size += (block_size - options.buffer_size % block_size) % block_size;
 
    if(options.progress_interval < 0)
-      throw std::runtime_error("Invalid progress reporting interval");
+      throw std::runtime_error("The progress reporting interval must be a positive number");
 
    if(options.query_path_sep.has_value() && !options.verify_files)
-      throw std::runtime_error("A query path separator may only be specified when verifying files");
+      throw std::runtime_error("The query path separator can only be specified when verifying files");
 
    // ignore the native path separator for the current platform
    if(options.query_path_sep.has_value() && options.query_path_sep.value() == std::filesystem::path::preferred_separator)
@@ -357,16 +357,16 @@ void verify_options(options_t& options)
 
    // db_path
    if(options.db_path.empty())
-      throw std::runtime_error("Database file path must be specified");
+      throw std::runtime_error("The database file path must be specified");
 
    if(std::filesystem::is_directory(options.db_path))
-      throw std::runtime_error(FMTNS::format("{:s} cannot be a directory", u8sv(options.db_path.u8string())));
+      throw std::runtime_error(FMTNS::format("The path \"{:s}\" cannot be a directory", u8sv(options.db_path.u8string())));
 
    if(!options.db_path.has_filename())
-      throw std::runtime_error(FMTNS::format("{:s} must point to a file", u8sv(options.db_path.u8string())));
+      throw std::runtime_error(FMTNS::format("The path \"{:s}\" must point to a file", u8sv(options.db_path.u8string())));
 
    if(!std::filesystem::is_directory(std::filesystem::absolute(options.db_path).remove_filename()))
-      throw std::runtime_error(FMTNS::format("{:s} must be an existing directory", u8sv(std::filesystem::absolute(options.db_path).remove_filename().u8string())));
+      throw std::runtime_error(FMTNS::format("The directory \"{:s}\" does not exist", u8sv(std::filesystem::absolute(options.db_path).remove_filename().u8string())));
 
    // scan_path
    if(options.scan_paths.empty())
@@ -374,12 +374,12 @@ void verify_options(options_t& options)
 
    for(const std::filesystem::path& scan_path : options.scan_paths) {
       if(!std::filesystem::exists(scan_path))
-         throw std::runtime_error(FMTNS::format("{:s} does not exist", u8sv(scan_path.u8string())));
+         throw std::runtime_error(FMTNS::format("The path \"{:s}\" does not exist", u8sv(scan_path.u8string())));
    }
 
    for(const std::filesystem::path& scan_path : options.scan_paths) {
       if(!std::filesystem::is_directory(scan_path))
-         throw std::runtime_error(FMTNS::format("{:s} is not a directory", u8sv(scan_path.u8string())));
+         throw std::runtime_error(FMTNS::format("The path \"{:s}\" is not a directory", u8sv(scan_path.u8string())));
    }
 
    //
@@ -397,7 +397,7 @@ void verify_options(options_t& options)
 
    if(!options.base_path.empty()) {
       if(!std::filesystem::is_directory(options.base_path))
-         throw std::runtime_error(FMTNS::format("{:s} is not a directory", u8sv(options.base_path.u8string())));
+         throw std::runtime_error(FMTNS::format("The base path \"{:s}\" is not a directory", u8sv(options.base_path.u8string())));
 
       options.base_path = std::filesystem::canonical(options.base_path);
 
@@ -412,7 +412,7 @@ void verify_options(options_t& options)
 
          // check if the entire base path was consumed (i.e. there's no mismatch and the scan path isn't shorter)
          if(bpi != options.base_path.end())
-            throw std::runtime_error(FMTNS::format("Scan path must be under the base path ({:s})", u8sv(scan_path.u8string())));
+            throw std::runtime_error(FMTNS::format("The scan path must be under the base path ({:s})", u8sv(scan_path.u8string())));
       }
    }
 
@@ -504,13 +504,13 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
                                           "exif_id INTEGER, "
                                           "hash_type VARCHAR(32) NOT NULL,"
                                           "hash TEXT);", nullptr, nullptr, &errmsg) != SQLITE_OK)
-            throw std::runtime_error("Cannot create table 'files' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
+            throw std::runtime_error("Cannot create table 'versions' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
          if(sqlite3_exec(file_scan_db, "CREATE UNIQUE INDEX ix_versions_file ON versions (file_id, version);", nullptr, nullptr, &errmsg) != SQLITE_OK)
-            throw std::runtime_error("Cannot create path index for 'files' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get());
+            throw std::runtime_error("Cannot create a unique file version index for 'versions' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
          if(sqlite3_exec(file_scan_db, "CREATE INDEX ix_versions_hash ON versions (hash, hash_type);", nullptr, nullptr, &errmsg) != SQLITE_OK)
-            throw std::runtime_error("Cannot create a hash index for 'files' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
+            throw std::runtime_error("Cannot create a hash index for 'versions' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
          // exif table
          if(sqlite3_exec(file_scan_db, "CREATE TABLE exif ("
@@ -549,7 +549,7 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
             throw std::runtime_error("Cannot create table 'scans' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
          if(sqlite3_exec(file_scan_db, "CREATE INDEX ix_scans_timestamp ON scans (scan_time);", nullptr, nullptr, &errmsg) != SQLITE_OK)
-            throw std::runtime_error("Cannot create time stamp index for 'scans' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
+            throw std::runtime_error("Cannot create a scan time index for 'scans' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
          // scansets table
          if(sqlite3_exec(file_scan_db, "CREATE TABLE scansets ("
@@ -559,11 +559,11 @@ sqlite3 *open_sqlite_database(const options_t& options, int& schema_version, pri
             throw std::runtime_error("Cannot create table 'scansets' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
          if(sqlite3_exec(file_scan_db, "CREATE UNIQUE INDEX ix_scansets_version_scan ON scansets (version_id, scan_id);", nullptr, nullptr, &errmsg) != SQLITE_OK)
-            throw std::runtime_error("Cannot create file/scan ID index for 'scansets' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
+            throw std::runtime_error("Cannot create a unique scan version index for 'scansets' ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
          // set the current database schema version
          if(sqlite3_exec(file_scan_db, ("PRAGMA user_version="+std::to_string(DB_SCHEMA_VERSION)+";").c_str(), nullptr, nullptr, &errmsg) != SQLITE_OK)
-            throw std::runtime_error("Cannot set a database schema version ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
+            throw std::runtime_error("Cannot set the database schema version ("s + std::unique_ptr<char, sqlite_malloc_deleter_t<char>>(errmsg).get() + ")");
 
          schema_version = DB_SCHEMA_VERSION;
       }
