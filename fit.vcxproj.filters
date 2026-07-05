@@ -101,9 +101,6 @@
     <Library Include="$(SQLiteDir)lib\$(Platform)\Debug\$(SQLiteLibName).lib">
       <Filter>lib\Debug</Filter>
     </Library>
-    <Library Include="$(ZLibDir)lib\$(Platform)\Debug\$(ZLibName).lib">
-      <Filter>lib\Debug</Filter>
-    </Library>
     <Library Include="$(IsaLibCryptoDir)lib\$(Platform)\Debug\$(IsaLibCryptoName).lib">
       <Filter>lib\Debug</Filter>
     </Library>
@@ -121,6 +118,9 @@
     </Library>
     <Library Include="$(ZLibDir)lib\$(Platform)\Release\$(ZLibName).lib">
       <Filter>lib\Release</Filter>
+    </Library>
+    <Library Include="$(ZLibDir)lib\$(Platform)\Debug\$(ZLibName)d.lib">
+      <Filter>lib\Debug</Filter>
     </Library>
   </ItemGroup>
 </Project>
