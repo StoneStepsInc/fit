@@ -85,7 +85,7 @@ jobs:
        - fedora
        - ubuntu
 
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container:
       image: ghcr.io/stonestepsinc/fit/${{ matrix.linux-flavor }}:20241006
 
@@ -122,7 +122,7 @@ jobs:
   #
   create-draft-release:
     name: Create a draft release
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: 
     - build-windows
     - build-linux
