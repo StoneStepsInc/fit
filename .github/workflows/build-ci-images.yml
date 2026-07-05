@@ -52,7 +52,7 @@ jobs:
 
     steps:
     - name: Checkout source
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
       # use the command line to build an image, which is more descriptive than the action
     - name: Build ${{ matrix.linux-flavor }} image

@@ -34,7 +34,7 @@ jobs:
     
     steps:
     - name: Checkout source
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Restore Nuget packages
       run: nuget restore
@@ -67,7 +67,7 @@ jobs:
         7z a fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.windows.x64.zip fit-${{ env.VERSION }}-windows
 
     - name: Upload Windows package
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: fit-${{ env.VERSION }}-windows
         path: fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.windows.x64.zip
@@ -91,7 +91,7 @@ jobs:
 
     steps:
     - name: Checkout source
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Set up SHA-256
       run: |
@@ -112,7 +112,7 @@ jobs:
         tar czf fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.${{ matrix.linux-flavor }}.x64.tar.gz fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}
 
     - name: Upload ${{ matrix.linux-flavor }} package
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: fit-${{ env.VERSION }}-${{ matrix.linux-flavor }}
         path: fit-${{ env.VERSION }}+${{ env.BUILD_NUMBER }}.${{ matrix.linux-flavor }}.x64.tar.gz
@@ -132,7 +132,7 @@ jobs:
 
     steps:
     - name: Download artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       # without `name` downloads all artifacts
       with:
         path: .
