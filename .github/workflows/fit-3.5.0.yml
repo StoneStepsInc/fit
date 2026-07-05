@@ -23,10 +23,12 @@ jobs:
   #
   build-windows:
     name: Windows build
-    runs-on: windows-2022
+    runs-on: windows-2025
 
     env:
       VCVARSALL: 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall'
+
+      SQLITE_NUGET_VER: 3.53.2.1
 
     defaults:
       run:
@@ -60,7 +62,7 @@ jobs:
         mkdir fit-${{ env.VERSION }}-windows
         mkdir fit-${{ env.VERSION }}-windows\sql
         copy /y x64\Release\fit.exe fit-${{ env.VERSION }}-windows
-        copy /y packages\StoneSteps.SQLite.VS2022.Static.3.39.4.1\build\native\bin\sqlite3.exe fit-${{ env.VERSION }}-windows
+        copy /y packages\StoneSteps.SQLite.VS2022.Static.${{ env.SQLITE_NUGET_VER }}\build\native\bin\sqlite3.exe fit-${{ env.VERSION }}-windows
         copy /y README.md fit-${{ env.VERSION }}-windows
         copy /y LICENSE. fit-${{ env.VERSION }}-windows
         copy /y sql\* fit-${{ env.VERSION }}-windows\sql\
@@ -87,7 +89,7 @@ jobs:
 
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/stonestepsinc/fit/${{ matrix.linux-flavor }}:20241006
+      image: ghcr.io/stonestepsinc/fit/${{ matrix.linux-flavor }}:20260705
 
     steps:
     - name: Checkout source
