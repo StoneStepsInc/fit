@@ -49,7 +49,7 @@ namespace fit {
 
 static const char *title = "File Integrity Tracker";
 static const char *version = "3.5.0+" STR_BUILD_NUMBER(BUILD_NUMBER);
-static const char *copyright = "Copyright (c) 2025 Stone Steps Inc.";
+static const char *copyright = "Copyright (c) 2026 Stone Steps Inc.";
 
 //
 // A two-component database schema version is stored in the SQLite
