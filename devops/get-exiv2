@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PKG_VER=0.28.3
+PKG_VER=0.28.8
 PKG_REV=%~1
 
 EXIV2_FNAME=exiv2-$PKG_VER-Source.tar.gz

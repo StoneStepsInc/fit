@@ -1,6 +1,6 @@
 #!/bin/bash
 
-GIT_TAG=2.25.0
+GIT_TAG=2.26.1
 SIG_SHA256=afe013e8eca17c9a0e567709c6a967f6b2b497d5317914afc98d5969599ee87e
 
 if [ -d isa-l_crypto-${GIT_TAG} ]
