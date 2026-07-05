@@ -15,9 +15,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.test.config" />
-  </ItemGroup>
-  <ItemGroup>
     <Filter Include="obj">
       <UniqueIdentifier>{7240feae-faeb-494c-998d-5ded494ea77a}</UniqueIdentifier>
     </Filter>
@@ -32,5 +29,8 @@
     <Object Include="$(Platform)\$(Configuration)\fit\format.obj">
       <Filter>obj</Filter>
     </Object>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.test.config" />
   </ItemGroup>
 </Project>
